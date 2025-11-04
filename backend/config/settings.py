@@ -50,6 +50,8 @@ INSTALLED_APPS = [
     'apps.deteccoes.apps.DeteccoesConfig',
     'apps.dashboard.apps.DashboardConfig',
     'apps.analytics.apps.AnalyticsConfig',
+    'apps.suporte.apps.SuporteConfig',
+    'apps.configuracoes.apps.ConfiguracoesConfig',
     'rest_framework_simplejwt.token_blacklist',
 ]
 
