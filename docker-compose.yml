@@ -1,27 +1,25 @@
-# /docker-compose.yml (Na raiz)
-
-version: '3.8'
-
 services:
   backend:
     build:
-      context: ./backend 
+      context: ./backend
     container_name: gtvision_backend
-    command: python manage.py runserver 0.0.0.0:8000
+    # --- MUDANÇA AQUI ---
+    # Trocamos o 'runserver' (desenvolvimento) pelo 'gunicorn' (produção)
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
     volumes:
-      - ./backend:/app 
+      - ./backend:/app
     ports:
-      - "8000:8000" 
+      - "8000:8000"
     env_file:
-      - ./.env  # <-- Passa TODAS as variáveis do .env para o container
+      - ./.env
     depends_on:
-      - postgres_db 
+      - postgres_db
+      - redis_cache
 
   postgres_db:
     image: postgres:15
     container_name: gtvision_postgres
     environment:
-      # Lê as variáveis do .env carregado pelo compose
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -30,5 +28,14 @@ services:
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
 
+  redis_cache:
+    image: redis:7-alpine
+    container_name: gtvision_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - gtvision_redis_data:/data
+
 volumes:
   gtvision_pg_data:
+  gtvision_redis_data:

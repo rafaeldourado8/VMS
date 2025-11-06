@@ -1,20 +1,25 @@
-# 1. Imagem Base
-# Usamos a 'slim' que é leve
+# 1. Imagem base
 FROM python:3.10-slim
 
-# 2. Configurações de Ambiente do Python
+# 2. Define variáveis de ambiente
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
 
-# 3. Define o diretório de trabalho DENTRO do container
+# 3. Define o diretório de trabalho
 WORKDIR /app
 
-# 4. Instala as dependências
-# Copia SÓ o requirements.txt primeiro (para usar o cache do Docker)
-COPY requirements.txt /app/
-RUN pip install --no-cache-dir -r requirements.txt
+# 4. Atualiza o pip
+RUN pip install --upgrade pip
 
-# 5. Copia o resto do código do seu projeto
-COPY . /app/
+# --- CORREÇÃO AQUI ---
+# 5. COPIE o requirements.txt primeiro
+COPY requirements.txt .
 
-# (Não precisamos do CMD ou EXPOSE, o docker-compose vai cuidar disso)
+# 6. INSTALE as dependências
+RUN pip install -r requirements.txt
+# ---------------------
+
+# 7. Copie o resto do seu código
+COPY . .
+
+# O 'command' (gunicorn) já está no seu docker-compose.yml

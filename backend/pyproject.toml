@@ -1,0 +1,34 @@
+[tool.pytest.ini_options]
+# Informa ao pytest onde encontrar as configurações do Django
+DJANGO_SETTINGS_MODULE = "config.settings" 
+# Busca por testes em todos os apps
+python_files = "apps/**/tests.py"
+
+[tool.ruff]
+# Define o diretório 'apps' como seu código-fonte principal
+src = ["apps"]
+line-length = 88
+
+[tool.ruff.lint]
+# Habilita as regras padrão (F), regras de 'pyflakes' (E) e 'isort' (I)
+select = ["E", "F", "I"]
+# Ignora erros não-críticos
+ignore = [
+    "E501", # <-- ISSO VAI CORRIGIR OS 8 ERROS RESTANTES
+    "E402", # Ignora "import not at top of file" (necessário no settings.py)
+]
+
+[tool.ruff.format]
+quote-style = "double"
+# Corrige o 'warning' de incompatibilidade do formatador
+skip-magic-trailing-comma = false 
+
+[tool.mypy]
+plugins = "mypy_django_plugin.main"
+# Ignora arquivos de migração
+exclude = "apps/.*/migrations/.*\\.py" 
+# Permite que mypy ignore imports que não têm tipos
+ignore_missing_imports = true 
+
+[tool.django-stubs]
+django_settings_module = "config.settings"

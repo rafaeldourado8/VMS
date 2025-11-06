@@ -1,26 +1,24 @@
 # apps/cameras/models.py
 
+from django.conf import settings  # Para pegar o modelo de usuário (AUTH_USER_MODEL)
 from django.db import models
-from django.conf import settings # Para pegar o modelo de usuário (AUTH_USER_MODEL)
 
 # Isso vem da sua documentação (ex: "status": "online")
-STATUS_CHOICES = (
-    ('online', 'Online'),
-    ('offline', 'Offline'),
-)
+STATUS_CHOICES = (("online", "Online"), ("offline", "Offline"))
+
 
 class Camera(models.Model):
     # O "dono" da câmera. Se o usuário for deletado, suas câmeras também serão.
     owner = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.CASCADE, 
-        related_name='cameras' # Permite fazer user.cameras.all()
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="cameras",  # Permite fazer user.cameras.all()
     )
 
     # --- Campos da sua API (Seção 3.1) ---
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True, null=True)
-    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='offline')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="offline")
 
     # Usamos max_length=1000 para URLs longas de stream
     stream_url = models.CharField(max_length=1000)

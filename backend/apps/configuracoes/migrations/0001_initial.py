@@ -4,26 +4,52 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     initial = True
 
-    dependencies = [
-    ]
+    dependencies = []
 
     operations = [
         migrations.CreateModel(
-            name='ConfiguracaoGlobal',
+            name="ConfiguracaoGlobal",
             fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('notificacoes_habilitadas', models.BooleanField(default=True, help_text='Habilita/desabilita todas as notificações do sistema.')),
-                ('email_suporte', models.EmailField(blank=True, help_text='Email para onde as solicitações de suporte são enviadas.', max_length=255, null=True)),
-                ('em_manutencao', models.BooleanField(default=False, help_text='Coloca o sistema em modo de manutenção.')),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('updated_at', models.DateTimeField(auto_now=True)),
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                (
+                    "notificacoes_habilitadas",
+                    models.BooleanField(
+                        default=True,
+                        help_text="Habilita/desabilita todas as notificações do sistema.",
+                    ),
+                ),
+                (
+                    "email_suporte",
+                    models.EmailField(
+                        blank=True,
+                        help_text="Email para onde as solicitações de suporte são enviadas.",
+                        max_length=255,
+                        null=True,
+                    ),
+                ),
+                (
+                    "em_manutencao",
+                    models.BooleanField(
+                        default=False,
+                        help_text="Coloca o sistema em modo de manutenção.",
+                    ),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                'verbose_name': 'Configuração Global',
-                'verbose_name_plural': 'Configurações Globais',
+                "verbose_name": "Configuração Global",
+                "verbose_name_plural": "Configurações Globais",
             },
-        ),
+        )
     ]

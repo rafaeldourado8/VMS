@@ -1,20 +1,30 @@
 from django.db import models
 
+
 class ConfiguracaoGlobal(models.Model):
     """
     Modelo Singleton para armazenar configurações globais do sistema.
     Haverá apenas um registro deste modelo no banco (pk=1).
     """
-    
+
     # --- Campos de Exemplo (Seção 8 da documentação) ---
-    
+
     # Ex: Notificações
-    notificacoes_habilitadas = models.BooleanField(default=True, help_text="Habilita/desabilita todas as notificações do sistema.")
-    email_suporte = models.EmailField(max_length=255, blank=True, null=True, help_text="Email para onde as solicitações de suporte são enviadas.")
+    notificacoes_habilitadas = models.BooleanField(
+        default=True, help_text="Habilita/desabilita todas as notificações do sistema."
+    )
+    email_suporte = models.EmailField(
+        max_length=255,
+        blank=True,
+        null=True,
+        help_text="Email para onde as solicitações de suporte são enviadas.",
+    )
 
     # Ex: Manutenção
-    em_manutencao = models.BooleanField(default=False, help_text="Coloca o sistema em modo de manutenção.")
-    
+    em_manutencao = models.BooleanField(
+        default=False, help_text="Coloca o sistema em modo de manutenção."
+    )
+
     # --- Campos de Controle ---
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -33,7 +43,7 @@ class ConfiguracaoGlobal(models.Model):
         """
         Impede a exclusão deste objeto.
         """
-        pass # Não faz nada
+        pass  # Não faz nada
 
     @staticmethod
     def load():
