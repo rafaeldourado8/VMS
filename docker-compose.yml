@@ -1,41 +1,140 @@
+version: "3.8"
+
 services:
   backend:
     build:
       context: ./backend
+      dockerfile: Dockerfile
     container_name: gtvision_backend
-    # --- MUDANÇA AQUI ---
-    # Trocamos o 'runserver' (desenvolvimento) pelo 'gunicorn' (produção)
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
     volumes:
       - ./backend:/app
+      - backend_static:/app/staticfiles
+      - backend_media:/app/media
     ports:
       - "8000:8000"
     env_file:
       - ./.env
+    environment:
+      # As variáveis do .env são carregadas, mas estas garantem
+      # a comunicação interna correta entre os containers
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+      - STREAMING_SERVICE_URL=http://streaming_service:8001
     depends_on:
-      - postgres_db
-      - redis_cache
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  streaming_service:
+    build:
+      context: ./fastapi_services/streaming
+      dockerfile: Dockerfile
+    container_name: gtvision_streaming
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    volumes:
+      - ./fastapi_services/streaming/app:/app
+    ports:
+      - "8001:8001"
+    environment:
+      - FASTAPI_HOST=0.0.0.0
+      - FASTAPI_PORT=8001
+      - DEBUG=false
+      - REDIS_HOST=redis_cache
+      - REDIS_PORT=6379
+      - LOG_LEVEL=INFO
+    depends_on:
+      redis_cache:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   postgres_db:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: gtvision_postgres
+    env_file:
+      - ./.env
+    # As variáveis são lidas do .env, com padrões caso o .env esteja ausente
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-gtvision}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      # O padrão ${...} aqui é para o healthcheck funcionar mesmo se o .env não for encontrado
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gtvision}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   redis_cache:
     image: redis:7-alpine
     container_name: gtvision_redis
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     volumes:
       - gtvision_redis_data:/data
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  nginx:
+    image: nginx:alpine
+    container_name: gtvision_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+      - backend_static:/var/www/static:ro
+      - backend_media:/var/www/media:ro
+    depends_on:
+      - backend
+      - streaming_service
+    networks:
+      - gtvision_network
+    restart: unless-stopped
 
 volumes:
   gtvision_pg_data:
+    driver: local
   gtvision_redis_data:
+    driver: local
+  backend_static:
+    driver: local
+  backend_media:
+    driver: local
+
+networks:
+  gtvision_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

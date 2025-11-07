@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.dashboard.apps.DashboardConfig",
     "apps.analytics.apps.AnalyticsConfig",
     "apps.suporte.apps.SuporteConfig",
+    'streaming_integration',
     "apps.configuracoes.apps.ConfiguracoesConfig",
     "rest_framework_simplejwt.token_blacklist",
 ]
@@ -205,12 +206,13 @@ LOGGING = {
 
 CORS_ALLOW_ALL_ORIGINS = False
 
+STREAMING_SERVICE_URL = os.getenv('STREAMING_SERVICE_URL', 'http://streaming_service:8001')
+STREAMING_API_KEY = os.getenv('STREAMING_API_KEY', '')
+
 CACHES = {
-    "default": {
-        "BACKEND": "django_redis.cache.RedisCache",
-        # Constrói o URL (ex: redis://redis_cache:6379/1)
-        "LOCATION": f"redis://{env('REDIS_HOST')}:{env.int('REDIS_PORT')}/1",
-        "OPTIONS": {"CLIENT_CLASS": "django_redis.client.DefaultClient"},
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://redis_cache:6379/0'),
     }
 }
 
