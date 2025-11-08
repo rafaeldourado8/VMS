@@ -1,10 +1,17 @@
-from rest_framework import viewsets, permissions
-from rest_framework import status, permissions
-from rest_framework.views import APIView
+from typing import List
+
+# (NOVO) Imports para cache
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
+from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
-from rest_framework import status, permissions, views
+from rest_framework.views import APIView
+
 from .models import Deteccao
-from .serializers import DeteccaoSerializer
+from .permissions import HasIngestAPIKey
+
+# 1. Importa AMBOS os serializers
+from .serializers import DeteccaoSerializer, IngestDeteccaoSerializer
 
 
 # Importante: Usamos ReadOnlyModelViewSet
@@ -16,8 +23,15 @@ class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
     Opcionalmente, permite filtrar por camera_id.
     Ex: /api/detections/?camera_id=1
     """
+
     serializer_class = DeteccaoSerializer
-    permission_classes = [permissions.IsAuthenticated] # Exige autenticação
+    permission_classes = [permissions.IsAuthenticated]  # Exige autenticação
+
+    # (NOVO) Cacheia a resposta do endpoint LIST (GET /api/detections/)
+    # por 5 minutos (300 segundos)
+    @method_decorator(cache_page(60 * 5))
+    def list(self, request, *args, **kwargs):
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         """
@@ -27,79 +41,50 @@ class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
         user = self.request.user
 
         # 1. Filtra detecções APENAS das câmeras do usuário logado
-        queryset = Deteccao.objects.filter(camera__owner=user)
+        # (OTIMIZAÇÃO) Usa .select_related('camera') para buscar a câmera
+        # associada na mesma query, evitando N+1 queries.
+        queryset = Deteccao.objects.filter(camera__owner=user).select_related("camera")
 
         # 2. (Bônus) Permite filtrar por ID de câmera na URL
-        camera_id = self.request.query_params.get('camera_id')
+        camera_id = self.request.query_params.get("camera_id")
         if camera_id:
             queryset = queryset.filter(camera_id=camera_id)
 
         return queryset
-    
+
 
 class IngestDeteccaoAPIView(APIView):
     """
     Endpoint de Ingestão (POST): Recebe eventos de detecção do worker (Celery/FastAPI).
-    Não exige login de usuário final, apenas um token interno.
+    Exige uma API Key interna (definida em settings.INGEST_API_KEY)
+    enviada no header 'X-API-Key'.
+
+    (Refatorado para usar IngestDeteccaoSerializer para validação)
     """
-    # Usamos AllowAny (para permitir POST sem token JWT de usuário), 
-    # mas o Celery/Worker terá que enviar uma chave de API na header.
-    permission_classes = [permissions.AllowAny]
 
-    authentication_classes = []
-    
+    permission_classes = [HasIngestAPIKey]
+    authentication_classes: List = []
+
     def post(self, request, format=None):
-        # 1. Cria uma cópia dos dados e adiciona o 'camera_id'
-        data = request.data.copy()
-        
-        # O worker envia o ID da câmera, não o objeto.
-        # Precisamos garantir que este ID exista.
-        
-        # 2. Valida e Serializa os dados
-        # O Serializer vai validar se todos os campos estão lá (plate, confidence, timestamp)
-        serializer = DeteccaoSerializer(data=data)
-        
-        # Checa se o JSON enviado é válido
+        # 2. Usa o novo serializer de INGESTÃO para validar os dados
+        #    que chegam no request.
+        serializer = IngestDeteccaoSerializer(data=request.data)
+
+        # 3. A mágica do DRF: O .is_valid() agora vai rodar
+        #    automaticamente a nossa função 'validate_camera_id'
+        #    e verificar se o timestamp é obrigatório.
         if serializer.is_valid():
-            
-            # Aqui, o Celery pode estar enviando o camera_id. 
-            # Como o Serializer espera o objeto 'camera' (ForeignKey), fazemos a conversão manual:
-            # (Simplificando: vamos focar apenas no salvamento dos campos principais)
-            
-            # 3. Salva a Detecção
-            # O save do ModelSerializer lida com a criação de foreign keys automaticamente
-            # se o campo estiver na lista 'fields' do Serializer.
-            try:
-                # O serializer é ligeiramente diferente para ingestão,
-                # então vamos usar o método create direto no modelo:
-                
-                # Exemplo: O worker envia {..., "camera_id": 5}
-                camera_id = data.get('camera_id') 
-                if not camera_id:
-                     return Response({"camera_id": ["Este campo é obrigatório."]}, status=status.HTTP_400_BAD_REQUEST)
+            # 4. O .save() chama o método 'create' do nosso serializer,
+            #    que sabe como criar a detecção com a instância da câmera.
+            deteccao = serializer.save()
 
-                # Busca a câmera para o FK
-                from apps.cameras.models import Camera 
-                try:
-                    camera_instance = Camera.objects.get(pk=camera_id)
-                except Camera.DoesNotExist:
-                    return Response({"camera_id": ["Câmera não encontrada."]}, status=status.HTTP_404_NOT_FOUND)
-                
-                # Salva o evento
-                Deteccao.objects.create(
-                    camera=camera_instance,
-                    plate=data.get('plate'),
-                    vehicle_type=data.get('vehicle_type'),
-                    confidence=data.get('confidence'),
-                    timestamp=data.get('timestamp')
-                    # ... outros campos
-                )
-                
-                # Se salvou, retorna 201 Created
-                return Response(serializer.data, status=status.HTTP_201_CREATED)
-            
-            except Exception as e:
-                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            # 5. IMPORTANTE: Para a *resposta*, usamos o serializer de LEITURA
+            #    (DeteccaoSerializer) para formatar o JSON de saída
+            #    corretamente (com 'camera_name', etc.).
+            response_data = DeteccaoSerializer(deteccao).data
 
-        # Se a validação do JSON falhar, retorna 400 Bad Request
+            return Response(response_data, status=status.HTTP_201_CREATED)
+
+        # 6. Se a validação falhar (ex: Câmera não existe, timestamp faltando),
+        #    o DRF retorna os erros formatados automaticamente.
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

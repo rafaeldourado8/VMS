@@ -14,26 +14,25 @@ Including another URLconf
     1. Import the include() function: from django.urls import include, path
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
-from django.contrib import admin
-from django.urls import path, include
+
 from apps.usuarios.views import LogoutAPIView
-from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
-    TokenRefreshView,
-)
+from django.contrib import admin
+from django.urls import include, path
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-
+    path("admin/", admin.site.urls),
     # Autenticação JWT
-    path('api/auth/login/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/auth/logout/', LogoutAPIView.as_view(), name='token_blacklist'),
-
+    path("api/auth/login/", TokenObtainPairView.as_view(), name="token_obtain_pair"),
+    path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("api/auth/logout/", LogoutAPIView.as_view(), name="token_blacklist"),
     # Nossos apps
-    path('api/', include('apps.usuarios.urls')),
-    path('api/', include('apps.cameras.urls')),
-    path('api/', include('apps.deteccoes.urls')),
-    path('api/', include('apps.dashboard.urls')),
-    path('api/', include('apps.analytics.urls')),
+    path("api/", include("apps.usuarios.urls")),
+    path("api/", include("apps.cameras.urls")),
+    path("api/", include("apps.deteccoes.urls")),
+    path("api/", include("apps.dashboard.urls")),
+    path("api/", include("apps.analytics.urls")),
+    path("api/", include("apps.configuracoes.urls")),
+    path("api/", include("apps.suporte.urls")),
+    path('api/', include('streaming_integration.urls')),
 ]

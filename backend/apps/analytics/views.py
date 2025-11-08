@@ -1,95 +1,77 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
+# --- 1. Importar o sistema de cache do Django ---
+from django.core.cache import cache
 from rest_framework.permissions import IsAuthenticated
-from django.db.models.functions import Trunc
-from django.db.models import Count, Sum, F # <-- Importações de Agregação
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-# Importamos os modelos de outros apps
-from apps.deteccoes.models import Deteccao
+from .services import AnalyticsService
+
 
 class VehicleTypesAPIView(APIView):
     """
     Endpoint 5.3: Tipos de Veículos
-    Retorna a contagem e porcentagem de cada tipo de veículo.
+    (Agora com cache de 5 minutos por usuário)
     """
+
     permission_classes = [IsAuthenticated]
+    CACHE_TIMEOUT = 300  # 300 segundos = 5 minutos
 
     def get(self, request, format=None):
         user = request.user
 
-        # 1. Filtra todas as detecções que pertencem às câmeras DO USUÁRIO.
-        detections_queryset = Deteccao.objects.filter(camera__owner=user)
+        # --- 2. Definir a chave de cache ---
+        cache_key = f"analytics_types_{user.id}"
 
-        # 2. Calcula o número total de todas as detecções (para calcular a porcentagem)
-        total_detections = detections_queryset.count()
+        # --- 3. Tentar obter do cache ---
+        data = cache.get(cache_key)
 
-        # Se não houver detecções, retorna uma lista vazia
-        if total_detections == 0:
-            return Response({"data": []}, status=200)
+        # --- 4. Cache HIT ---
+        if data:
+            return Response({"data": data}, status=200)
 
-        # 3. Agregação: Agrupa por 'vehicle_type' e conta cada grupo.
-        data_by_type = detections_queryset.values('vehicle_type').annotate(
-            count=Count('vehicle_type') # 'count' é o nome da nova coluna
-        )
+        # --- 5. Cache MISS: Calcular os dados ---
+        service = AnalyticsService(user=request.user)
+        data = service.get_vehicle_type_distribution()
 
-        # 4. Formata a resposta (Adicionando a Porcentagem)
-        response_data = []
-        for item in data_by_type:
-            count = item['count']
-            percentage = (count / total_detections) * 100
+        # --- 6. Salvar no cache ---
+        cache.set(cache_key, data, timeout=self.CACHE_TIMEOUT)
 
-            response_data.append({
-                "type": item['vehicle_type'],
-                "count": count,
-                "percentage": round(percentage, 1) # Arredonda para 1 casa decimal
-            })
+        return Response({"data": data}, status=200)
 
-        return Response({"data": response_data}, status=200)
-    
 
 class DetectionsByPeriodAPIView(APIView):
     """
-    Endpoint 5.2: Detecções por Período (Gráfico de Linha)
-    Agrupa detecções por 'hour', 'day', 'week' ou 'month'.
+    Endpoint 5.2: Detecções por Período
+    (Agora com cache de 5 minutos por usuário/período)
     """
+
     permission_classes = [IsAuthenticated]
+    CACHE_TIMEOUT = 300  # 5 minutos
 
     def get(self, request, format=None):
         user = request.user
-        period = request.query_params.get('period', 'day') # Padrão: dia
+        period = request.query_params.get("period", "day")
 
-        # 1. Mapeamento de Funções de Agregação
-        # Mapeia o parâmetro 'period' para a função de agregação do Django
-        period_map = {
-            'hour': 'hour',
-            'day': 'day',
-            'week': 'week',
-            'month': 'month',
-        }
-        
-        if period not in period_map:
-            return Response({"error": "Parâmetro 'period' inválido."}, status=400)
+        # --- 2. A chave de cache DEVE incluir o 'period' ---
+        cache_key = f"analytics_period_{user.id}_{period}"
 
-        # 2. Filtra detecções APENAS das câmeras do usuário.
-        detections_queryset = Deteccao.objects.filter(camera__owner=user)
+        # --- 3. Tentar obter do cache ---
+        data = cache.get(cache_key)
 
-        # 3. Agregação: Trunca o timestamp pelo período e conta
-        data = detections_queryset.annotate(
-            # Trunca o timestamp (ex: '2025-11-04 15:30:00' -> '2025-11-04 00:00:00')
-            period_label=Trunc('timestamp', period_map[period]) 
-        ).values('period_label').annotate(
-            count=Count('id')
-        ).order_by('period_label')
+        # --- 4. Cache HIT ---
+        if data:
+            return Response({"period": period, "data": data}, status=200)
 
-        # 4. Formata a resposta
-        response_data = [
-            {
-                # O formato do Django é um objeto datetime,
-                # precisamos formatá-lo para a resposta da API.
-                "date": item['period_label'].isoformat(),
-                "count": item['count']
-            }
-            for item in data
-        ]
+        # --- 5. Cache MISS ---
+        service = AnalyticsService(user=request.user)
 
-        return Response({"period": period, "data": response_data}, status=200)
+        try:
+            data = service.get_detections_by_period(period)
+
+            # --- 6. Salvar no cache SÓ se for sucesso ---
+            cache.set(cache_key, data, timeout=self.CACHE_TIMEOUT)
+
+            return Response({"period": period, "data": data}, status=200)
+        except ValueError as e:
+            # Não fazemos cache de erros
+            return Response({"error": str(e)}, status=400)

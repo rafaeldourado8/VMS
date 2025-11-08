@@ -214,3 +214,26 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Environment variables
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Logs
+logs/
+*.log
+
+# Database
+*.sqlite3
+db.sqlite3
+
+# Cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Media files (se tiver uploads sensíveis)
+media/
+staticfiles/

@@ -1,14 +1,17 @@
-from rest_framework import viewsets, permissions
+from rest_framework import permissions, viewsets
+
 from .models import Camera
 from .serializers import CameraSerializer
+
 
 class CameraViewSet(viewsets.ModelViewSet):
     """
     API endpoint que permite às câmeras serem vistas ou editadas.
     (Seção 3 da documentação)
     """
+
     serializer_class = CameraSerializer
-    permission_classes = [permissions.IsAuthenticated] # Exige autenticação
+    permission_classes = [permissions.IsAuthenticated]  # Exige autenticação
 
     def get_queryset(self):
         """
@@ -16,7 +19,7 @@ class CameraViewSet(viewsets.ModelViewSet):
         para o usuário autenticado atualmente.
         """
         user = self.request.user
-        return Camera.objects.filter(owner=user).order_by('name')
+        return Camera.objects.filter(owner=user).order_by("name")
 
     def perform_create(self, serializer):
         """
