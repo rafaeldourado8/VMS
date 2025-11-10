@@ -1,14 +1,13 @@
-version: "3.8"
-
 services:
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: gtvision_backend
-    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120
+    command: ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]
     volumes:
       - ./backend:/app
+      - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles
       - backend_media:/app/media
     ports:
@@ -16,13 +15,11 @@ services:
     env_file:
       - ./.env
     environment:
-      # As variáveis do .env são carregadas, mas estas garantem
-      # a comunicação interna correta entre os containers
-      - DB_HOST=postgres_db
-      - DB_PORT=5432
-      - REDIS_HOST=redis_cache
-      - REDIS_PORT=6379
-      - STREAMING_SERVICE_URL=http://streaming_service:8001
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      STREAMING_SERVICE_URL: http://streaming_service:8001
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -37,18 +34,18 @@ services:
       context: ./fastapi_services/streaming
       dockerfile: Dockerfile
     container_name: gtvision_streaming
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --workers 2
     volumes:
-      - ./fastapi_services/streaming/app:/app
+      - ./fastapi_services/streaming/app:/app/app
     ports:
       - "8001:8001"
     environment:
-      - FASTAPI_HOST=0.0.0.0
-      - FASTAPI_PORT=8001
-      - DEBUG=false
-      - REDIS_HOST=redis_cache
-      - REDIS_PORT=6379
-      - LOG_LEVEL=INFO
+      FASTAPI_HOST: 0.0.0.0
+      FASTAPI_PORT: 8001
+      DEBUG: "false"
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      LOG_LEVEL: INFO
     depends_on:
       redis_cache:
         condition: service_healthy
@@ -62,16 +59,28 @@ services:
       retries: 3
       start_period: 10s
 
+  # Constrói o frontend e expõe os artefatos do build (dist)
+  frontend_builder:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: artifacts
+    container_name: gtvision_frontend_builder
+    volumes:
+      - frontend_dist:/out
+    networks:
+      - gtvision_network
+    restart: "no"
+
   postgres_db:
     image: postgres:15-alpine
     container_name: gtvision_postgres
     env_file:
       - ./.env
-    # As variáveis são lidas do .env, com padrões caso o .env esteja ausente
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-gtvision}
-      POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
     ports:
       - "5432:5432"
@@ -81,8 +90,7 @@ services:
       - gtvision_network
     restart: unless-stopped
     healthcheck:
-      # O padrão ${...} aqui é para o healthcheck funcionar mesmo se o .env não for encontrado
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-gtvision}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -107,17 +115,26 @@ services:
   nginx:
     image: nginx:alpine
     container_name: gtvision_nginx
+    depends_on:
+      - backend
+      - streaming_service
+      - frontend_builder
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      # 🧠 Configuração customizada principal
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
+
+      # 🚫 Desativa o arquivo padrão do Nginx que mostra "Welcome to nginx!"
+      - /dev/null:/etc/nginx/conf.d/default.conf
+
+      # 📦 Frontend build (Vite/React)
+      - frontend_dist:/usr/share/nginx/html:ro
+
+      # 🗂️ Django static/media
       - backend_static:/var/www/static:ro
       - backend_media:/var/www/media:ro
-    depends_on:
-      - backend
-      - streaming_service
     networks:
       - gtvision_network
     restart: unless-stopped
@@ -131,10 +148,13 @@ volumes:
     driver: local
   backend_media:
     driver: local
+  frontend_dist:
+    driver: local
 
 networks:
   gtvision_network:
     driver: bridge
     ipam:
+      driver: default
       config:
         - subnet: 172.20.0.0/16
