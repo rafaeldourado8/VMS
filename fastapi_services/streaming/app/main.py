@@ -64,12 +64,11 @@ async def health_check():
 
 # Import routes
 try:
-    from api.routes import streams
+    from .api.routes import streams
     app.include_router(streams.router, prefix="/api/v1", tags=["streams"])
     logger.info("✅ Streams routes loaded")
 except ImportError as e:
     logger.warning(f"⚠️ Streams routes not loaded: {e}")
-
 
 if __name__ == "__main__":
     import uvicorn
