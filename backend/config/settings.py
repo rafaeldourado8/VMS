@@ -107,11 +107,11 @@ WSGI_APPLICATION = "config.wsgi.application"
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": env("POSTGRES_DB"),
-        "USER": env("POSTGRES_USER"),
-        "PASSWORD": env("POSTGRES_PASSWORD"),
-        "HOST": env("DB_HOST"),
-        "PORT": env("DB_PORT"),
+        "NAME": env("POSTGRES_DB", default=None),
+        "USER": env("POSTGRES_USER", default=None),
+        "PASSWORD": env("POSTGRES_PASSWORD", default=None),
+        "HOST": env("DB_HOST", default=None),
+        "PORT": env("DB_PORT", default=None),
     }
 }
 
@@ -146,6 +146,11 @@ USE_TZ = True
 
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
+
+# --- CORREÇÃO ADICIONADA AQUI ---
+# Diz ao Django onde encontrar os estáticos do frontend
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "frontend_dist")]
+# ---------------------------------
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -203,8 +208,17 @@ LOGGING = {
     },
 }
 
+# --- LÓGICA DE CORS CORRIGIDA ---
+# Lê as origens permitidas do .env (o seu .env já tem esta variável)
+CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[
+    "http://localhost:8080", # Default do Vite
+])
 
-CORS_ALLOW_ALL_ORIGINS = False
+# Permite que o frontend envie cookies (necessário para autenticação)
+CORS_ALLOW_CREDENTIALS = env.bool("CORS_ALLOW_CREDENTIALS", default=True)
+
+# Remove a linha "CORS_ALLOW_ALL_ORIGINS = True" se ela existir
+# ---------------------------------
 
 STREAMING_SERVICE_URL = os.getenv('STREAMING_SERVICE_URL', 'http://streaming_service:8001')
 STREAMING_API_KEY = os.getenv('STREAMING_API_KEY', '')
@@ -216,7 +230,3 @@ CACHES = {
     }
 }
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Ex: React/Vue local
-    "http://seu-frontend.com",  # Ex: Produção
-]
