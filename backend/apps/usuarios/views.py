@@ -3,47 +3,47 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+# --- 1. Importe as novas classes ---
+from rest_framework_simplejwt.views import TokenObtainPairView
+from .serializers import MyTokenObtainPairSerializer, UsuarioSerializer
+
 from .models import Usuario
 from .permissions import IsAdminOrReadOnly
-from .serializers import UsuarioSerializer
+
+
+# --- Esta é a view /api/auth/me/ ---
+class MeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, format=None):
+        serializer = UsuarioSerializer(request.user)
+        return Response(serializer.data, status=status.HTTP_200_OK)
+
+
+# --- 2. Adicione esta nova View de Login ---
+class MyTokenObtainPairView(TokenObtainPairView):
+    """
+    Usa o nosso serializer customizado para o login.
+    """
+    serializer_class = MyTokenObtainPairSerializer
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
-    permission_classes = [
-        IsAdminOrReadOnly
-    ]  # Permissão corrigida (Admin para escrita, Autenticado para leitura)
-    """
-    API endpoint que permite aos usuários serem vistos ou editados.
-    (Endpoints 7.1, 7.2, 7.3, 7.4)
-    """
+    permission_classes = [IsAdminOrReadOnly]
     queryset = Usuario.objects.all().order_by("-created_at")
     serializer_class = UsuarioSerializer
 
-    # A linha 'permission_classes = [permissions.IsAuthenticated]' duplicada foi removida.
-
 
 class LogoutAPIView(APIView):
-    """
-    Endpoint 1.2: Logout
-    Usa AllowAny para evitar a verificação do Access Token na Header,
-    focando apenas em colocar o Refresh Token na lista negra.
-    """
-
-    # Apenas exigimos que o token (que está no Body) seja um token válido.
-    permission_classes = [permissions.AllowAny]  # <--- Mudamos para AllowAny
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request):
         try:
-            # Pega o refresh token enviado no corpo da requisição
             refresh_token = request.data["refresh_token"]
             token = RefreshToken(refresh_token)
-            token.blacklist()  # Coloca o token na lista negra
-
-            # Retorna 205 Reset Content (o padrão para logout bem-sucedido)
+            token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
-
         except Exception:
-            # Se o token estiver faltando ou for inválido
             return Response(
                 {"error": "Token inválido ou ausente."},
                 status=status.HTTP_400_BAD_REQUEST,

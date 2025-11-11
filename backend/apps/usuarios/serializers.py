@@ -1,4 +1,6 @@
 from rest_framework import serializers
+# --- 1. Importe o TokenObtainPairSerializer ---
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import Usuario  # Importa o modelo que já criamos
 
@@ -8,24 +10,29 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-
-        # Estes são os campos que sua API vai expor
-        # (Exatamente como na sua documentação, Endpoint 7.1)
         fields = ["id", "email", "name", "role", "is_active", "created_at", "password"]
-
-        # Campos que são apenas para leitura (não podem ser definidos na criação)
         read_only_fields = ["id", "created_at"]
 
-    # Este método é chamado quando um POST /api/users/ é feito (Endpoint 7.2)
-    # Precisamos dele para criptografar a senha corretamente.
     def create(self, validated_data):
         password = validated_data.pop("password", None)
-
-        # Cria o usuário, mas ainda não tem senha
         instance = self.Meta.model(**validated_data)
-
         if password:
-            instance.set_password(password)  # Criptografa a senha
-
+            instance.set_password(password)
         instance.save()
         return instance
+
+
+# --- 2. Adicione este novo Serializer no final do ficheiro ---
+class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Customiza a resposta do login para incluir os dados do utilizador.
+    """
+    def validate(self, attrs):
+        # Obtém a resposta padrão ({"access": "...", "refresh": "..."})
+        data = super().validate(attrs)
+
+        # Adiciona os dados do utilizador à resposta
+        serializer = UsuarioSerializer(self.user)
+        data['user'] = serializer.data
+        
+        return data
