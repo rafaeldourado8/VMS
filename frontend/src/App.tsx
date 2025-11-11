@@ -1,46 +1,33 @@
-import React, { useState, useEffect } from "react"
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom"
-import Login from "./pages/Login"
-import Dashboard from "./pages/Dashboard"
-import CamerasPage from "./pages/Cameras" // nova rota - ajuste o caminho se necessário
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Login from "./pages/Login";
+import Dashboard from "./pages/Dashboard";
+import Detections from "./pages/Detections";
+import CameraManagement from "./pages/CameraManagement";
+import UserManagement from "./pages/UserManagement";
+import Support from "./pages/Support";
+import LiveCameras from "./pages/LiveCameras";
+import NotFound from "./pages/NotFound";
+import Layout from "./components/Layout";
+import PrivateRoute from "./components/PrivateRoute";
 
-function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-
-  useEffect(() => {
-    // Check if user is authenticated on mount
-    const token = localStorage.getItem("gt_vision_token")
-    setIsAuthenticated(!!token)
-  }, [])
-
+const App = () => {
   return (
-    <Router>
+    <BrowserRouter>
       <Routes>
-        <Route 
-          path="/login" 
-          element={
-            isAuthenticated ? <Navigate to="/dashboard" /> : <Login setIsAuthenticated={setIsAuthenticated} />
-          } 
-        />
-        <Route 
-          path="/dashboard" 
-          element={
-            isAuthenticated ? <Dashboard setIsAuthenticated={setIsAuthenticated} /> : <Navigate to="/login" />
-          } 
-        />
-        <Route
-          path="/cameras"
-          element={
-            isAuthenticated ? <CamerasPage /> : <Navigate to="/login" />
-          }
-        />
-        <Route 
-          path="/" 
-          element={isAuthenticated ? <Navigate to="/dashboard" /> : <Navigate to="/login" />} 
-        />
+        <Route path="/login" element={<Login />} />
+        <Route path="/" element={<PrivateRoute><Layout /></PrivateRoute>}>
+          <Route index element={<Dashboard />} />
+          <Route path="live" element={<LiveCameras />} />
+          <Route path="detections" element={<Detections />} />
+          <Route path="admin/cameras" element={<CameraManagement />} />
+          <Route path="admin/users" element={<UserManagement />} />
+          <Route path="support" element={<Support />} />
+        </Route>
+        <Route path="*" element={<NotFound />} />
       </Routes>
-    </Router>
-  )
-}
+    </BrowserRouter>
+  );
+};
 
-export default App
+export default App;

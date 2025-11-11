@@ -237,3 +237,4 @@ __pycache__/
 # Media files (se tiver uploads sensíveis)
 media/
 staticfiles/
+node_modules/
