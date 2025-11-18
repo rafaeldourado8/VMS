@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     wget \
+    ffmpeg \
     && rm -rf /var/lib/apt/lists/*
 
 # Copia requirements

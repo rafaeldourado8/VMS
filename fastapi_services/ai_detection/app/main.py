@@ -1,10 +1,12 @@
-# fastapi_services/ai_detection/app/main.py
+# ai_detection/app/main.py
+
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, UploadFile, File
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 from typing import Optional
 import base64
+import os # <-- Adicionado
 
 from .config import settings
 from .services.detection_service import DetectionService
@@ -20,7 +22,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Serviços globais
-model_manager = ModelManager()
+model_manager = ModelManager(models_dir=settings.MODELS_DIR) # Passa o diretório
 detection_service = DetectionService(model_manager)
 alert_service = AlertService()
 
@@ -28,7 +30,11 @@ alert_service = AlertService()
 async def lifespan(app: FastAPI):
     """Gerencia o ciclo de vida da aplicação"""
     logger.info("Iniciando serviço de IA...")
-    await model_manager.load_default_model()
+    # --- MUDANÇA AQUI ---
+    # Carrega o modelo LPR customizado por defeito
+    model_path = os.path.join(settings.MODELS_DIR, settings.DEFAULT_MODEL)
+    await model_manager.load_custom_model(model_path)
+    # ---------------------
     yield
     logger.info("Encerrando serviço de IA...")
     await detection_service.cleanup()
@@ -52,71 +58,75 @@ app.add_middleware(
 @app.get("/", tags=["Root"])
 async def root():
     """Endpoint raiz"""
+    model_info = model_manager.get_current_model_info()
     return {
         "service": "VMS AI Detection Service",
         "version": "1.0.0",
         "status": "running",
-        "model": model_manager.current_model_name
+        "model": model_info['name'] if model_info else "Nenhum"
     }
 
 @app.get("/health", tags=["Health"])
 async def health_check():
     """Verifica saúde do serviço"""
+    model_info = model_manager.get_current_model_info()
     return {
         "status": "healthy",
-        "model_loaded": model_manager.model is not None,
-        "current_model": model_manager.current_model_name,
-        "device": model_manager.device,
+        "model_loaded": model_info is not None,
+        "current_model": model_info['name'] if model_info else "Nenhum",
+        "device": model_info['device'] if model_info else "N/A",
         "active_detections": len(detection_service.detection_tasks)
     }
 
+# --- MUDANÇA SIGNIFICATIVA AQUI ---
 @app.websocket("/ws/detect/{camera_id}")
 async def websocket_detection(websocket: WebSocket, camera_id: str):
     """
-    WebSocket para detecção em tempo real
+    WebSocket para INICIAR E PARAR a detecção.
+    Os resultados da deteção são enviados via POST para o Django,
+    não são enviados de volta por este WebSocket.
     
     Configuração inicial (JSON):
     {
         "rtsp_url": "rtsp://...",
         "confidence": 0.5,
-        "classes": ["person", "car"],
-        "alert_enabled": true
+        "classes": ["plate"],
+        "fps": 10
     }
     """
     await websocket.accept()
     
+    config = None
     try:
-        # Recebe configuração
+        # 1. Recebe configuração
         config_data = await websocket.receive_json()
         config = DetectionConfig(**config_data)
         
-        logger.info(f"Iniciando detecção para câmera {camera_id}")
+        logger.info(f"[{camera_id}] WebSocket: Recebida config, a iniciar stream...")
         
-        # Processa stream com detecção
-        async for result in detection_service.process_stream(camera_id, config):
-            try:
-                # Envia resultado
-                await websocket.send_json(result.dict())
-                
-                # Verifica alertas
-                if config.alert_enabled:
-                    alerts = alert_service.check_alerts(result, config)
-                    if alerts:
-                        await websocket.send_json({
-                            "type": "alert",
-                            "alerts": alerts
-                        })
-                        
-            except Exception as e:
-                logger.error(f"Erro ao enviar detecção: {str(e)}")
+        # 2. Inicia o processamento em background
+        await detection_service.start_stream_processing(camera_id, config)
+        await websocket.send_json({"status": "processing_started", "camera_id": camera_id})
+
+        # 3. Mantém o WebSocket aberto para sinal de paragem
+        #    (ou podemos fechar, dependendo da sua lógica)
+        while True:
+            # Apenas esperamos que o cliente desconecte
+            data = await websocket.receive_text()
+            if data == "stop":
+                logger.info(f"[{camera_id}] Recebido comando 'stop' via WebSocket.")
                 break
                 
     except WebSocketDisconnect:
-        logger.info(f"Cliente desconectado: {camera_id}")
+        logger.info(f"Cliente desconectado: {camera_id}. A parar stream.")
     except Exception as e:
-        logger.error(f"Erro no WebSocket: {str(e)}")
+        logger.error(f"Erro no WebSocket {camera_id}: {str(e)}")
+        await websocket.close(code=1011, reason=str(e))
     finally:
+        # 4. Para o processamento quando o WebSocket fecha
+        logger.info(f"A parar deteção para {camera_id} (limpeza do WebSocket).")
         await detection_service.stop_detection(camera_id)
+# -------------------------------------
 
 @app.post("/detect/frame", response_model=DetectionResult, tags=["Detection"])
 async def detect_frame(
@@ -127,12 +137,7 @@ async def detect_frame(
 ):
     """
     Detecta objetos em um frame único
-    
-    Parâmetros:
-    - camera_id: ID da câmera
-    - frame_base64: Frame codificado em base64
-    - confidence: Confiança mínima (0-1)
-    - classes: Classes específicas para detectar
+    (Ainda usa a lógica simulada do detection_service)
     """
     try:
         result = await detection_service.detect_single_frame(
@@ -167,19 +172,19 @@ async def list_models():
     """Lista modelos disponíveis"""
     return model_manager.list_available_models()
 
-@app.get("/models/current", response_model=ModelInfo, tags=["Models"])
+@app.get("/models/current", response_model=Optional[ModelInfo], tags=["Models"])
 async def get_current_model():
     """Obtém informações do modelo atual"""
     return model_manager.get_current_model_info()
 
 @app.post("/models/load/{model_name}", tags=["Models"])
 async def load_model(model_name: str):
-    """Carrega um modelo específico"""
+    """Carrega um modelo específico (genérico)"""
     success = await model_manager.load_model(model_name)
     
     if not success:
         raise HTTPException(status_code=400, detail="Falha ao carregar modelo")
-    
+
     return {
         "message": "Modelo carregado com sucesso",
         "model": model_name,

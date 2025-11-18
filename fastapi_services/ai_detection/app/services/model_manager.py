@@ -3,8 +3,10 @@ import torch
 from typing import Optional, List, Dict
 import logging
 from pathlib import Path
+import os # <-- Adicionado
 
 from ..schemas import ModelInfo
+from ..config import settings # <-- Adicionado
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +19,7 @@ class ModelManager:
         self.current_model_name: Optional[str] = None
         self.device = 'cuda' if torch.cuda.is_available() else 'cpu'
         
-        # Modelos disponíveis
+        # Modelos disponíveis (mantidos para o endpoint /models)
         self.available_models = {
             "yolov8n": "yolov8n.pt",
             "yolov8s": "yolov8s.pt",
@@ -29,7 +31,7 @@ class ModelManager:
         logger.info(f"ModelManager inicializado. Dispositivo: {self.device}")
     
     async def load_model(self, model_name: str) -> bool:
-        """Carrega um modelo específico"""
+        """Carrega um modelo específico (pré-definido)"""
         try:
             if model_name not in self.available_models:
                 logger.error(f"Modelo não encontrado: {model_name}")
@@ -49,13 +51,24 @@ class ModelManager:
             logger.error(f"Erro ao carregar modelo: {str(e)}")
             return False
     
+    # --- MUDANÇA AQUI ---
     async def load_default_model(self) -> bool:
-        """Carrega o modelo padrão"""
-        return await self.load_model("yolov8n")
-    
+        """Carrega o modelo LPR padrão definido no config.py"""
+        # Esta função agora carrega o seu modelo customizado por defeito
+        model_file = settings.DEFAULT_MODEL
+        model_path = os.path.join(self.models_dir, model_file)
+        
+        logger.info(f"Carregando modelo LPR padrão de: {model_path}")
+        return await self.load_custom_model(model_path)
+    # ---------------------
+
     async def load_custom_model(self, model_path: str) -> bool:
-        """Carrega um modelo customizado"""
+        """Carrega um modelo customizado (o seu .pt)"""
         try:
+            if not os.path.exists(model_path):
+                 logger.error(f"Ficheiro do modelo customizado não encontrado: {model_path}")
+                 return False
+                 
             logger.info(f"Carregando modelo customizado: {model_path}")
             self.model = YOLO(model_path)
             self.model.to(self.device)
@@ -92,17 +105,17 @@ class ModelManager:
         
         return ModelInfo(
             name=self.current_model_name,
-            version="8.0",
-            type="yolov8",
+            version="custom", # Atualizado
+            type="lpr_custom", # Atualizado
             classes=list(self.model.names.values()),
-            input_size=[640, 640],
+            input_size=[640, 640], # Ajuste se o seu modelo for diferente
             device=self.device,
             loaded=True
         )
     
     def _get_model_classes(self, model_name: str) -> List[str]:
-        """Retorna classes do modelo COCO"""
-        # Classes padrão do COCO dataset
+        """Retorna classes do modelo COCO (agora menos relevante)"""
+        # Isto é apenas para os modelos genéricos listados
         return [
             'person', 'bicycle', 'car', 'motorcycle', 'airplane', 'bus', 'train', 'truck',
             'boat', 'traffic light', 'fire hydrant', 'stop sign', 'parking meter', 'bench',
