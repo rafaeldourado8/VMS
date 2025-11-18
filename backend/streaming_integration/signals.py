@@ -1,62 +1,45 @@
-"""
-Signals para sincronização automática com o serviço de streaming.
-"""
-
-import logging
+# VMS/backend/streaming_integration/signals.py
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from django.apps import apps
-from .services import StreamingService
+from apps.cameras.models import Camera # Importa o seu modelo de Câmara
+import logging
+
+# Importa o novo cliente que acabámos de criar
+from .client import mediamtx_api_client 
 
 logger = logging.getLogger(__name__)
 
-
-def get_camera_model():
+@receiver(post_save, sender=Camera)
+def on_camera_save(sender, instance: Camera, created, **kwargs):
     """
-    Obtém o modelo Camera dinamicamente.
-    Adapta-se a diferentes nomes de app.
+    Chamado sempre que uma câmara é CRIADA ou ATUALIZADA.
     """
-    # Tente encontrar o modelo Camera em diferentes apps
-    possible_apps = ['cameras', 'camera', 'core', 'main', 'api']
-    
-    for app_name in possible_apps:
-        try:
-            return apps.get_model(app_name, 'Camera')
-        except LookupError:
-            continue
-    
-    logger.warning("Modelo Camera não encontrado. Signals não serão registrados.")
-    return None
-
-
-# Obter modelo dinamicamente
-Camera = get_camera_model()
-
-
-if Camera:
-    @receiver(post_save, sender=Camera)
-    def camera_post_save_handler(sender, instance, created, **kwargs):
-        """
-        Signal executado após salvar uma câmera.
-        """
-        # Verificar se a câmera está ativa
-        is_active = getattr(instance, 'is_active', True) or getattr(instance, 'active', True)
+    try:
+        # 'instance' é o objeto Camera que foi guardado
+        camera_id = str(instance.id)
+        rtsp_url = instance.stream_url # Assumindo que o campo se chama 'stream_url'
         
-        if created and is_active:
-            # Criar stream para nova câmera
-            logger.info(f"Criando stream para nova câmera {instance.id}")
-            StreamingService.create_stream_for_camera(instance)
+        if not rtsp_url:
+            logger.warning(f"Câmara {camera_id} guardada sem stream_url. A ignorar MediaMTX.")
+            return
             
-        elif not created and hasattr(instance, 'stream_id') and instance.stream_id:
-            # Atualizar stream existente
-            logger.info(f"Atualizando stream para câmera {instance.id}")
-            StreamingService.update_stream_for_camera(instance)
+        logger.info(f"Sinal post_save detetado para a Câmara {camera_id}. A atualizar MediaMTX...")
+        mediamtx_api_client.add_or_update_camera(camera_id, rtsp_url)
+        
+    except Exception as e:
+        logger.error(f"Erro no sinal post_save da Câmara {instance.id}: {e}", exc_info=True)
 
 
-    @receiver(post_delete, sender=Camera)
-    def camera_post_delete_handler(sender, instance, **kwargs):
-        """
-        Signal executado após deletar uma câmera.
-        """
-        logger.info(f"Deletando stream para câmera {instance.id}")
-        StreamingService.delete_stream_for_camera(instance)
+@receiver(post_delete, sender=Camera)
+def on_camera_delete(sender, instance: Camera, **kwargs):
+    """
+    Chamado sempre que uma câmara é ELIMINADA.
+    """
+    try:
+        camera_id = str(instance.id)
+        
+        logger.info(f"Sinal post_delete detetado para a Câmara {camera_id}. A remover do MediaMTX...")
+        mediamtx_api_client.remove_camera(camera_id)
+        
+    except Exception as e:
+        logger.error(f"Erro no sinal post_delete da Câmara {instance.id}: {e}", exc_info=True)

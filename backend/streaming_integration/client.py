@@ -1,187 +1,80 @@
-"""
-Cliente HTTP para comunicação com o serviço de streaming FastAPI.
-Singleton thread-safe para reutilização de conexões.
-"""
-
-import logging
-from typing import Optional, Dict, Any, List
+# VMS/backend/streaming_integration/client.py
 import httpx
 from django.conf import settings
-from django.core.cache import cache
+import logging
 
 logger = logging.getLogger(__name__)
 
-
-class StreamingServiceClient:
-    """Cliente singleton para comunicação com o serviço de streaming."""
-    
-    _instance = None
-    _lock = None
-    
-    def __new__(cls):
-        if cls._instance is None:
-            import threading
-            cls._lock = threading.Lock()
-            with cls._lock:
-                if cls._instance is None:
-                    cls._instance = super().__new__(cls)
-                    cls._instance._initialized = False
-        return cls._instance
-    
+class MediaMTXApiClient:
+    """
+    Cliente da API HTTP para controlar o MediaMTX dinamicamente.
+    """
     def __init__(self):
-        if self._initialized:
-            return
-            
-        self.base_url = getattr(
-            settings, 
-            'STREAMING_SERVICE_URL', 
-            'http://streaming_service:8001'
-        )
-        self.api_prefix = '/api/v1'
-        self.timeout = httpx.Timeout(30.0, connect=10.0)
-        self.api_key = getattr(settings, 'STREAMING_API_KEY', None)
-        self._initialized = True
+        try:
+            self.base_url = settings.MEDIAMTX_API_URL
+            self.client = httpx.Client(base_url=self.base_url, timeout=5.0)
+            logger.info(f"MediaMTXApiClient inicializado. Base URL: {self.base_url}")
+        except AttributeError:
+            logger.error("MEDIAMTX_API_URL não está definido no settings.py!")
+            self.base_url = None
+            self.client = None
+
+    def add_or_update_camera(self, camera_id: str, rtsp_url: str):
+        """
+        Adiciona ou atualiza a configuração de uma câmara (path) no MediaMTX.
+        """
+        if not self.client:
+            logger.error("Cliente MediaMTX não inicializado.")
+            return False
+
+        path_name = str(camera_id)
+        # Este é o payload de configuração (o mesmo do .yml, mas em JSON)
+        config_payload = {
+            "source": "pull",
+            "sourceOnDemand": True,
+            "sourceOnDemandStartTimeout": "10s",
+            "sourceOnDemandCloseAfter": "10s",
+            "sourceUrl": rtsp_url
+        }
         
-        logger.info(f"StreamingServiceClient inicializado: {self.base_url}")
-    
-    def _get_headers(self) -> Dict[str, str]:
-        """Retorna headers para requisições."""
-        headers = {'Content-Type': 'application/json'}
-        if self.api_key:
-            headers['X-API-Key'] = self.api_key
-        return headers
-    
-    def _handle_error(self, operation: str, error: Exception, **context):
-        """Centraliza tratamento de erros."""
-        logger.error(
-            f"Erro em {operation}: {error}",
-            extra=context,
-            exc_info=True
-        )
-    
-    async def create_stream(
-        self, 
-        camera_id: int, 
-        stream_url: str,
-        protocol: str = "rtsp"
-    ) -> Optional[Dict[str, Any]]:
-        """Cria um novo stream."""
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.post(
-                    f"{self.base_url}{self.api_prefix}/streams/",
-                    json={
-                        "camera_id": camera_id,
-                        "stream_url": stream_url,
-                        "protocol": protocol
-                    },
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                
-                data = response.json()
-                logger.info(f"Stream criado: {data.get('stream_id')} para câmera {camera_id}")
-                
-                # Cache do stream_id
-                cache.set(f"stream_camera_{camera_id}", data.get('stream_id'), 3600)
-                
-                return data
-                
-        except Exception as e:
-            self._handle_error("create_stream", e, camera_id=camera_id)
-            return None
-    
-    async def get_stream(self, stream_id: str) -> Optional[Dict[str, Any]]:
-        """Obtém informações de um stream."""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}{self.api_prefix}/streams/{stream_id}",
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                return response.json()
-                
-        except Exception as e:
-            self._handle_error("get_stream", e, stream_id=stream_id)
-            return None
-    
-    async def list_streams(self) -> List[Dict[str, Any]]:
-        """Lista todos os streams ativos."""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.get(
-                    f"{self.base_url}{self.api_prefix}/streams/",
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                return response.json()
-                
-        except Exception as e:
-            self._handle_error("list_streams", e)
-            return []
-    
-    async def delete_stream(self, stream_id: str) -> bool:
-        """Deleta um stream."""
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.delete(
-                    f"{self.base_url}{self.api_prefix}/streams/{stream_id}",
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                logger.info(f"Stream {stream_id} deletado")
-                return True
-                
-        except Exception as e:
-            self._handle_error("delete_stream", e, stream_id=stream_id)
-            return False
-    
-    async def update_stream(
-        self, 
-        stream_id: str,
-        stream_url: Optional[str] = None,
-        protocol: Optional[str] = None
-    ) -> Optional[Dict[str, Any]]:
-        """Atualiza um stream."""
-        try:
-            data = {}
-            if stream_url:
-                data['stream_url'] = stream_url
-            if protocol:
-                data['protocol'] = protocol
-                
-            if not data:
-                return None
-                
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
-                response = await client.patch(
-                    f"{self.base_url}{self.api_prefix}/streams/{stream_id}",
-                    json=data,
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                logger.info(f"Stream {stream_id} atualizado")
-                return response.json()
-                
-        except Exception as e:
-            self._handle_error("update_stream", e, stream_id=stream_id)
-            return None
-    
-    async def health_check(self) -> bool:
-        """Verifica saúde do serviço."""
-        try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(5.0)) as client:
-                response = await client.get(
-                    f"{self.base_url}/health",
-                    headers=self._get_headers()
-                )
-                response.raise_for_status()
-                return True
-                
-        except Exception:
+            # A API do MediaMTX usa /v3/config/paths/set/{nome_do_path}
+            # (Usamos 'set' em vez de 'add' para que funcione para criar E atualizar)
+            response = self.client.post(f"/v3/config/paths/set/{path_name}", json=config_payload)
+            response.raise_for_status() # Lança erro se for 4xx ou 5xx
+            
+            logger.info(f"Câmara {path_name} adicionada/atualizada no MediaMTX.")
+            return True
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Erro da API MediaMTX ao configurar {path_name}: {e.response.status_code} - {e.response.text}")
+        except httpx.RequestError as e:
+            logger.error(f"Erro de HTTP ao contactar MediaMTX para {path_name}: {e}")
+        return False
+
+    def remove_camera(self, camera_id: str):
+        """
+        Remove uma câmara (path) do MediaMTX.
+        """
+        if not self.client:
+            logger.error("Cliente MediaMTX não inicializado.")
             return False
 
+        path_name = str(camera_id)
+        
+        try:
+            # A API do MediaMTX usa /v3/config/paths/remove/{nome_do_path}
+            response = self.client.post(f"/v3/config/paths/remove/{path_name}")
+            response.raise_for_status()
+            
+            logger.info(f"Câmara {path_name} removida do MediaMTX.")
+            return True
 
-# Instância singleton
-streaming_client = StreamingServiceClient()
+        except httpx.HTTPStatusError as e:
+            logger.error(f"Erro da API MediaMTX ao remover {path_name}: {e.response.status_code} - {e.response.text}")
+        except httpx.RequestError as e:
+            logger.error(f"Erro de HTTP ao contactar MediaMTX para {path_name}: {e}")
+        return False
+
+# Instancia o novo cliente
+mediamtx_api_client = MediaMTXApiClient()
