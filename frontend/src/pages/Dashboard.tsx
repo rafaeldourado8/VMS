@@ -33,7 +33,7 @@ const Dashboard = () => {
           api.get('/cameras/')
         ]);
         setStats(statsRes.data);
-        setCameras(camerasRes.data);
+        setCameras(camerasRes.data.results);
       } catch (error) {
         toast({
           title: 'Erro ao carregar dados',

@@ -39,8 +39,20 @@ const Detections = () => {
     const fetchCameras = async () => {
       try {
         const response = await api.get('/cameras/');
-        setCameras(response.data);
+        const raw = response.data;
+
+        // Suporta resposta paginada ({ results: [...] }) ou array direto
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+
+        // Normaliza (caso precise mais campos no futuro)
+        const normalized = list.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+        }));
+
+        setCameras(normalized);
       } catch (error) {
+        console.error('Erro ao carregar câmeras:', error);
         toast({
           title: 'Erro ao carregar câmeras',
           variant: 'destructive',
@@ -59,8 +71,12 @@ const Detections = () => {
       });
 
       const response = await api.get(`/detections/?${params.toString()}`);
-      setDetections(response.data);
+      const raw = response.data;
+      // Se sua API também paginar detecções, trate aqui (ex.: results)
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+      setDetections(list);
     } catch (error) {
+      console.error('Erro ao buscar detecções:', error);
       toast({
         title: 'Erro ao buscar detecções',
         variant: 'destructive',
@@ -78,7 +94,6 @@ const Detections = () => {
       return;
     }
 
-    // Preparar dados para CSV
     const csvData = detections.map((detection) => ({
       Placa: detection.plate,
       Câmera: detection.camera_name,
@@ -86,28 +101,22 @@ const Detections = () => {
       'Confiança (%)': (detection.confidence * 100).toFixed(1),
     }));
 
-    // Criar cabeçalhos
     const headers = Object.keys(csvData[0]).join(',');
-    
-    // Criar linhas
     const rows = csvData.map((row) =>
       Object.values(row)
         .map((value) => `"${value}"`)
         .join(',')
     );
-
-    // Combinar cabeçalhos e linhas
     const csv = [headers, ...rows].join('\n');
 
-    // Criar blob e fazer download
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     const url = URL.createObjectURL(blob);
-    
+
     link.setAttribute('href', url);
     link.setAttribute('download', `deteccoes_lpr_${new Date().toISOString().split('T')[0]}.csv`);
     link.style.visibility = 'hidden';
-    
+
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -128,33 +137,27 @@ const Detections = () => {
       return;
     }
 
-    // Preparar dados para Excel
     const excelData = detections.map((detection) => ({
       Placa: detection.plate,
       Câmera: detection.camera_name,
       'Data/Hora': new Date(detection.timestamp).toLocaleString('pt-BR'),
       'Confiança (%)': (detection.confidence * 100).toFixed(1),
-      'Timestamp': detection.timestamp,
+      Timestamp: detection.timestamp,
     }));
 
-    // Criar worksheet
     const worksheet = XLSX.utils.json_to_sheet(excelData);
-
-    // Ajustar largura das colunas
     const columnWidths = [
-      { wch: 15 }, // Placa
-      { wch: 25 }, // Câmera
-      { wch: 20 }, // Data/Hora
-      { wch: 12 }, // Confiança
-      { wch: 20 }, // Timestamp
+      { wch: 15 },
+      { wch: 25 },
+      { wch: 20 },
+      { wch: 12 },
+      { wch: 20 },
     ];
     worksheet['!cols'] = columnWidths;
 
-    // Criar workbook
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Detecções LPR');
 
-    // Adicionar informações do relatório
     const infoSheet = XLSX.utils.aoa_to_sheet([
       ['Relatório de Detecções LPR'],
       ['Data de Geração:', new Date().toLocaleString('pt-BR')],
@@ -169,7 +172,6 @@ const Detections = () => {
     ]);
     XLSX.utils.book_append_sheet(workbook, infoSheet, 'Informações');
 
-    // Fazer download
     XLSX.writeFile(workbook, `deteccoes_lpr_${new Date().toISOString().split('T')[0]}.xlsx`);
 
     toast({
@@ -202,7 +204,7 @@ const Detections = () => {
                   <SelectValue placeholder="Selecione uma câmera" />
                 </SelectTrigger>
                 <SelectContent>
-                  {cameras.map((camera) => (
+                  {Array.isArray(cameras) && cameras.map((camera) => (
                     <SelectItem key={camera.id} value={camera.id.toString()}>
                       {camera.name}
                     </SelectItem>

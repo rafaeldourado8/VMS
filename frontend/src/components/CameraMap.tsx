@@ -40,7 +40,7 @@ interface CameraMapProps {
 const MapBounds = ({ cameras }: CameraMapProps) => {
   const map = useMap();
   useEffect(() => {
-    const validCameras = cameras.filter(c => c.latitude && c.longitude);
+    const validCameras = (Array.isArray(cameras) ? cameras : []).filter(c => c.latitude && c.longitude);
     if (validCameras.length > 0) {
       // Cria um 'bound' (limite) que engloba todas as câmaras
       const bounds = L.latLngBounds(validCameras.map(c => [c.latitude, c.longitude]));
@@ -62,9 +62,9 @@ const CameraMap = ({ cameras }: CameraMapProps) => {
         zoom={4} 
         style={{ height: '100%', width: '100%' }}
       >
-        {/* Camada do mapa base (OpenStreetMap) */}
+        {/* --- A ALTERAÇÃO ESTÁ AQUI --- */}
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='Mapa por <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         

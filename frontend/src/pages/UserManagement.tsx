@@ -31,7 +31,10 @@ const UserManagement = () => {
   const fetchUsers = async () => {
     try {
       const response = await api.get('/users/');
-      setUsers(response.data);
+      // Suporta array direto ou resposta paginada (opcional)
+      const raw = response.data;
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+      setUsers(list);
     } catch (error) {
       toast({
         title: 'Erro ao carregar usuários',
@@ -42,6 +45,7 @@ const UserManagement = () => {
 
   useEffect(() => {
     fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {

@@ -25,8 +25,12 @@ const Support = () => {
   const fetchMessages = async () => {
     try {
       const response = await api.get('/support/chat/');
-      setMessages(response.data);
+      const raw = response.data;
+      // suporta array direto ou resposta paginada { results: [...] }
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+      setMessages(list);
     } catch (error) {
+      console.error('Erro ao carregar mensagens:', error);
       toast({
         title: 'Erro ao carregar mensagens',
         variant: 'destructive',
@@ -36,9 +40,10 @@ const Support = () => {
 
   useEffect(() => {
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000); // Poll every 5 seconds
+    const interval = setInterval(fetchMessages, 5000); // Poll a cada 5s
     return () => clearInterval(interval);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -51,8 +56,10 @@ const Support = () => {
     try {
       await api.post('/support/chat/', { conteudo: newMessage });
       setNewMessage('');
+      // buscar novas mensagens (ou você pode optar por inserir a mensagem retornada)
       fetchMessages();
     } catch (error) {
+      console.error('Erro ao enviar mensagem:', error);
       toast({
         title: 'Erro ao enviar mensagem',
         variant: 'destructive',

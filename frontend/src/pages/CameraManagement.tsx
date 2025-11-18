@@ -3,37 +3,62 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea'; // Importar Textarea
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Plus, Pencil, Trash2 } from 'lucide-react';
 import api from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
 
+// --- 1. Atualizar a Interface ---
 interface Camera {
   id: number;
   name: string;
   location: string;
   status: string;
   stream_url: string;
-  detection_settings?: string;
+  latitude?: number | null; // Alterado para aceitar null
+  longitude?: number | null; // Alterado para aceitar null
+  detection_settings?: any;
 }
 
 const CameraManagement = () => {
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState<Camera | null>(null);
+  
+  // --- 2. Atualizar o estado do formulário ---
   const [formData, setFormData] = useState({
     name: '',
     location: '',
     stream_url: '',
-    detection_settings: '{}',
+    latitude: '', // Usar string para o input
+    longitude: '', // Usar string para o input
+    detection_settings: '{}', // Default para JSON
   });
   const { toast } = useToast();
 
   const fetchCameras = async () => {
     try {
       const response = await api.get('/cameras/');
-      setCameras(response.data);
+      const raw = response.data;
+
+      // Suporta resposta paginada ({ results: [...] }) ou array direto
+      const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+
+      const normalized = list.map((c: any) => ({
+        id: c.id,
+        name: c.name ?? '',
+        location: c.location ?? '',
+        status: c.status ?? 'offline',
+        stream_url: c.stream_url ?? '',
+        latitude: c.latitude ?? null,
+        longitude: c.longitude ?? null,
+        detection_settings: c.detection_settings ?? {},
+      }));
+
+      setCameras(normalized);
     } catch (error) {
+      console.error('Erro ao carregar câmeras:', error);
       toast({
         title: 'Erro ao carregar câmeras',
         variant: 'destructive',
@@ -43,42 +68,68 @@ const CameraManagement = () => {
 
   useEffect(() => {
     fetchCameras();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [toast]);
 
+  // --- 3. Atualizar o HandleSubmit ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Prepara os dados para enviar (converte para números e JSON)
+      const dataToSubmit = {
+        ...formData,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
+        // Valida o JSON antes de enviar
+        detection_settings: JSON.parse(formData.detection_settings || '{}')
+      };
+
       if (editingCamera) {
-        await api.put(`/cameras/${editingCamera.id}/`, formData);
+        await api.put(`/cameras/${editingCamera.id}/`, dataToSubmit);
         toast({ title: 'Câmera atualizada com sucesso' });
       } else {
-        await api.post('/cameras/', formData);
+        await api.post('/cameras/', dataToSubmit);
         toast({ title: 'Câmera adicionada com sucesso' });
       }
       fetchCameras();
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast({
-        title: 'Erro ao salvar câmera',
-        variant: 'destructive',
-      });
+    } catch (error: any) {
+      // Captura erros de JSON inválido
+      if (error instanceof SyntaxError) {
+         toast({
+          title: 'Erro no formulário',
+          description: 'O campo "Configurações de Detecção" não é um JSON válido.',
+          variant: 'destructive',
+        });
+      } else {
+        // Mostra erros de validação do backend (ex: URL RTSP inválido)
+        const errorMessages = error.response?.data ? Object.values(error.response.data).join(' ') : 'Verifique os campos.';
+        toast({
+          title: 'Erro ao salvar câmera',
+          description: errorMessages,
+          variant: 'destructive',
+        });
+      }
     }
   };
 
+  // --- 4. Atualizar o HandleEdit ---
   const handleEdit = (camera: Camera) => {
     setEditingCamera(camera);
     setFormData({
       name: camera.name,
       location: camera.location,
       stream_url: camera.stream_url,
-      detection_settings: camera.detection_settings || '{}',
+      latitude: camera.latitude?.toString() || '',
+      longitude: camera.longitude?.toString() || '',
+      detection_settings: camera.detection_settings ? JSON.stringify(camera.detection_settings, null, 2) : '{}',
     });
     setIsDialogOpen(true);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Tem certeza que deseja excluir esta câmera?')) return;
+    if (!window.confirm('Tem certeza de que deseja excluir esta câmera?')) return;
     
     try {
       await api.delete(`/cameras/${id}/`);
@@ -92,11 +143,14 @@ const CameraManagement = () => {
     }
   };
 
+  // --- 5. Atualizar o ResetForm ---
   const resetForm = () => {
     setFormData({
       name: '',
       location: '',
       stream_url: '',
+      latitude: '',
+      longitude: '',
       detection_settings: '{}',
     });
     setEditingCamera(null);
@@ -116,6 +170,7 @@ const CameraManagement = () => {
               Adicionar Câmera
             </Button>
           </DialogTrigger>
+          {/* --- 6. Atualizar o Formulário (Adicionar campos) --- */}
           <DialogContent>
             <DialogHeader>
               <DialogTitle>
@@ -133,29 +188,59 @@ const CameraManagement = () => {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="location">Localização</Label>
+                <Label htmlFor="location">Localização (Ex: Endereço)</Label>
                 <Input
                   id="location"
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
+                  placeholder="Ex: Rua Principal, 123"
                   required
                 />
               </div>
+
+              {/* --- Campos Adicionados --- */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="latitude">Latitude</Label>
+                  <Input
+                    id="latitude"
+                    type="number"
+                    step="any"
+                    value={formData.latitude}
+                    onChange={(e) => setFormData({ ...formData, latitude: e.target.value })}
+                    placeholder="-19.000000"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="longitude">Longitude</Label>
+                  <Input
+                    id="longitude"
+                    type="number"
+                    step="any"
+                    value={formData.longitude}
+                    onChange={(e) => setFormData({ ...formData, longitude: e.target.value })}
+                    placeholder="-54.000000"
+                  />
+                </div>
+              </div>
+              
               <div className="space-y-2">
-                <Label htmlFor="stream_url">URL do Stream</Label>
+                <Label htmlFor="stream_url">URL do Stream (RTSP)</Label>
                 <Input
                   id="stream_url"
                   value={formData.stream_url}
                   onChange={(e) => setFormData({ ...formData, stream_url: e.target.value })}
+                  placeholder="rtsp://usuario:senha@ip:porta/stream"
                   required
                 />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="detection_settings">Configurações de Detecção (JSON)</Label>
-                <Input
+                <Textarea // Usar Textarea para JSON
                   id="detection_settings"
                   value={formData.detection_settings}
                   onChange={(e) => setFormData({ ...formData, detection_settings: e.target.value })}
+                  rows={3}
                 />
               </div>
               <div className="flex gap-2">
@@ -163,7 +248,7 @@ const CameraManagement = () => {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
+                  onClick={() => { setIsDialogOpen(false); resetForm(); }}
                   className="flex-1"
                 >
                   Cancelar
@@ -229,6 +314,13 @@ const CameraManagement = () => {
                     </td>
                   </tr>
                 ))}
+                {cameras.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-muted-foreground">
+                      Nenhuma câmera cadastrada.
+                    </td>
+                  </tr>
+                )}
               </tbody>
             </table>
           </div>

@@ -3,11 +3,15 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import api from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
+// NOVO: Importa o player WebRTC
+import WebRTCPlayer from '@/components/WebRTCPlayer';
 
 interface Camera {
   id: number;
   name: string;
-  thumbnail_url?: string;
+  thumbnail_url?: string | null;
+  // ATUALIZADO: Adiciona a URL WebRTC que vem do backend
+  webrtc_url: string;
 }
 
 const LiveCameras = () => {
@@ -19,11 +23,29 @@ const LiveCameras = () => {
     const fetchCameras = async () => {
       try {
         const response = await api.get('/cameras/');
-        setCameras(response.data);
-        if (response.data.length > 0) {
-          setSelectedCamera(response.data[0]);
+        const raw = response.data;
+
+        // Se a API retornar um array direto ou um objeto paginado { results: [...] }
+        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+
+        // Normaliza os campos para o formato que o componente espera
+        const normalized: Camera[] = list.map((c: any) => ({
+          id: c.id,
+          name: c.name,
+          thumbnail_url: c.thumbnail_url ?? c.thumbnail ?? null,
+          // Usa stream_url_frontend (serializer) ou stream_url ou webrtc_url
+          webrtc_url: c.stream_url_frontend ?? c.stream_url ?? c.webrtc_url ?? '',
+        }));
+
+        setCameras(normalized);
+
+        if (normalized.length > 0) {
+          setSelectedCamera(normalized[0]);
+        } else {
+          setSelectedCamera(null);
         }
       } catch (error) {
+        console.error('Erro ao buscar câmeras:', error);
         toast({
           title: 'Erro ao carregar câmeras',
           variant: 'destructive',
@@ -42,21 +64,25 @@ const LiveCameras = () => {
           <h1 className="text-3xl font-bold text-foreground mb-6">
             Câmeras ao Vivo
           </h1>
-          
+
+          {/* --- MUDANÇA AQUI --- */}
+          {/* Substitui o placeholder pelo player real */}
           <Card className="flex-1 bg-black flex items-center justify-center">
-            <div className="text-center text-white space-y-4">
-              <h2 className="text-2xl font-semibold">Player de Vídeo</h2>
-              <p className="text-muted-foreground">
-                {selectedCamera
-                  ? `Câmera selecionada: ${selectedCamera.name}`
-                  : 'Selecione uma câmera'}
-              </p>
-              <p className="text-sm text-muted-foreground max-w-md mx-auto">
-                Esta área está reservada para o componente de player de vídeo customizado
-                que será implementado separadamente.
-              </p>
-            </div>
+            {selectedCamera ? (
+              // Passa a URL WHEP da câmera selecionada para o player
+              // Garante o uso de WebRTCPlayer (capitalização correta)
+              <WebRTCPlayer whepURL={selectedCamera.webrtc_url} />
+            ) : (
+              // Mostra isto se nenhuma câmera estiver selecionada
+              <div className="text-center text-white space-y-4">
+                <h2 className="text-2xl font-semibold">Player de Vídeo</h2>
+                <p className="text-muted-foreground">
+                  Selecione uma câmera na lista
+                </p>
+              </div>
+            )}
           </Card>
+          {/* --- FIM DA MUDANÇA --- */}
         </div>
       </div>
 
@@ -66,10 +92,10 @@ const LiveCameras = () => {
           <h3 className="font-semibold">Lista de Câmeras</h3>
           <p className="text-sm text-muted-foreground">{cameras.length} disponíveis</p>
         </div>
-        
+
         <ScrollArea className="h-[calc(100vh-80px)]">
           <div className="p-4 space-y-2">
-            {cameras.map((camera) => (
+            {Array.isArray(cameras) && cameras.map((camera) => (
               <button
                 key={camera.id}
                 onClick={() => setSelectedCamera(camera)}
