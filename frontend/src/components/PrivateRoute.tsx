@@ -12,14 +12,16 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
 
   useEffect(() => {
     const checkAuth = async () => {
-      const token = localStorage.getItem('access_token');
+      // ALTERADO: Ler do sessionStorage
+      const token = sessionStorage.getItem('access_token');
       if (token && !isAuthenticated) {
         try {
           const response = await api.get('/auth/me/');
           setUser(response.data);
         } catch (error) {
-          localStorage.removeItem('access_token');
-          localStorage.removeItem('refresh_token');
+          // ALTERADO: Limpar do sessionStorage
+          sessionStorage.removeItem('access_token');
+          sessionStorage.removeItem('refresh_token');
         }
       }
     };
@@ -27,7 +29,8 @@ const PrivateRoute = ({ children }: PrivateRouteProps) => {
     checkAuth();
   }, [isAuthenticated, setUser]);
 
-  const token = localStorage.getItem('access_token');
+  // ALTERADO: Ler do sessionStorage
+  const token = sessionStorage.getItem('access_token');
   
   if (!token) {
     return <Navigate to="/login" replace />;

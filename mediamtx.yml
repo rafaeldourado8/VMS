@@ -1,4 +1,8 @@
 ###############################################
+# MediaMTX configuration file
+###############################################
+
+###############################################
 # Global settings
 
 logLevel: info
@@ -46,12 +50,14 @@ authInternalUsers:
     permissions:
       - action: api
 
+# Optional: HTTP auth backend
 authHTTPAddress:
 authHTTPExclude:
 - action: api
 - action: metrics
 - action: pprof
 
+# JWT (optional)
 authJWTJWKS:
 authJWTJWKSFingerprint:
 authJWTClaimKey: mediamtx_permissions
@@ -72,7 +78,7 @@ apiTrustedProxies: []
 ###############################################
 # Global settings -> Metrics
 
-metrics: no
+metrics: yes
 metricsAddress: :9998
 metricsEncryption: no
 metricsServerKey: server.key
@@ -164,10 +170,14 @@ webrtcServerCert: server.crt
 webrtcAllowOrigin: '*'
 webrtcTrustedProxies: []
 webrtcLocalUDPAddress: :8189
-webrtcLocalTCPAddress: ''
+
+# --- CORREÇÃO APLICADA: Comentado para evitar conflito de porta com webrtcAddress ---
+# webrtcLocalTCPAddress: :8889
+# ----------------------------------------------------------------------------------
+
 webrtcIPsFromInterfaces: yes
 webrtcIPsFromInterfacesList: []
-webrtcAdditionalHosts: []
+webrtcAdditionalHosts: ["127.0.0.1", "localhost"]
 webrtcICEServers2: []
 webrtcHandshakeTimeout: 10s
 webrtcTrackGatherTimeout: 2s
@@ -246,5 +256,20 @@ pathDefaults:
   rpiCameraSoftwareH264Level: '4.1'
   rpiCameraMJPEGQuality: 60
 
+###############################################
+# Path settings
+
 paths:
+  # 1. Câmera de Teste (A que você quer ver AGORA)
+  # O MediaMTX vai conectar nela usando as credenciais, mas vai
+  # entregar para o navegador sem pedir senha.
+  teste:
+    source: rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
+    runOnDemandStartTimeout: 10s
+    runOnDemandCloseAfter: 10s
+
+  # 2. Regra genérica (para o futuro/escalabilidade)
+  # Permite que outras câmeras sejam criadas dinamicamente
   all_others:
+    source: publisher

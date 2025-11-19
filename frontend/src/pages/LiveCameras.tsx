@@ -3,14 +3,12 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import api from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
-// NOVO: Importa o player WebRTC
 import WebRTCPlayer from '@/components/WebRTCPlayer';
 
 interface Camera {
   id: number;
   name: string;
   thumbnail_url?: string | null;
-  // ATUALIZADO: Adiciona a URL WebRTC que vem do backend
   webrtc_url: string;
 }
 
@@ -24,21 +22,20 @@ const LiveCameras = () => {
       try {
         const response = await api.get('/cameras/');
         const raw = response.data;
-
-        // Se a API retornar um array direto ou um objeto paginado { results: [...] }
         const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
 
-        // Normaliza os campos para o formato que o componente espera
         const normalized: Camera[] = list.map((c: any) => ({
           id: c.id,
           name: c.name,
           thumbnail_url: c.thumbnail_url ?? c.thumbnail ?? null,
-          // Usa stream_url_frontend (serializer) ou stream_url ou webrtc_url
-          webrtc_url: c.stream_url_frontend ?? c.stream_url ?? c.webrtc_url ?? '',
+          webrtc_url: c.webrtc_url
+            ? (c.webrtc_url.startsWith('/')
+                ? `${window.location.origin}${c.webrtc_url}`
+                : c.webrtc_url)
+            : '',
         }));
 
         setCameras(normalized);
-
         if (normalized.length > 0) {
           setSelectedCamera(normalized[0]);
         } else {
@@ -58,41 +55,27 @@ const LiveCameras = () => {
 
   return (
     <div className="flex h-screen">
-      {/* Main Video Area */}
       <div className="flex-1 p-8">
         <div className="h-full flex flex-col">
-          <h1 className="text-3xl font-bold text-foreground mb-6">
-            Câmeras ao Vivo
-          </h1>
-
-          {/* --- MUDANÇA AQUI --- */}
-          {/* Substitui o placeholder pelo player real */}
+          <h1 className="text-3xl font-bold text-foreground mb-6">Câmeras ao Vivo</h1>
           <Card className="flex-1 bg-black flex items-center justify-center">
             {selectedCamera ? (
-              // Passa a URL WHEP da câmera selecionada para o player
-              // Garante o uso de WebRTCPlayer (capitalização correta)
               <WebRTCPlayer whepURL={selectedCamera.webrtc_url} />
             ) : (
-              // Mostra isto se nenhuma câmera estiver selecionada
               <div className="text-center text-white space-y-4">
                 <h2 className="text-2xl font-semibold">Player de Vídeo</h2>
-                <p className="text-muted-foreground">
-                  Selecione uma câmera na lista
-                </p>
+                <p className="text-muted-foreground">Selecione uma câmera na lista</p>
               </div>
             )}
           </Card>
-          {/* --- FIM DA MUDANÇA --- */}
         </div>
       </div>
 
-      {/* Camera List Sidebar */}
       <div className="w-80 border-l bg-card">
         <div className="p-4 border-b">
           <h3 className="font-semibold">Lista de Câmeras</h3>
           <p className="text-sm text-muted-foreground">{cameras.length} disponíveis</p>
         </div>
-
         <ScrollArea className="h-[calc(100vh-80px)]">
           <div className="p-4 space-y-2">
             {Array.isArray(cameras) && cameras.map((camera) => (

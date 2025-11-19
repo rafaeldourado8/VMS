@@ -21,7 +21,8 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis_cache
       REDIS_PORT: 6379
-      AI_SERVICE_URL: http://ai_detection_service:8002
+      # AI_SERVICE_URL desativado para evitar erros de conexão
+      AI_SERVICE_URL: "" 
       MEDIAMTX_API_URL: http://mediamtx:9997
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
@@ -57,7 +58,7 @@ services:
       DB_PORT: 5432
       REDIS_HOST: redis_cache
       REDIS_PORT: 6379
-      AI_SERVICE_URL: http://ai_detection_service:8002
+      AI_SERVICE_URL: ""
       MEDIAMTX_API_URL: http://mediamtx:9997
       CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
       CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
@@ -103,21 +104,18 @@ services:
       - "8554:8554"
       - "1935:1935"
       - "8888:8888"
+      - "8889:8889"
       - "8889:8889/udp"
+      - "8189:8189/udp"
       - "9997:9997"
     environment:
-      # API password pulled from .env to avoid storing secrets in git
       - MEDIAMTX_API_PASS=${MEDIAMTX_API_PASS}
     volumes:
-      # Mount the mediamtx.yml you created (read-only)
       - ./mediamtx.yml:/mediamtx.yml:ro
-      # Optional: keep recordings or other persisted files if used
       - mediamtx_recordings:/recordings
     networks:
       - gtvision_network
     restart: unless-stopped
-    # Healthcheck: try to call the Control API endpoint. If the image does not include curl/wget,
-    # this check may fail; you can change to "NONE" or a simple TCP check if needed.
     healthcheck:
       test: ["CMD-SHELL", "curl -sS -f http://localhost:9997/v3/paths/list || exit 1"]
       interval: 30s
@@ -125,43 +123,10 @@ services:
       retries: 3
       start_period: 10s
 
-  ai_detection_service:
-    build:
-      context: ./fastapi_services/ai_detection
-      dockerfile: Dockerfile
-    container_name: gtvision_ai_detection
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8002 --workers 1
-    volumes:
-      - ./fastapi_services/ai_detection/app:/app/app
-    ports:
-      - "8002:8002"
-    env_file:
-      - ./.env
-    environment:
-      REDIS_HOST: redis_cache
-      REDIS_PORT: 6379
-      DJANGO_API_URL: http://backend:8000
-      INGEST_API_KEY: ${INGEST_API_KEY}
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-      RABBITMQ_QUEUE: 'detection_ingest'
-    depends_on:
-      redis_cache:
-        condition: service_healthy
-      backend:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+  # --- SERVIÇO DE IA COMENTADO PARA POUPAR RECURSOS ---
+  # ai_detection_service:
+  #   build: ...
+  #   ... (todo o bloco comentado)
 
   postgres_db:
     image: postgres:15-alpine
@@ -204,11 +169,17 @@ services:
       retries: 5
 
   frontend:
-    image: node:20-alpine
+    # MUDANÇA IMPORTANTE: Usando slim para maior compatibilidade de binários do esbuild
+    image: node:20-slim
     container_name: gtvision_frontend
     working_dir: /app
+    # Mantendo shm_size alto
+    shm_size: 1g
     volumes:
       - ./frontend:/app
+      # MUDANÇA IMPORTANTE: Volume anônimo para node_modules
+      # Isso força o uso dos módulos instalados DENTRO do container, não do host
+      - /app/node_modules
     command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
     ports:
       - "5173:5173"
@@ -222,7 +193,7 @@ services:
     depends_on:
       - frontend
       - backend
-      - ai_detection_service
+      # - ai_detection_service  <--- REMOVIDO DA LISTA DE DEPENDÊNCIAS
       - mediamtx
     ports:
       - "80:80"

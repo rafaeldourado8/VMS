@@ -12,8 +12,23 @@ class MediaMTXApiClient:
     def __init__(self):
         try:
             self.base_url = settings.MEDIAMTX_API_URL
-            self.client = httpx.Client(base_url=self.base_url, timeout=5.0)
+            
+            # --- CONFIGURAÇÃO DE AUTENTICAÇÃO ---
+            # Verifica se as credenciais estão definidas no settings
+            self.auth = None
+            user = getattr(settings, 'MEDIAMTX_API_USER', None)
+            password = getattr(settings, 'MEDIAMTX_API_PASS', None)
+            
+            if user and password:
+                self.auth = (user, password)
+                logger.info(f"MediaMTXApiClient: Autenticação configurada para usuário '{user}'")
+            else:
+                logger.warning("MediaMTXApiClient: Credenciais de API não encontradas no settings. Tentando conexão anônima.")
+            
+            # Passa a tupla de auth para o cliente
+            self.client = httpx.Client(base_url=self.base_url, auth=self.auth, timeout=5.0)
             logger.info(f"MediaMTXApiClient inicializado. Base URL: {self.base_url}")
+            
         except AttributeError:
             logger.error("MEDIAMTX_API_URL não está definido no settings.py!")
             self.base_url = None

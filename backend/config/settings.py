@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import timedelta
 import logging.config
 
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -319,10 +320,16 @@ LOGGING = {
 # URLS DOS SERVIÇOS (NGINX E INTERNOS)
 # -----------------------------------------------------------------
 
-MEDIAMTX_API_URL = os.getenv("MEDIAMTX_API_URL", "http://mediamtx:8888")
+MEDIAMTX_API_URL = os.getenv("MEDIAMTX_API_URL", "http://mediamtx:9997")
+
+# NOVAS VARIÁVEIS DE AUTENTICAÇÃO (Adicionadas)
+# O usuário "mediamtx_api_user" é o que está definido no mediamtx.yml para acesso à API
+MEDIAMTX_API_USER = os.getenv("MEDIAMTX_API_USER", "mediamtx_api_user")
+# A senha da API, que deve bater com a variável MEDIAMTX_API_PASS do .env
+MEDIAMTX_API_PASS = os.getenv("MEDIAMTX_API_PASS", "GtV!sionMed1aMTX$2025")
 
 # NOVAS URLs (MediaMTX e IA)
-NGINX_WEBRTC_URL_BASE = "/webrtc"  # Rota do Nginx para o MediaMTX WHEP/WHIP
+NGINX_WEBRTC_URL_BASE = "/ws/live"
 NGINX_AI_URL_BASE = "/ai"        # Rota do Nginx para o serviço de IA
 
 # URL interna para o serviço de IA (usada pelo backend/Django)

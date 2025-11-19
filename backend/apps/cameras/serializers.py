@@ -1,35 +1,37 @@
-# VMS/backend/apps/cameras/serializers.py
-
 from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from urllib.parse import urlparse, urlunparse, quote
 import re
+from django.conf import settings
 
 from .models import Camera
+from streaming_integration.serializers import StreamingSerializerMixin
 
 ALLOWED_SCHEMES = ['rtsp', 'rtspu', 'rtmp', 'http', 'https']
 
-
-class CameraSerializer(serializers.ModelSerializer):
-    # Vamos exibir o email do dono, é mais útil no frontend
+class CameraSerializer(StreamingSerializerMixin, serializers.ModelSerializer):
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
-
-    # Mantemos CharField e validamos manualmente no método validate_stream_url
     stream_url = serializers.CharField(max_length=1000)
-
-    # thumbnail: valida apenas http/https (se preferir aceitar mais, ajuste)
     thumbnail_url = serializers.CharField(
         max_length=1000,
         allow_null=True,
         required=False,
         validators=[URLValidator(schemes=['http', 'https'])],
     )
-
+    
+    # Mantemos este campo para compatibilidade com o frontend
     stream_url_frontend = serializers.SerializerMethodField()
 
+    # --- CORREÇÃO AQUI ---
+    # Declaramos explicitamente o campo para que o DRF o reconheça.
+    # A lógica (get_ai_websocket_url) continuará vindo do StreamingSerializerMixin.
+    ai_websocket_url = serializers.SerializerMethodField() 
+    # ---------------------
+
     def get_stream_url_frontend(self, obj):
-        return obj.stream_url
+        # Reutiliza a lógica centralizada no Mixin
+        return self.get_webrtc_url(obj)
 
     class Meta:
         model = Camera
@@ -45,22 +47,19 @@ class CameraSerializer(serializers.ModelSerializer):
             "longitude",
             "detection_settings",
             "created_at",
+            # Campos computados
             "stream_url_frontend",
+            "ai_websocket_url", 
         ]
         read_only_fields = [
             "id",
             "created_at",
             "owner_email",
             "stream_url_frontend",
+            "ai_websocket_url",
         ]
 
     def validate_stream_url(self, value: str) -> str:
-        """
-        Validação robusta para RTSP/RTMP/http(s).
-        1) tenta URLValidator com schemes permitidos
-        2) se falhar e houver credenciais, tenta percent-encode das credenciais
-        3) fallback regex permissivo para formatos RTSP comuns
-        """
         if not value:
             raise serializers.ValidationError("Stream URL não pode estar vazio.")
 
@@ -75,14 +74,12 @@ class CameraSerializer(serializers.ModelSerializer):
 
         validator = URLValidator(schemes=ALLOWED_SCHEMES)
 
-        # 1) tenta validar direto
         try:
             validator(raw)
             return raw
         except DjangoValidationError:
             pass
 
-        # 2) tenta reconstruir com percent-encoding de credenciais
         try:
             if parsed.username or parsed.password:
                 username = quote(parsed.username) if parsed.username else ''
@@ -108,7 +105,6 @@ class CameraSerializer(serializers.ModelSerializer):
         except Exception:
             pass
 
-        # 3) fallback regex permissivo para rtsp
         rtsp_regex = re.compile(r"^(rtsp|rtspu)://([^/\s]+)(/.*)?$", re.IGNORECASE)
         if rtsp_regex.match(raw):
             return raw

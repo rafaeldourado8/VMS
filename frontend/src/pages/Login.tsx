@@ -25,8 +25,11 @@ const Login = () => {
       const response = await api.post('/auth/login/', { email, password });
       const { access, refresh, user } = response.data;
 
-      localStorage.setItem('access_token', access);
-      localStorage.setItem('refresh_token', refresh);
+      // --- ALTERAÇÃO APLICADA: sessionStorage em vez de localStorage ---
+      sessionStorage.setItem('access_token', access);
+      sessionStorage.setItem('refresh_token', refresh);
+      // ---------------------------------------------------------------
+      
       setUser(user);
 
       toast({
