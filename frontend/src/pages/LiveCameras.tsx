@@ -3,13 +3,13 @@ import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import api from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
-import WebRTCPlayer from '@/components/WebRTCPlayer';
+import VideoPlayer from '@/components/VideoPlayer';
 
 interface Camera {
   id: number;
   name: string;
   thumbnail_url?: string | null;
-  webrtc_url: string;
+  stream_url_frontend: string; 
 }
 
 const LiveCameras = () => {
@@ -28,11 +28,11 @@ const LiveCameras = () => {
           id: c.id,
           name: c.name,
           thumbnail_url: c.thumbnail_url ?? c.thumbnail ?? null,
-          webrtc_url: c.webrtc_url
-            ? (c.webrtc_url.startsWith('/')
-                ? `${window.location.origin}${c.webrtc_url}`
-                : c.webrtc_url)
-            : '',
+          // --- CORREÇÃO CRÍTICA AQUI ---
+          // Removemos a concatenação com window.location.origin.
+          // Aceitamos a URL exatamente como o backend envia (absoluta ou relativa).
+          // Se o backend enviar "http://ip:8888/cam/index.m3u8", usaremos isso.
+          stream_url_frontend: c.stream_url_frontend || '', 
         }));
 
         setCameras(normalized);
@@ -58,9 +58,12 @@ const LiveCameras = () => {
       <div className="flex-1 p-8">
         <div className="h-full flex flex-col">
           <h1 className="text-3xl font-bold text-foreground mb-6">Câmeras ao Vivo</h1>
-          <Card className="flex-1 bg-black flex items-center justify-center">
+          <Card className="flex-1 bg-black flex items-center justify-center overflow-hidden">
             {selectedCamera ? (
-              <WebRTCPlayer whepURL={selectedCamera.webrtc_url} />
+              <VideoPlayer 
+                url={selectedCamera.stream_url_frontend} 
+                poster={selectedCamera.thumbnail_url}
+              />
             ) : (
               <div className="text-center text-white space-y-4">
                 <h2 className="text-2xl font-semibold">Player de Vídeo</h2>

@@ -1,45 +1,37 @@
 # VMS/backend/streaming_integration/signals.py
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from apps.cameras.models import Camera # Importa o seu modelo de Câmara
+from apps.cameras.models import Camera
 import logging
 
-# Importa o novo cliente que acabámos de criar
-from .client import mediamtx_api_client 
+# Importar as tasks em vez do cliente direto
+from .tasks import sync_camera_mediamtx, remove_camera_mediamtx
 
 logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Camera)
 def on_camera_save(sender, instance: Camera, created, **kwargs):
-    """
-    Chamado sempre que uma câmara é CRIADA ou ATUALIZADA.
-    """
     try:
-        # 'instance' é o objeto Camera que foi guardado
         camera_id = str(instance.id)
-        rtsp_url = instance.stream_url # Assumindo que o campo se chama 'stream_url'
+        rtsp_url = instance.stream_url
         
         if not rtsp_url:
-            logger.warning(f"Câmara {camera_id} guardada sem stream_url. A ignorar MediaMTX.")
             return
             
-        logger.info(f"Sinal post_save detetado para a Câmara {camera_id}. A atualizar MediaMTX...")
-        mediamtx_api_client.add_or_update_camera(camera_id, rtsp_url)
+        # Usar .delay() ou .apply_async() para enviar para o Celery
+        logger.info(f"Agendando configuração da câmera {camera_id} para o Worker...")
+        sync_camera_mediamtx.delay(camera_id, rtsp_url)
         
     except Exception as e:
-        logger.error(f"Erro no sinal post_save da Câmara {instance.id}: {e}", exc_info=True)
-
+        logger.error(f"Erro ao agendar task post_save: {e}", exc_info=True)
 
 @receiver(post_delete, sender=Camera)
 def on_camera_delete(sender, instance: Camera, **kwargs):
-    """
-    Chamado sempre que uma câmara é ELIMINADA.
-    """
     try:
         camera_id = str(instance.id)
         
-        logger.info(f"Sinal post_delete detetado para a Câmara {camera_id}. A remover do MediaMTX...")
-        mediamtx_api_client.remove_camera(camera_id)
+        logger.info(f"Agendando remoção da câmera {camera_id}...")
+        remove_camera_mediamtx.delay(camera_id)
         
     except Exception as e:
-        logger.error(f"Erro no sinal post_delete da Câmara {instance.id}: {e}", exc_info=True)
+        logger.error(f"Erro ao agendar task post_delete: {e}", exc_info=True)

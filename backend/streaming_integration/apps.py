@@ -10,7 +10,7 @@ class StreamingIntegrationConfig(AppConfig):
     def ready(self):
         # Importa os sinais para que sejam registados
         try:
-            import streaming_integration.signals
+            import streaming_integration.signals  # noqa
             logger.info("Sinais de integração de streaming carregados.")
-        except ImportError:
-            pass
+        except Exception:
+            logger.exception("Falha ao importar sinais de streaming_integration")
