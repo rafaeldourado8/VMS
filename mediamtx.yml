@@ -262,7 +262,7 @@ pathDefaults:
 paths:
   # 1. Câmera de Teste (A que você quer ver AGORA)
   teste:
-    source: rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0
+    source: rtsp://sua_camera
     sourceOnDemand: yes
     runOnDemandStartTimeout: 10s
     runOnDemandCloseAfter: 10s
