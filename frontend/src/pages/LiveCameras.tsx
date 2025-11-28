@@ -1,112 +1,200 @@
-import { useState, useEffect } from 'react';
-import { Card } from '@/components/ui/card';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import api from '@/lib/axios';
-import { useToast } from '@/hooks/use-toast';
-import VideoPlayer from '@/components/VideoPlayer';
+import React, { useState } from "react";
+import { useQuery } from "@tanstack/react-query"; // Importação para Cache
+import { List, X, Maximize2, Minimize2, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import api from "@/lib/axios";
+import { useToast } from "@/hooks/use-toast";
+import VideoPlayer from "@/components/VideoPlayer";
+import Timeline from "@/components/Timeline";
+import CameraSideList from "@/components/CameraSideList";
+import MapViewer, { Camera as MapCamera } from "@/components/MapViewer";
+import { cn } from "@/lib/utils";
 
-interface Camera {
+interface CameraType {
   id: number;
   name: string;
+  location: string;
+  latitude: number;
+  longitude: number;
+  status: "online" | "offline" | "lpr";
   thumbnail_url?: string | null;
-  stream_url_frontend: string; 
+  stream_url_frontend: string;
 }
 
-const LiveCameras = () => {
-  const [cameras, setCameras] = useState<Camera[]>([]);
-  const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+const mockTimelineEvents = [
+  { startTime: 2, duration: 4, type: "continuous" as const },
+  { startTime: 8.5, duration: 0.2, type: "motion" as const },
+  { startTime: 13, duration: 2, type: "continuous" as const },
+  { startTime: 14.5, duration: 0.3, type: "motion" as const },
+  { startTime: 18, duration: 5, type: "continuous" as const },
+];
+
+const glassSheetClasses = "bg-black/30 backdrop-blur-xl border-r border-white/10 text-white shadow-2xl";
+
+const LiveCameras: React.FC = () => {
+  const [selectedCamera, setSelectedCamera] = useState<CameraType | null>(null);
+  const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
+  const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  
   const { toast } = useToast();
 
-  useEffect(() => {
-    const fetchCameras = async () => {
-      try {
-        const response = await api.get('/cameras/');
-        const raw = response.data;
-        const list = Array.isArray(raw) ? raw : (Array.isArray(raw?.results) ? raw.results : []);
+  // Otimização: Cache compartilhado com o Dashboard via React Query
+  const { data: cameras = [], isLoading } = useQuery({
+    queryKey: ['cameras'],
+    queryFn: async () => {
+      const response = await api.get("/cameras/");
+      const raw = response.data;
+      const list = Array.isArray(raw) ? raw : Array.isArray(raw?.results) ? raw.results : [];
 
-        const normalized: Camera[] = list.map((c: any) => ({
-          id: c.id,
-          name: c.name,
-          thumbnail_url: c.thumbnail_url ?? c.thumbnail ?? null,
-          // --- CORREÇÃO CRÍTICA AQUI ---
-          // Removemos a concatenação com window.location.origin.
-          // Aceitamos a URL exatamente como o backend envia (absoluta ou relativa).
-          // Se o backend enviar "http://ip:8888/cam/index.m3u8", usaremos isso.
-          stream_url_frontend: c.stream_url_frontend || '', 
-        }));
+      return list.map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        location: c.location || "Sem localização",
+        latitude: Number(c.latitude ?? 0),
+        longitude: Number(c.longitude ?? 0),
+        status: c.status || "offline",
+        thumbnail_url: c.thumbnail_url ?? c.thumbnail ?? null,
+        stream_url_frontend: c.stream_url_frontend || "",
+      })) as CameraType[];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
 
-        setCameras(normalized);
-        if (normalized.length > 0) {
-          setSelectedCamera(normalized[0]);
-        } else {
-          setSelectedCamera(null);
-        }
-      } catch (error) {
-        console.error('Erro ao buscar câmeras:', error);
-        toast({
-          title: 'Erro ao carregar câmeras',
-          variant: 'destructive',
-        });
-      }
-    };
+  // Memoização para evitar recálculo de array em cada render
+  const mapCameras: MapCamera[] = React.useMemo(() => cameras.map((c) => ({
+    id: c.id,
+    name: c.name,
+    location: c.location,
+    latitude: c.latitude,
+    longitude: c.longitude,
+    status: c.status,
+    thumbnail_url: c.thumbnail_url,
+  })), [cameras]);
 
-    fetchCameras();
-  }, [toast]);
+  const handleCameraSelect = (cam: CameraType) => {
+    setSelectedCamera(cam);
+  };
+
+  const handleClosePlayer = () => {
+    setSelectedCamera(null);
+    setIsPlayerExpanded(false);
+    setIsTimelineExpanded(false);
+  };
+
+  if (isLoading) {
+    return <div className="h-full w-full bg-zinc-950 flex items-center justify-center">
+      <Loader2 className="animate-spin text-white w-8 h-8"/>
+    </div>;
+  }
 
   return (
-    <div className="flex h-screen">
-      <div className="flex-1 p-8">
-        <div className="h-full flex flex-col">
-          <h1 className="text-3xl font-bold text-foreground mb-6">Câmeras ao Vivo</h1>
-          <Card className="flex-1 bg-black flex items-center justify-center overflow-hidden">
-            {selectedCamera ? (
-              <VideoPlayer 
-                url={selectedCamera.stream_url_frontend} 
-                poster={selectedCamera.thumbnail_url}
-              />
-            ) : (
-              <div className="text-center text-white space-y-4">
-                <h2 className="text-2xl font-semibold">Player de Vídeo</h2>
-                <p className="text-muted-foreground">Selecione uma câmera na lista</p>
-              </div>
-            )}
-          </Card>
-        </div>
+    <div className="h-full w-full relative bg-zinc-950 overflow-hidden">
+      
+      {/* 1. MAPA DE FUNDO */}
+      <div className="absolute inset-0 z-0">
+        <MapViewer
+          cameras={mapCameras}
+          height="100%"
+          onCameraClick={(mapCam) => {
+            const fullCam = cameras.find((c) => c.id === mapCam.id);
+            if (fullCam) handleCameraSelect(fullCam);
+          }}
+        />
       </div>
 
-      <div className="w-80 border-l bg-card">
-        <div className="p-4 border-b">
-          <h3 className="font-semibold">Lista de Câmeras</h3>
-          <p className="text-sm text-muted-foreground">{cameras.length} disponíveis</p>
-        </div>
-        <ScrollArea className="h-[calc(100vh-80px)]">
-          <div className="p-4 space-y-2">
-            {Array.isArray(cameras) && cameras.map((camera) => (
-              <button
-                key={camera.id}
-                onClick={() => setSelectedCamera(camera)}
-                className={`w-full p-3 rounded-lg border transition-colors text-left ${
-                  selectedCamera?.id === camera.id
-                    ? 'bg-primary/10 border-primary'
-                    : 'bg-card hover:bg-muted border-border'
-                }`}
-              >
-                {camera.thumbnail_url ? (
-                  <img
-                    src={camera.thumbnail_url}
-                    alt={camera.name}
-                    className="w-full h-32 object-cover rounded mb-2"
-                  />
-                ) : (
-                  <div className="w-full h-32 bg-muted rounded mb-2 flex items-center justify-center">
-                    <span className="text-xs text-muted-foreground">Sem miniatura</span>
-                  </div>
-                )}
-                <p className="font-medium text-sm">{camera.name}</p>
-              </button>
-            ))}
-          </div>
-        </ScrollArea>
+      {/* 2. SIDEBAR FLUTUANTE */}
+      <div className="absolute top-4 left-4 z-10">
+        <Sheet>
+          <SheetTrigger asChild>
+            <Button size="icon" className="h-10 w-10 rounded-xl shadow-lg bg-black/40 backdrop-blur-md hover:bg-black/60 border border-white/10 text-white transition-all duration-300">
+              <List className="h-5 w-5" />
+            </Button>
+          </SheetTrigger>
+          <SheetContent side="left" className={`p-0 w-[320px] sm:w-[380px] ${glassSheetClasses}`}>
+             <div className="h-full pt-12 px-1"> 
+                <CameraSideList 
+                  cameras={cameras} 
+                  selectedId={selectedCamera?.id} 
+                  onSelect={(cam) => {
+                      const fullCam = cameras.find(c => c.id === cam.id);
+                      if (fullCam) handleCameraSelect(fullCam);
+                  }} 
+                />
+             </div>
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      {/* 3. CONTAINER PRINCIPAL (Player + Timeline) */}
+      <div 
+        className={cn(
+          "absolute bottom-0 left-0 right-0 z-20 transition-transform duration-500 ease-in-out bg-black/90 backdrop-blur-xl shadow-2xl border-t border-white/10 flex flex-col",
+          selectedCamera ? "translate-y-0" : "translate-y-full",
+          isPlayerExpanded ? "h-[90%]" : "h-[50%]",
+          isTimelineExpanded ? "z-50" : "z-20"
+        )}
+      >
+        {selectedCamera && (
+          <>
+            {/* Header do Player */}
+            <div className="flex items-center justify-between px-4 py-3 bg-white/5 border-b border-white/5 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-2.5 h-2.5 rounded-full shadow-[0_0_8px_rgba(0,0,0,0.5)] ${selectedCamera.status === 'online' ? 'bg-green-500 shadow-green-500/50' : 'bg-red-500 shadow-red-500/50'} animate-pulse`} />
+                <div>
+                   <h3 className="font-semibold text-white text-sm leading-none">{selectedCamera.name}</h3>
+                   <p className="text-[10px] text-white/50 mt-0.5">{selectedCamera.location}</p>
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1">
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-white/50 hover:text-white hover:bg-white/10 rounded-full"
+                    onClick={() => setIsPlayerExpanded(!isPlayerExpanded)}
+                >
+                  {isPlayerExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                </Button>
+                <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-white/50 hover:text-red-400 hover:bg-red-500/10 rounded-full"
+                    onClick={handleClosePlayer}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Área do Vídeo */}
+            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
+               <VideoPlayer
+                  url={selectedCamera.stream_url_frontend}
+                  poster={selectedCamera.thumbnail_url}
+                  className="w-full h-full"
+                />
+            </div>
+
+            {/* TIMELINE */}
+            <div 
+              className={cn(
+                "transition-all duration-500 ease-in-out bg-black/95 border-t border-white/10",
+                isTimelineExpanded 
+                  ? "fixed inset-0 z-[60] flex flex-col items-center justify-center" 
+                  : "relative shrink-0 h-24 z-30"
+              )}
+            >
+               <Timeline
+                  currentTime={new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                  events={mockTimelineEvents}
+                  className="border-0 bg-transparent w-full h-full"
+                  isExpanded={isTimelineExpanded}
+                  onToggleExpand={() => setIsTimelineExpanded(!isTimelineExpanded)}
+               />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

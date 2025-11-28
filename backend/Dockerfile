@@ -1,12 +1,19 @@
-# VMS/backend/Dockerfile (Corrigido)
-
 # --- Estágio 1: Build do Frontend ---
-# (Esta parte está correta e permanece igual)
-FROM node:18-alpine AS frontend_builder
+FROM node:20-alpine AS frontend_builder
 WORKDIR /frontend
-COPY ../frontend/package*.json ./
-RUN npm ci --prefer-offline --no-audit --no-fund
-COPY ../frontend ./
+
+# Removemos o corepack/pnpm e usamos npm nativo
+
+# Copia package.json e package-lock.json (Em vez de pnpm-lock.yaml)
+COPY frontend/package.json frontend/package-lock.json ./
+
+# Instala dependências usando npm (npm ci é mais rápido e seguro para CI/CD/Docker)
+RUN npm ci
+
+# Copia o código fonte do frontend
+COPY frontend/ ./
+
+# Build do React/Vite usando npm
 RUN npm run build
 
 # --- Estágio 2: Build do Backend ---
@@ -18,23 +25,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# 1. Copie o requirements.txt primeiro
-COPY ./backend/requirements.txt /app/requirements.txt
-# 2. Instale as dependências
+# 1. Dependências Python
+COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# 3. Copie o código do backend (incluindo o settings.py corrigido)
-COPY ./backend /app
+# 2. Código Backend
+COPY backend/ /app
 
-# 4. AGORA copie os ficheiros do frontend construídos
-#    (Isto garante que não é sobreposto pelo passo 3)
+# 3. Copia o build do frontend para o backend servir
+# Como é um projeto Vite, a pasta de saída padrão é 'dist'
 COPY --from=frontend_builder /frontend/dist /app/frontend_dist
 
-# 5. Finalmente, corra o collectstatic
-#    (Agora o Django vai encontrar /app/frontend_dist)
-
-# Expõe a porta do Django
 EXPOSE 8000
 
-# Comando padrão para rodar o servidor
 CMD ["gunicorn", "config.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "4", "--timeout", "120"]

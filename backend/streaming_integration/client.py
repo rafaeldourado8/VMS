@@ -42,7 +42,8 @@ class MediaMTXApiClient:
         ffmpeg_cmd = (
             f"ffmpeg -hide_banner -loglevel error "
             f"-rtsp_transport tcp "
-            f"-analyzeduration 20000000 -probesize 20000000 "
+            f"-analyzeduration 1000000 -probesize 1000000 "
+            f"-fflags nobuffer "
             f"-i {rtsp_url} "
             f"-c:v copy "
             f"-an " 

@@ -1,11 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import 'leaflet/dist/leaflet.css'; // Importa o CSS do Leaflet
+import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// --- Início da Correção de Ícone ---
-// Isto corrige um problema comum do Leaflet com o Vite/React
-// onde os ícones dos marcadores não aparecem.
+// --- Correção dos Ícones do Leaflet no Vite/React ---
 import iconUrl from 'leaflet/dist/images/marker-icon.png';
 import iconRetinaUrl from 'leaflet/dist/images/marker-icon-2x.png';
 import shadowUrl from 'leaflet/dist/images/marker-shadow.png';
@@ -21,7 +19,6 @@ const DefaultIcon = L.icon({
 });
 
 L.Marker.prototype.options.icon = DefaultIcon;
-// --- Fim da Correção de Ícone ---
 
 interface Camera {
   id: number;
@@ -36,43 +33,50 @@ interface CameraMapProps {
   cameras: Camera[];
 }
 
-// Componente auxiliar para centrar o mapa automaticamente
-const MapBounds = ({ cameras }: CameraMapProps) => {
+// Componente controlador interno para manipular o mapa
+const MapController = ({ cameras }: CameraMapProps) => {
   const map = useMap();
+
   useEffect(() => {
+    // 1. O "Pulo do Gato": Força o Leaflet a recalcular o tamanho do container
+    // Isso corrige o bug onde o mapa não preenche o espaço ou vaza a tela
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+
+    // 2. Ajusta o zoom para mostrar todos os marcadores (se houver)
     const validCameras = (Array.isArray(cameras) ? cameras : []).filter(c => c.latitude && c.longitude);
     if (validCameras.length > 0) {
-      // Cria um 'bound' (limite) que engloba todas as câmaras
       const bounds = L.latLngBounds(validCameras.map(c => [c.latitude, c.longitude]));
-      // Ajusta o mapa a esses limites com um padding
       map.fitBounds(bounds, { padding: [50, 50] });
     }
+
+    return () => clearTimeout(timer);
   }, [cameras, map]);
+
   return null;
-}
+};
 
 const CameraMap = ({ cameras }: CameraMapProps) => {
-  // Filtra câmaras que têm coordenadas válidas
   const camerasWithCoords = cameras.filter(c => c.latitude && c.longitude);
 
   return (
-    <div className="h-[500px] rounded-lg border border-border overflow-hidden">
+    // 'w-full' garante que ocupa 100% da largura do pai
+    // 'isolate z-0' garante que o mapa não fique por cima de menus/dropdowns
+    <div className="h-[500px] w-full rounded-lg border border-border overflow-hidden relative z-0 isolate">
       <MapContainer 
-        center={[-15.7801, -47.9292]} // Centro padrão (Brasília) se não houver câmaras
+        center={[-15.7801, -47.9292]} 
         zoom={4} 
         style={{ height: '100%', width: '100%' }}
       >
-        {/* --- A ALTERAÇÃO ESTÁ AQUI --- */}
         <TileLayer
-          attribution='Mapa por <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         
-        {/* Mapeia as câmaras e cria um Marcador (Marker) para cada uma */}
         {camerasWithCoords.map((camera) => (
           <Marker key={camera.id} position={[camera.latitude, camera.longitude]}>
             <Popup>
-              {/* Conteúdo do popup ao clicar */}
               <div className="font-sans">
                 <h3 className="font-bold text-base mb-2">{camera.name}</h3>
                 <p className="m-0 text-sm">
@@ -89,8 +93,7 @@ const CameraMap = ({ cameras }: CameraMapProps) => {
           </Marker>
         ))}
         
-        {/* Componente que ajusta o zoom e o centro do mapa automaticamente */}
-        <MapBounds cameras={camerasWithCoords} />
+        <MapController cameras={camerasWithCoords} />
       </MapContainer>
     </div>
   );

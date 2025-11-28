@@ -100,7 +100,7 @@ pprofTrustedProxies: []
 ###############################################
 # Global settings -> Playback server
 
-playback: no
+playback: yes
 playbackAddress: :9996
 playbackEncryption: no
 playbackServerKey: server.key
@@ -203,12 +203,12 @@ pathDefaults:
   fallback:
   useAbsoluteTimestamp: false
 
-  record: no
+  record: yes
   recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 1s
   recordMaxPartSize: 50M
-  recordSegmentDuration: 1h
+  recordSegmentDuration: 10m
   recordDeleteAfter: 1d
 
   overridePublisher: yes

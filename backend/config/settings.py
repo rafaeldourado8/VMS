@@ -35,8 +35,8 @@ INSTALLED_APPS = [
     "corsheaders",
     "drf_spectacular",
     "django_filters",
-    "django_celery_results", # --- ADICIONADO (Para resultados de tasks)
-    "django_celery_beat",   # --- ADICIONADO (Para tarefas agendadas)
+    "django_celery_results", # Para resultados de tasks
+    "django_celery_beat",    # Para tarefas agendadas
     # Apps
     "apps.usuarios",
     "apps.cameras",
@@ -50,7 +50,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware", # Adicionado para servir estáticos
+    "whitenoise.middleware.WhiteNoiseMiddleware", # Serve arquivos estáticos
     "django.contrib.sessions.middleware.SessionMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
@@ -65,7 +65,7 @@ ROOT_URLCONF = "config.urls"
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [os.path.join(BASE_DIR, 'templates')], # Para o frontend estático
+        "DIRS": [os.path.join(BASE_DIR, 'templates')],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -83,7 +83,7 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Configuração Padrão (SQLite - para dev local se não usar Docker)
+# Configuração Padrão (SQLite)
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
@@ -112,8 +112,6 @@ if all([DB_NAME, DB_USER, DB_PASSWORD]):
     }
 
 # Password validation
-# https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
-
 AUTH_PASSWORD_VALIDATORS = [
     {
         "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
@@ -130,23 +128,20 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-# https://docs.djangoproject.com/en/5.0/topics/i18n/
-
 LANGUAGE_CODE = "pt-br"
 TIME_ZONE = "America/Sao_Paulo"
 USE_I1N = True
 USE_TZ = True
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
-
 STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Pasta onde o 'collectstatic' vai procurar
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"), # Pasta estática principal do projeto
-    os.path.join(BASE_DIR, "frontend_build"), # Pasta do build do Vite
+    # CORREÇÃO: O Dockerfile copia o build para 'frontend_dist', não 'frontend_build'
+    os.path.join(BASE_DIR, "frontend_dist"), 
 ]
 
 # Configuração do WhiteNoise
@@ -157,8 +152,6 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
 # Default primary key field type
-# https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # Custom User Model
@@ -181,7 +174,6 @@ REST_FRAMEWORK = {
     "DATETIME_FORMAT": "%Y-%m-%dT%H:%M:%S%z",
 }
 
-
 # JWT
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
@@ -191,12 +183,7 @@ SIMPLE_JWT = {
 }
 
 # CORS
-CORS_ALLOW_ALL_ORIGINS = True  # Para desenvolvimento
-# Em produção, use:
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:3000",
-#     "http://127.0.0.1:3000",
-# ]
+CORS_ALLOW_ALL_ORIGINS = True
 
 # OpenAPI (Spectacular)
 SPECTACULAR_SETTINGS = {
@@ -222,26 +209,16 @@ CACHES = {
 }
 
 # --- CONFIGURAÇÃO DO CELERY E RABBITMQ ---
-# -----------------------------------------------------------------
-
-# Broker (RabbitMQ)
-# URL lida do environment (definido no docker-compose.yml)
 CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')
-
-# Backend de Resultados (Usando o DB do Django via django-celery-results)
 CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache' # Usar o cache do Django (Redis)
-
-# Configurações de Serialização
+CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = TIME_ZONE # Reutiliza o TIME_ZONE do Django
+CELERY_TIMEZONE = TIME_ZONE
 CELERY_TASK_TRACK_STARTED = True
-CELERY_TASK_TIME_LIMIT = 30 * 60 # Timeout de 30 min por task
+CELERY_TASK_TIME_LIMIT = 30 * 60
 
-# Mapeamento da Fila (importante!)
-# Mapeia a fila 'detection_ingest' para ser usada
 CELERY_TASK_QUEUES = {
     'detection_ingest': {
         'exchange': 'detection_ingest',
@@ -252,18 +229,13 @@ CELERY_TASK_QUEUES = {
         'binding_key': 'default',
     }
 }
-# Define a fila padrão para tasks que não especificarem uma
 CELERY_TASK_DEFAULT_QUEUE = 'default'
 
-# Roteamento de tasks (conecta a task 'process_detection_message' à sua fila)
 CELERY_TASK_ROUTES = {
     'process_detection_message': {'queue': 'detection_ingest'},
 }
 
-# Celery Beat (Scheduler - para tarefas agendadas)
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-# -----------------------------------------------------------------
-
 
 # LOGGING
 LOGGING = {
@@ -281,7 +253,7 @@ LOGGING = {
             "level": "INFO",
             "class": "logging.handlers.RotatingFileHandler",
             "filename": os.path.join(BASE_DIR, "logs/django_app.log"),
-            "maxBytes": 1024 * 1024 * 5,  # 5MB
+            "maxBytes": 1024 * 1024 * 5,
             "backupCount": 5,
             "formatter": "verbose",
         },
@@ -297,17 +269,17 @@ LOGGING = {
             "level": "INFO",
             "propagate": True,
         },
-        "celery": { # Logger específico para o Celery
+        "celery": {
             "handlers": ["console", "file"],
             "level": "INFO",
             "propagate": True,
         },
-        "apps": { # Logger para todos os 'apps'
+        "apps": {
             "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
         },
-        "streaming_integration": { # Logger para a integração
+        "streaming_integration": {
             "handlers": ["console", "file"],
             "level": "DEBUG",
             "propagate": False,
@@ -315,25 +287,12 @@ LOGGING = {
     },
 }
 
-# --- ATUALIZAÇÃO DA ARQUITETURA (MediaMTX) ---
-
-# URLS DOS SERVIÇOS (NGINX E INTERNOS)
-# -----------------------------------------------------------------
-
+# --- URLS DOS SERVIÇOS ---
 MEDIAMTX_API_URL = os.getenv("MEDIAMTX_API_URL", "http://mediamtx:9997")
-
-# NOVAS VARIÁVEIS DE AUTENTICAÇÃO (Adicionadas)
-# O usuário "mediamtx_api_user" é o que está definido no mediamtx.yml para acesso à API
 MEDIAMTX_API_USER = os.getenv("MEDIAMTX_API_USER", "mediamtx_api_user")
-# A senha da API, que deve bater com a variável MEDIAMTX_API_PASS do .env
 MEDIAMTX_API_PASS = os.getenv("MEDIAMTX_API_PASS", "GtV!sionMed1aMTX$2025")
 
-# NOVAS URLs (MediaMTX e IA)
 NGINX_WEBRTC_URL_BASE = "/ws/live"
-NGINX_AI_URL_BASE = "/ai"        # Rota do Nginx para o serviço de IA
-
-# URL interna para o serviço de IA (usada pelo backend/Django)
+NGINX_AI_URL_BASE = "/ai"
 AI_SERVICE_URL = os.environ.get("AI_SERVICE_URL", "http://localhost:8002")
-
-# Chave de API para o serviço de IA ingerir dados (deve ser a mesma no .env)
 INGEST_API_KEY = os.environ.get("INGEST_API_KEY", "default_insecure_key_12345")
