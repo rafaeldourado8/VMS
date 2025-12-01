@@ -3,7 +3,6 @@ from pathlib import Path
 from datetime import timedelta
 import logging.config
 
-
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -16,12 +15,28 @@ SECRET_KEY = os.environ.get(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
+# LÓGICA MANTIDA: Espera "1" no .env para ativar o Debug.
 DEBUG = str(os.environ.get("DEBUG", "1")) == "1"
 
-ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# --- CORREÇÃO: ALLOWED_HOSTS ---
+# Adicionado 'backend' (nome do container) aos defaults para comunicação interna.
+# Se DEBUG=1, libera geral ('*') para evitar erros 400 em desenvolvimento.
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1,backend").split(",")
+if DEBUG:
+    ALLOWED_HOSTS = ["*"]
+
+# --- CORREÇÃO: CSRF TRUSTED ORIGINS ---
+# Obrigatório no Django 4.0+ quando o frontend e backend estão em portas diferentes.
+# Permite que o Django aceite o login vindo dessas origens.
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:80",
+    "http://127.0.0.1:80",
+    "http://localhost:3000",
+]
 
 # Application definition
-
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -52,7 +67,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware", # Serve arquivos estáticos
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
+    "corsheaders.middleware.CorsMiddleware", # IMPORTANTE: CorsMiddleware deve vir antes de Common e Csrf
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -80,35 +95,62 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# Database
+# --- DATABASE CONFIGURATION (HIGH AVAILABILITY) ---
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-# Configuração Padrão (SQLite)
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
-
-# Configuração do PostgreSQL (para Docker, lendo do .env)
 DB_NAME = os.environ.get("POSTGRES_DB")
 DB_USER = os.environ.get("POSTGRES_USER")
 DB_PASSWORD = os.environ.get("POSTGRES_PASSWORD")
 DB_HOST = os.environ.get("DB_HOST", "localhost")
 DB_PORT = os.environ.get("DB_PORT", "5432")
 
+# Réplicas de Leitura (Para balanceamento de carga)
+# Se não definidas no .env, assumem o mesmo host do Master (para dev local)
+DB_HOST_REPLICA_1 = os.environ.get("DB_HOST_REPLICA_1", DB_HOST)
+DB_HOST_REPLICA_2 = os.environ.get("DB_HOST_REPLICA_2", DB_HOST)
+
 if all([DB_NAME, DB_USER, DB_PASSWORD]):
-    DATABASES["default"] = {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": DB_NAME,
-        "USER": DB_USER,
-        "PASSWORD": DB_PASSWORD,
-        "HOST": DB_HOST,
-        "PORT": DB_PORT,
-        "OPTIONS": {
-            'client_encoding': 'UTF8',
+    DATABASES = {
+        "default": {  # MASTER (Escrita/Leitura Crítica)
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_NAME,
+            "USER": DB_USER,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST,
+            "PORT": DB_PORT,
+            "OPTIONS": {'client_encoding': 'UTF8'},
         },
+        "replica1": { # READ REPLICA 1
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_NAME,
+            "USER": DB_USER,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST_REPLICA_1,
+            "PORT": DB_PORT,
+            "OPTIONS": {'client_encoding': 'UTF8'},
+        },
+        "replica2": { # READ REPLICA 2
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": DB_NAME,
+            "USER": DB_USER,
+            "PASSWORD": DB_PASSWORD,
+            "HOST": DB_HOST_REPLICA_2,
+            "PORT": DB_PORT,
+            "OPTIONS": {'client_encoding': 'UTF8'},
+        }
+    }
+    
+    # Ativa o roteamento de leitura/escrita
+    # Certifique-se de criar o arquivo config/db_router.py
+    DATABASE_ROUTERS = ['config.db_router.PrimaryReplicaRouter']
+
+else:
+    # Fallback para SQLite (Desenvolvimento sem Docker)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
     }
 
 # Password validation
@@ -140,8 +182,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 # Pasta onde o 'collectstatic' vai procurar
 STATICFILES_DIRS = [
     os.path.join(BASE_DIR, "static"), # Pasta estática principal do projeto
-    # CORREÇÃO: O Dockerfile copia o build para 'frontend_dist', não 'frontend_build'
-    os.path.join(BASE_DIR, "frontend_dist"), 
+    os.path.join(BASE_DIR, "frontend_dist"), # Build do React
 ]
 
 # Configuração do WhiteNoise
@@ -182,8 +223,18 @@ SIMPLE_JWT = {
     "BLACKLIST_AFTER_ROTATION": True,
 }
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True
+# --- CORREÇÃO: CORS ---
+# Lista explícita de origens permitidas.
+# Necessário quando 'CORS_ALLOW_CREDENTIALS = True' (usado pelo seu axios).
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:80",
+    "http://127.0.0.1:80",
+    "http://localhost:3000",
+]
+CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_ALL_ORIGINS = True  <-- Removido pois conflita com CREDENTIALS=True
 
 # OpenAPI (Spectacular)
 SPECTACULAR_SETTINGS = {

@@ -1,43 +1,75 @@
 version: '3.8'
 
 services:
+  # --- GATEWAY (FastAPI - Entrada Principal) ---
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    image: gtvision_gateway:latest
+    deploy:
+      mode: replicated
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./gateway:/app
+    env_file:
+      - .env
+    environment:
+      - DJANGO_BACKEND_URL=http://backend:8000
+      - REDIS_URL=redis://redis_cache:6379/1
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - DB_HOST_READERS=postgres_db,postgres_db
+    depends_on:
+      backend:
+        condition: service_healthy  # Espera o backend estar pronto (migrações OK)
+      redis_cache:
+        condition: service_healthy
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/docs"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # --- BACKEND (Django API) ---
   backend:
     build:
       context: .
       dockerfile: ./backend/Dockerfile
-    # Para testes com docker-compose, use 1 réplica. Em produção, use orquestrador + leader migration.
-    deploy:
-      mode: replicated
-      replicas: 1
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 2G
+    container_name: gtvision_backend
+    # O comando abaixo garante que as migrações ocorram antes do Gunicorn subir
+    # python wait_for_db.py segura a execução até o banco responder na porta 5432
+    command: >
+      sh -c "python wait_for_db.py &&
+      python manage.py migrate &&
+      python manage.py collectstatic --noinput &&
+      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120 --log-level info"
     volumes:
       - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles
       - backend_media:/app/media
-      # Permite que a API liste/veja os arquivos brutos (Somente Leitura)
       - mediamtx_recordings:/recordings:ro
     env_file:
-      - ./.env
+      - .env
     environment:
-      # Conecta ao PgBouncer
-      DB_HOST: pgbouncer
-      DB_PORT: 6432
-      REDIS_HOST: redis_cache
-      REDIS_PORT: 6379
-      AI_SERVICE_URL: ""
-      MEDIAMTX_API_URL: http://mediamtx:9997
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
-      CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
-    expose:
-      - "8000"
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - REDIS_HOST=redis_cache
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
     depends_on:
       postgres_db:
         condition: service_healthy
-      pgbouncer:
-        condition: service_started
       redis_cache:
         condition: service_healthy
       rabbitmq:
@@ -45,171 +77,113 @@ services:
     networks:
       - gtvision_network
     restart: unless-stopped
-    # Simplificar startup: NÃO executar migrate/collectstatic automaticamente em múltiplas réplicas.
-    # Execute migrations manualmente antes de escalar ou implemente um leader-only migration job.
-    command: >
-      sh -c "gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 180"
     healthcheck:
+      # Este healthcheck é vital: ele confirma que o Django subiu e as migrações acabaram
       test: ["CMD-SHELL", "curl -f http://localhost:8000/admin/login/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
 
+  # --- WORKER (Celery) ---
   backend_worker:
     build:
       context: .
       dockerfile: ./backend/Dockerfile
     container_name: gtvision_backend_worker
-    command: celery -A config worker --loglevel=info
+    # Espera o backend estar saudável (migrações feitas) antes de rodar
+    command: >
+      sh -c "python wait_for_db.py && 
+             celery -A config worker --loglevel=info --concurrency=2"
     volumes:
       - ./backend/logs:/app/logs
-      # ADICIONADO: O Worker precisa ver os arquivos para fazer recortes (FFmpeg)
       - mediamtx_recordings:/recordings:ro
     env_file:
-      - ./.env
+      - .env
     environment:
-      DB_HOST: pgbouncer
-      DB_PORT: 6432
-      REDIS_HOST: redis_cache
-      REDIS_PORT: 6379
-      AI_SERVICE_URL: ""
-      MEDIAMTX_API_URL: http://mediamtx:9997
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
-      CELERY_RESULT_BACKEND: db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      - CELERY_RESULT_BACKEND=db+postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db:5432/${POSTGRES_DB}
     depends_on:
-      postgres_db:
-        condition: service_healthy
-      pgbouncer:
-        condition: service_started
-      redis_cache:
-        condition: service_healthy
+      backend:
+        condition: service_healthy  # Só sobe se o backend terminou o migrate
       rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
 
-  # --- GATEWAY (CACHE & PROXY) ---
-  gateway:
-    build: ./gateway
-    container_name: gtvision_gateway
-    restart: unless-stopped
+  # --- BEAT (Agendador) ---
+  backend_beat:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: gtvision_backend_beat
+    # Limpa PID, espera o banco e inicia. Depende do backend saudável.
+    command: >
+      sh -c "rm -f /tmp/celerybeat.pid &&
+             python wait_for_db.py &&
+             celery -A config beat --loglevel=info --pidfile=/tmp/celerybeat.pid --scheduler django_celery_beat.schedulers:DatabaseScheduler"
+    env_file:
+      - .env
     environment:
-      - DJANGO_BACKEND_URL=http://backend:8000
-      - REDIS_URL=redis://redis_cache:6379/1
+      - DB_HOST=postgres_db
+      - DB_PORT=5432
+      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
     depends_on:
       backend:
-        condition: service_started
-      redis_cache:
+        condition: service_healthy # Garante que a tabela django_celery_beat existe
+      rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
+    restart: unless-stopped
 
-  # --- LOCUST (TESTES DE CARGA) ---
-  locust:
-    image: locustio/locust
-    container_name: gtvision_locust
-    ports:
-      - "8089:8089"
+  # --- FRONTEND (React) ---
+  frontend:
+    image: node:20-slim
+    container_name: gtvision_frontend
+    working_dir: /app
     volumes:
-      - ./backend/locustfile.py:/mnt/locust/locustfile.py
-    environment:
-      - LOCUST_HOST=http://nginx:80
+      - ./frontend:/app
+      - /app/node_modules
+    command: sh -c "npm install --legacy-peer-deps && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173"
     networks:
       - gtvision_network
+    restart: unless-stopped
 
-  pgbouncer:
-    image: edoburu/pgbouncer
-    container_name: gtvision_pgbouncer
-    environment:
-      - DB_USER=${POSTGRES_USER}
-      - DB_PASSWORD=${POSTGRES_PASSWORD}
-      - DB_HOST=postgres_db
-      - DB_NAME=${POSTGRES_DB}
-      - POOL_MODE=transaction
-      - MAX_CLIENT_CONN=1000
-      - DEFAULT_POOL_SIZE=20
-      - ADMIN_USERS=${POSTGRES_USER}
-      - AUTH_TYPE=trust
-      - AUTH_USER=${POSTGRES_USER}
-      - LISTEN_ADDR=*
-      - LISTEN_PORT=6432
+  # --- NGINX (Proxy) ---
+  nginx:
+    image: nginx:alpine
+    container_name: gtvision_nginx
     ports:
-      - "6432:6432"
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - backend_static:/var/www/static:ro
+      - backend_media:/var/www/media:ro
     depends_on:
-      postgres_db:
-        condition: service_healthy
+      - gateway
+      - frontend
     networks:
       - gtvision_network
     restart: unless-stopped
 
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: gtvision_rabbitmq
-    hostname: rabbitmq
-    env_file:
-      - ./.env
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_VHOST: /
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
-    ports:
-      - "5672:5672"
-      - "15672:15672"
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    # CORREÇÃO AQUI: Aumentado tempos para evitar morte prematura do container
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
-      timeout: 10s
-      retries: 20
-      start_period: 120s
-
-  mediamtx:
-    image: bluenviron/mediamtx:latest-ffmpeg
-    container_name: gtvision_mediamtx
-    ports:
-      - "8554:8554"
-      - "1935:1935"
-      - "8888:8888"
-      - "8889:8889"
-      - "8889:8889/udp"
-      - "8189:8189/udp"
-      - "9997:9997"
-      - "9996:9996" # Porta de Playback (HLS Histórico)
-    environment:
-      - MEDIAMTX_API_PASS=${MEDIAMTX_API_PASS}
-    volumes:
-      - ./mediamtx.yml:/mediamtx.yml:ro
-      - mediamtx_recordings:/recordings
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sS -f http://localhost:9997/v3/paths/list || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
+  # --- INFRAESTRUTURA ---
   postgres_db:
     image: postgres:15-alpine
     container_name: gtvision_postgres
     env_file:
-      - ./.env
+      - .env
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_INITDB_ARGS: "-E UTF8 --locale=C"
       POSTGRES_HOST_AUTH_METHOD: trust
-      # Mude POSTGRES_MAX_CONNECTIONS conforme necessidade real
-      POSTGRES_MAX_CONNECTIONS: 200
-    ports:
-      - "5432:5432"
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
     networks:
@@ -217,9 +191,9 @@ services:
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
+      interval: 5s
       timeout: 5s
-      retries: 5
+      retries: 10
 
   redis_cache:
     image: redis:7-alpine
@@ -238,58 +212,53 @@ services:
       timeout: 5s
       retries: 5
 
-  frontend:
-    image: node:20-slim
-    container_name: gtvision_frontend
-    working_dir: /app
-    shm_size: 1g
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    # Mantido o comando com --hostname
-    command: sh -c "npm install --legacy-peer-deps && npm run dev -- --host 0.0.0.0 --port 5173"
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: gtvision_rabbitmq
+    hostname: rabbitmq
+    env_file:
+      - .env
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_VHOST: /
     ports:
-      - "5173:5173"
+      - "5672:5672"
+      - "15672:15672"
     networks:
       - gtvision_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
 
-  nginx:
-    image: nginx:alpine
-    container_name: gtvision_nginx
-    depends_on:
-      - frontend
-      - backend
-      - gateway
-      - mediamtx
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    container_name: gtvision_mediamtx
     ports:
-      - "80:80"
-      - "443:443"
+      - "8554:8554"
+      - "8888:8888"
+      - "8889:8889"
+      - "9997:9997"
+    environment:
+      - MEDIAMTX_API_PASS=${MEDIAMTX_API_PASS}
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - /dev/null:/etc/nginx/conf.d/default.conf
-      - backend_static:/var/www/static:ro
-      - backend_media:/var/www/media:ro
+      - ./mediamtx.yml:/mediamtx.yml:ro
+      - mediamtx_recordings:/recordings
     networks:
       - gtvision_network
     restart: unless-stopped
 
 volumes:
   gtvision_pg_data:
-    driver: local
   gtvision_redis_data:
-    driver: local
   backend_static:
-    driver: local
   backend_media:
-    driver: local
   mediamtx_recordings:
-    driver: local
 
 networks:
   gtvision_network:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/16
