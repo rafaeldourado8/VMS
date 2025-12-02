@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     "apps.dashboard",
     "apps.suporte",
     "streaming_integration",
+    "apps.thumbnails",
 ]
 
 MIDDLEWARE = [

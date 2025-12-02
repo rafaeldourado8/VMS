@@ -30,4 +30,5 @@ urlpatterns = [
     path("api/", include("apps.configuracoes.urls")),
     path("api/", include("apps.suporte.urls")),
     path('api/', include('streaming_integration.urls')),
+    path("api/", include("apps.thumbnails.urls")),
 ]

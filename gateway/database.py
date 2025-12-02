@@ -1,5 +1,6 @@
 import os
 import random
+import urllib.parse
 from databases import Database
 from sqlalchemy import MetaData, Table, Column, Integer, String, Float, JSON, DateTime, Boolean
 
@@ -13,10 +14,16 @@ DB_HOST_WRITER = os.getenv("DB_HOST", "db")
 # Simula réplicas apontando para o mesmo host se não definido
 DB_HOST_READERS = os.getenv("DB_HOST_READERS", "db,db").split(",") 
 
-# URLs de Conexão
-DATABASE_URL_WRITER = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST_WRITER}:5432/{DB_NAME}"
+# --- CORREÇÃO DE SEGURANÇA E URL ---
+# Codifica usuário e senha para evitar erros com caracteres especiais (#, @, /, :)
+DB_USER_ENCODED = urllib.parse.quote_plus(DB_USER)
+DB_PASSWORD_ENCODED = urllib.parse.quote_plus(DB_PASSWORD)
+
+# URLs de Conexão (Usando credenciais codificadas)
+DATABASE_URL_WRITER = f"postgresql+asyncpg://{DB_USER_ENCODED}:{DB_PASSWORD_ENCODED}@{DB_HOST_WRITER}:5432/{DB_NAME}"
+
 reader_urls = [
-    f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{host}:5432/{DB_NAME}" 
+    f"postgresql+asyncpg://{DB_USER_ENCODED}:{DB_PASSWORD_ENCODED}@{host}:5432/{DB_NAME}" 
     for host in DB_HOST_READERS
 ]
 
@@ -49,7 +56,7 @@ detections_table = Table(
     Column("confidence", Float),   # Antes: confianca
     Column("timestamp", DateTime), # Antes: horario
     Column("image_url", String),   # Antes: imagem_url
-    # Adicione outros campos conforme seu model Django
+    # Adicione outros campos conforme seu model Django se necessário
 )
 
 async def get_reader_db():
