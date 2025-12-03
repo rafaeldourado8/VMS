@@ -14,6 +14,7 @@ export interface Camera {
   longitude?: number;
   status: "online" | "offline" | "lpr";
   thumbnail_url?: string | null;
+  snapshot_url?: string; // Novo campo vindo da API
   stream_url?: string;
 }
 
@@ -91,7 +92,7 @@ export default function MapViewer({
           map.fitBounds(bounds);
       }
     }
-  }, [map, validCameras.length]); // Removido selectedCamera das deps para não resetar zoom ao clicar
+  }, [map, validCameras.length]); 
 
   const handleMarkerClick = (camera: Camera) => {
     setSelectedCamera(camera);
@@ -126,6 +127,15 @@ export default function MapViewer({
             clickTimeoutRef.current = null;
         }, 250); 
     }
+  };
+
+  // Função auxiliar para determinar qual imagem mostrar
+  const getCameraImageUrl = (camera: Camera) => {
+    if (camera.thumbnail_url) return camera.thumbnail_url;
+    // Adiciona timestamp para forçar atualização visual caso o browser faça cache agressivo,
+    // mas o backend (Redis) que controla a expiração real de 30s.
+    if (camera.snapshot_url) return `${camera.snapshot_url}?t=${Date.now()}`;
+    return null;
   };
 
   if (!isLoaded) return <div style={{ height }} className="w-full h-full bg-muted animate-pulse rounded-lg flex items-center justify-center text-muted-foreground">Carregando Mapa...</div>;
@@ -187,19 +197,22 @@ export default function MapViewer({
                     {/* Fallback (Fundo) */}
                     <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 bg-slate-200 z-0">
                         <CameraIcon size={32} strokeWidth={1.5} />
-                        <span className="text-[10px] font-medium mt-2 uppercase tracking-widest">Sem Sinal</span>
+                        <span className="text-[10px] font-medium mt-2 uppercase tracking-widest">
+                            {camera.status === 'online' ? 'Carregando...' : 'Sem Sinal'}
+                        </span>
                     </div>
 
-                    {/* Imagem Real (Se existir e carregar) */}
-                    {camera.thumbnail_url && (
+                    {/* Imagem Real (Estática ou Snapshot Dinâmico) */}
+                    {getCameraImageUrl(camera) && (
                         <img 
-                            src={camera.thumbnail_url} 
+                            src={getCameraImageUrl(camera)!} 
                             alt={camera.name} 
                             className="w-full h-full object-cover z-10 transition-transform duration-700 group-hover:scale-105"
                             onError={(e) => {
                                 // Esconde a imagem quebrada para revelar o fallback atrás
                                 e.currentTarget.style.display = 'none';
                             }}
+                            loading="lazy"
                         />
                     )}
 

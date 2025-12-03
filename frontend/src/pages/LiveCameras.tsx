@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query"; // Importação para Cache
-import { List, X, Maximize2, Minimize2, Loader2 } from "lucide-react";
+import { List, X, Maximize2, Minimize2, Loader2, Camera } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import api from "@/lib/axios";
@@ -36,6 +36,9 @@ const LiveCameras: React.FC = () => {
   const [selectedCamera, setSelectedCamera] = useState<CameraType | null>(null);
   const [isPlayerExpanded, setIsPlayerExpanded] = useState(false);
   const [isTimelineExpanded, setIsTimelineExpanded] = useState(false);
+  
+  // Referência para acessar o elemento <video> diretamente
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   const { toast } = useToast();
 
@@ -80,6 +83,58 @@ const LiveCameras: React.FC = () => {
     setSelectedCamera(null);
     setIsPlayerExpanded(false);
     setIsTimelineExpanded(false);
+  };
+
+  // Função para tirar a foto (snapshot) da stream
+  const handleSnapshot = () => {
+    if (!videoRef.current || !selectedCamera) return;
+
+    const video = videoRef.current;
+    
+    // Verifica se o vídeo tem dimensões válidas
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      toast({
+        title: "Erro ao capturar",
+        description: "Aguarde o vídeo carregar antes de atualizar a thumb.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Cria um canvas temporário
+    const canvas = document.createElement("canvas");
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      // Desenha o frame atual do vídeo no canvas
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      
+      try {
+        // Converte para Base64 (JPG com 90% de qualidade)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.9);
+
+        // Atualiza o estado visual localmente
+        setSelectedCamera(prev => prev ? ({
+          ...prev,
+          thumbnail_url: dataUrl
+        }) : null);
+
+        toast({
+          title: "Thumbnail atualizada",
+          description: "A capa foi definida com sucesso (visualização local).",
+          className: "bg-green-500 text-white border-none"
+        });
+      } catch (error) {
+        console.error("Erro ao gerar snapshot:", error);
+        toast({
+            title: "Erro de segurança",
+            description: "Não foi possível capturar a imagem (CORS Policy).",
+            variant: "destructive"
+        });
+      }
+    }
   };
 
   if (isLoading) {
@@ -168,12 +223,22 @@ const LiveCameras: React.FC = () => {
             </div>
 
             {/* Área do Vídeo */}
-            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
+            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center group">
                <VideoPlayer
                   url={selectedCamera.stream_url_frontend}
                   poster={selectedCamera.thumbnail_url}
                   className="w-full h-full"
+                  videoRefProp={videoRef} // Passando a referência para o player
                 />
+
+                {/* Botão de Snapshot (Toast Action) */}
+                <Button 
+                  onClick={handleSnapshot}
+                  className="absolute bottom-6 right-6 z-50 bg-zinc-900/90 hover:bg-zinc-800 text-white gap-2 border border-white/10 shadow-lg backdrop-blur-sm transition-opacity duration-300 opacity-0 group-hover:opacity-100"
+                >
+                  <Camera className="w-4 h-4" />
+                  <span>Atualizar thumb</span>
+                </Button>
             </div>
 
             {/* TIMELINE */}

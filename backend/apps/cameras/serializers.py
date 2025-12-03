@@ -2,6 +2,7 @@ from django.core.validators import URLValidator
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from urllib.parse import urlparse, urlunparse, quote
+from django.urls import reverse  # Import necessário
 import re
 from django.conf import settings
 
@@ -23,15 +24,26 @@ class CameraSerializer(StreamingSerializerMixin, serializers.ModelSerializer):
     # Mantemos este campo para compatibilidade com o frontend
     stream_url_frontend = serializers.SerializerMethodField()
 
-    # --- CORREÇÃO AQUI ---
-    # Declaramos explicitamente o campo para que o DRF o reconheça.
-    # A lógica (get_ai_websocket_url) continuará vindo do StreamingSerializerMixin.
+    # WebSocket URL para IA
     ai_websocket_url = serializers.SerializerMethodField() 
-    # ---------------------
+
+    # --- NOVO CAMPO: URL para o Snapshot Dinâmico ---
+    snapshot_url = serializers.SerializerMethodField()
 
     def get_stream_url_frontend(self, obj):
         # Reutiliza a lógica centralizada no Mixin
         return self.get_webrtc_url(obj)
+
+    def get_snapshot_url(self, obj):
+        """
+        Gera a URL completa para o endpoint de snapshot da câmera.
+        Ex: http://localhost:8000/api/thumbnails/1/
+        """
+        request = self.context.get('request')
+        url = reverse('camera-snapshot', kwargs={'camera_id': obj.id})
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
     class Meta:
         model = Camera
@@ -43,6 +55,7 @@ class CameraSerializer(StreamingSerializerMixin, serializers.ModelSerializer):
             "status",
             "stream_url",
             "thumbnail_url",
+            "snapshot_url", # Novo campo exposto
             "latitude",
             "longitude",
             "detection_settings",
@@ -57,6 +70,7 @@ class CameraSerializer(StreamingSerializerMixin, serializers.ModelSerializer):
             "owner_email",
             "stream_url_frontend",
             "ai_websocket_url",
+            "snapshot_url",
         ]
 
     def validate_stream_url(self, value: str) -> str:
