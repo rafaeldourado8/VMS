@@ -155,13 +155,33 @@ services:
       - gtvision_network
     restart: unless-stopped
 
-  # --- NGINX (Proxy) ---
-  nginx:
-    image: nginx:alpine
-    container_name: gtvision_nginx
+  # --- HAPROXY (Load Balancer - Split-Brain) ---
+  haproxy:
+    image: haproxy:2.9-alpine
+    container_name: gtvision_haproxy
     ports:
       - "80:80"
       - "443:443"
+      - "8404:8404"  # Stats
+    volumes:
+      - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+    depends_on:
+      - nginx
+      - gateway
+      - mediamtx
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "haproxy", "-c", "-f", "/usr/local/etc/haproxy/haproxy.cfg"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  # --- NGINX (Servidor Estático) ---
+  nginx:
+    image: nginx:alpine
+    container_name: gtvision_nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - backend_static:/var/www/static:ro
@@ -238,11 +258,20 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     container_name: gtvision_mediamtx
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'              # CONFIGURÁVEL: 4 CPUs para 250 câmeras
+          memory: 4G               # CONFIGURÁVEL: 4GB RAM (16MB por câmera)
+        reservations:
+          cpus: '2.0'
+          memory: 2G
     ports:
-      - "8554:8554"
-      - "8888:8888"
-      - "8889:8889"
-      - "9997:9997"
+      - "8554:8554"                # RTSP
+      - "8888:8888"                # HLS
+      - "8889:8889"                # WebRTC
+      - "9997:9997"                # API
+      - "9998:9998"                # Metrics (Prometheus)
     environment:
       - MEDIAMTX_API_PASS=${MEDIAMTX_API_PASS}
     volumes:
@@ -251,6 +280,11 @@ services:
     networks:
       - gtvision_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9997/v3/config/global/get"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
 volumes:
   gtvision_pg_data:

@@ -10,10 +10,11 @@ logDestinations: [stdout]
 logFile: mediamtx.log
 sysLogPrefix: mediamtx
 
-readTimeout: 10s
-writeTimeout: 10s
-writeQueueSize: 512
-udpMaxPayloadSize: 1472
+# CONFIGURÁVEL: Timeouts para 250 câmeras
+readTimeout: 10s              # Timeout de leitura RTSP
+writeTimeout: 10s             # Timeout de escrita
+writeQueueSize: 1024          # CONFIGURÁVEL: Aumentado de 512 para 250 câmeras (buffer de escrita)
+udpMaxPayloadSize: 1472       # MTU padrão
 
 runOnConnect:
 runOnConnectRestart: no
@@ -112,7 +113,7 @@ playbackTrustedProxies: []
 # Global settings -> RTSP server
 
 rtsp: yes
-rtspTransports: [udp, multicast, tcp]
+rtspTransports: [tcp, udp]        # CONFIGURÁVEL: TCP primeiro (mais estável para câmeras remotas)
 rtspEncryption: "no"
 rtspAddress: :8554
 rtspsAddress: :8322
@@ -152,16 +153,13 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: []
 hlsAlwaysRemux: no
 
-# --- CORREÇÃO CRÍTICA PARA NAVEGADORES ---
-# Mudamos de 'lowLatency' (fmp4) para 'mpegts' para garantir compatibilidade
-# e evitar erros de 'DEMUXER_ERROR_COULD_NOT_PARSE'
-hlsVariant: mpegts
-hlsSegmentCount: 5
-hlsSegmentDuration: 1s
-# hlsPartDuration: 200ms # Não usado em mpegts
-hlsSegmentMaxSize: 50M
-hlsDirectory: ''
-hlsMuxerCloseAfter: 60s
+# CONFIGURÁVEL: HLS otimizado para 250 câmeras
+hlsVariant: mpegts            # mpegts = compatível, fmp4 = moderno mas pode dar erro
+hlsSegmentCount: 3            # CONFIGURÁVEL: Reduzido de 5 para 3 (menos memória, buffer menor)
+hlsSegmentDuration: 2s        # CONFIGURÁVEL: 2s = equilíbrio latência/carga (1s=baixa latência, 4s=menos CPU)
+hlsSegmentMaxSize: 50M        # Tamanho máximo do segmento
+hlsDirectory: ''              # Segmentos em memória (mais rápido)
+hlsMuxerCloseAfter: 60s       # Fecha muxer após 60s de inatividade
 
 ###############################################
 # Global settings -> WebRTC server
@@ -198,27 +196,28 @@ pathDefaults:
   sourceOnDemand: no
   sourceOnDemandStartTimeout: 10s
   sourceOnDemandCloseAfter: 10s
-  maxReaders: 0
+  maxReaders: 100             # CONFIGURÁVEL: Limite de leitores simultâneos por stream (0=ilimitado, 100=seguro)
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: false
 
+  # CONFIGURÁVEL: Gravação otimizada para 250 câmeras
   record: yes
-  recordPath: ./recordings/%path/%Y-%m-%d_%H-%M-%S-%f
-  recordFormat: fmp4
-  recordPartDuration: 1s
-  recordMaxPartSize: 50M
-  recordSegmentDuration: 10m
-  recordDeleteAfter: 1d
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  recordFormat: fmp4          # fmp4 = moderno e eficiente
+  recordPartDuration: 2s      # CONFIGURÁVEL: Duração de cada parte (2s = menos I/O)
+  recordMaxPartSize: 50M      # Tamanho máximo por parte
+  recordSegmentDuration: 1h   # CONFIGURÁVEL: Segmento de 1h (facilita busca/playback)
+  recordDeleteAfter: 7d       # CONFIGURÁVEL: Retenção de 7 dias (ajustar conforme disco disponível)
 
   overridePublisher: yes
   srtPublishPassphrase:
 
-  rtspTransport: automatic
+  rtspTransport: tcp              # CONFIGURÁVEL: Força TCP (evita packet loss)
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 0
+  rtspUDPReadBufferSize: 8388608  # CONFIGURÁVEL: 8MB buffer
 
   mpegtsUDPReadBufferSize: 0
   rtpSDP:
@@ -260,13 +259,29 @@ pathDefaults:
 # Path settings
 
 paths:
-  # 1. Câmera de Teste (A que você quer ver AGORA)
-  teste:
-    source: rtsp://sua_camera
+  # Câmeras reais (teste)
+  cam_1:
+    source: rtsp://admin:Camerite123@45.236.226.75:6053/cam/realmonitor?channel=1&subtype=0
     sourceOnDemand: yes
-    runOnDemandStartTimeout: 10s
-    runOnDemandCloseAfter: 10s
-
-  # 2. Regra genérica (para o futuro/escalabilidade)
-  all_others:
-    source: publisher
+    sourceOnDemandStartTimeout: 10s
+    sourceOnDemandCloseAfter: 10s
+    
+  cam_2:
+    source: rtsp://admin:Camerite123@45.236.226.75:6052/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
+    
+  cam_3:
+    source: rtsp://admin:Camerite123@45.236.226.74:6050/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
+    
+  cam_4:
+    source: rtsp://admin:Camerite123@45.236.226.72:6049/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
+    
+  cam_5:
+    source: rtsp://admin:Camerite123@45.236.226.71:6046/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
+    
+  cam_6:
+    source: rtsp://admin:Camerite123@45.236.226.70:6045/cam/realmonitor?channel=1&subtype=0
+    sourceOnDemand: yes
