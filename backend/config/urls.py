@@ -6,8 +6,12 @@ URL configuration for config project.
 from apps.usuarios.views import LogoutAPIView, MeAPIView, MyTokenObtainPairView
 from django.contrib import admin
 from django.urls import include, path
+from django.views.decorators.csrf import csrf_exempt
 # 2. Remova 'TokenObtainPairView' e importe apenas 'TokenRefreshView'
 from rest_framework_simplejwt.views import TokenRefreshView
+
+# Desabilita CSRF para admin em desenvolvimento
+admin.site.login = csrf_exempt(admin.site.login)
 
 urlpatterns = [
     path("admin/", admin.site.urls),

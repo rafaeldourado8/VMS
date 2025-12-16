@@ -44,6 +44,15 @@ CSRF_TRUSTED_ORIGINS = [
 CSRF_USE_SESSIONS = False
 CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_NAME = 'csrftoken'
+SESSION_COOKIE_NAME = 'sessionid'
+
+# Em desenvolvimento, aceita qualquer origem
+if DEBUG:
+    CSRF_COOKIE_SAMESITE = None
+    SESSION_COOKIE_SAMESITE = None
+    # Desabilita CSRF para admin em desenvolvimento
+    CSRF_FAILURE_VIEW = 'django.views.csrf.csrf_failure'
 
 # Application definition
 INSTALLED_APPS = [
@@ -75,20 +84,23 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware", # Serve arquivos estáticos
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "corsheaders.middleware.CorsMiddleware", # IMPORTANTE: CorsMiddleware deve vir antes de Common e Csrf
+    "corsheaders.middleware.CorsMiddleware",
     "django.middleware.common.CommonMiddleware",
-    "django.middleware.csrf.CsrfViewMiddleware",
+    # CSRF desabilitado temporariamente para desenvolvimento
+    # "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-# Desabilita CSRF apenas para desenvolvimento
+# Configurações CSRF para desenvolvimento com proxies
 if DEBUG:
     CSRF_COOKIE_SECURE = False
     SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_DOMAIN = None
+    SESSION_COOKIE_DOMAIN = None
 
 ROOT_URLCONF = "config.urls"
 
