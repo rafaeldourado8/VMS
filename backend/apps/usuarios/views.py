@@ -13,7 +13,7 @@ from .permissions import IsAdminOrReadOnly
 
 # --- Esta é a view /api/auth/me/ ---
 class MeAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated]  # ✅ Protegida
 
     def get(self, request, format=None):
         serializer = UsuarioSerializer(request.user)
@@ -24,12 +24,13 @@ class MeAPIView(APIView):
 class MyTokenObtainPairView(TokenObtainPairView):
     """
     Usa o nosso serializer customizado para o login.
+    ✅ PÚBLICO - Herda permission_classes = [AllowAny] do TokenObtainPairView
     """
     serializer_class = MyTokenObtainPairSerializer
 
 
 class UsuarioViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]  # ✅ Protegida
     queryset = Usuario.objects.all().order_by("-created_at")
     serializer_class = UsuarioSerializer
 

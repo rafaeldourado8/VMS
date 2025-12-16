@@ -141,8 +141,9 @@ async def gateway_proxy(path: str, request: Request):
     headers.pop("host", None)
     headers.pop("content-length", None)
 
-    # Cache apenas para GET (Dashboard/Listagens)
-    should_cache = method == "GET"
+    # ✅ NUNCA cachear rotas de autenticação
+    is_auth_route = path.startswith("api/auth/")
+    should_cache = method == "GET" and not is_auth_route
     
     if should_cache:
         auth_token = headers.get("authorization", "public")

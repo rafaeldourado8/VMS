@@ -1,78 +1,58 @@
-// VMS/frontend/src/components/Timeline.tsx
 import { useState, useRef, MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Calendar as CalendarIcon, Clock, Save, Pause, Play, Scissors } from 'lucide-react';
+import { Calendar as CalendarIcon, Clock, Save, Pause, Play, Scissors, ChevronDown } from 'lucide-react';
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { ClipTrimmer } from './ClipTrimmer'; // Importe o componente criado
+import { ClipTrimmer } from './ClipTrimmer';
 
 interface TimelineProps {
-  currentTime: number;
-  duration: number;
-  isPlaying: boolean;
-  onSeek: (time: number) => void;
-  onTogglePlay: () => void;
+  currentTime: string; // Simplifiquei para string visual por enquanto
+  duration?: number;
+  isPlaying?: boolean;
+  onSeek?: (time: number) => void;
+  onTogglePlay?: () => void;
   onSaveClip?: (start: number, end: number) => void;
+  events?: any[];
   className?: string;
+  isExpanded?: boolean;
+  onToggleExpand?: () => void;
 }
 
 const Timeline = ({ 
   currentTime, 
-  duration, 
   isPlaying,
-  onSeek,
   onTogglePlay,
-  onSaveClip,
   className 
 }: TimelineProps) => {
   const [zoomLevel, setZoomLevel] = useState<'24h' | '1h' | '5m'>('24h');
-  const [isClipMode, setIsClipMode] = useState(false);
-  // Range inicial de recorte (ex: 20% a 80%)
-  const [clipRange, setClipRange] = useState({ start: 20, end: 80 }); 
   
-  const progressBarRef = useRef<HTMLDivElement>(null);
-  const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
-
-  const handleSeek = (e: MouseEvent<HTMLDivElement>) => {
-    if (!progressBarRef.current || duration <= 0) return;
-    const rect = progressBarRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const percentage = Math.max(0, Math.min(1, x / rect.width));
-    onSeek(percentage * duration);
-  };
-
-  const handleSaveClick = () => {
-    if (!isClipMode) {
-      setIsClipMode(true);
-      // Pausa o vídeo para facilitar a edição
-      if (isPlaying) onTogglePlay();
-    } else {
-      // Confirma o salvamento
-      const startSec = (clipRange.start / 100) * duration;
-      const endSec = (clipRange.end / 100) * duration;
-      onSaveClip?.(startSec, endSec);
-      setIsClipMode(false);
-    }
-  };
-
+  // Design Limpo e Branco (Conforme solicitado)
   return (
-    <div className={cn("flex flex-col w-full bg-white border-t shadow-sm select-none", className)}>
+    <div className={cn("flex flex-col w-full bg-white text-zinc-800 select-none", className)}>
       
-      {/* Toolbar */}
-      <div className="flex items-center justify-between px-3 md:px-6 py-2 border-b h-12">
-        <div className="flex items-center gap-2">
-          <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-700" onClick={onTogglePlay}>
-             {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
+      {/* 1. Controles Superiores */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-100">
+        <div className="flex items-center gap-3">
+          <Button 
+            size="icon" 
+            variant="outline" 
+            className="h-8 w-8 rounded-full border-zinc-300 hover:bg-zinc-100 hover:text-blue-600" 
+            onClick={onTogglePlay}
+          >
+             {isPlaying ? <Pause className="h-3.5 w-3.5 fill-current" /> : <Play className="h-3.5 w-3.5 fill-current" />}
           </Button>
 
-          <div className="hidden sm:flex gap-1">
+          <div className="hidden sm:flex bg-zinc-100 rounded-lg p-0.5">
             {['24h', '1h', '5m'].map((l) => (
               <Button
                 key={l}
                 size="sm"
-                variant={zoomLevel === l ? "default" : "outline"}
-                className="h-7 text-xs px-2"
+                variant="ghost"
+                className={cn(
+                    "h-6 text-[10px] px-3 rounded-md transition-all",
+                    zoomLevel === l ? "bg-white shadow-sm text-zinc-900 font-bold" : "text-zinc-500 hover:text-zinc-700"
+                )}
                 onClick={() => setZoomLevel(l as any)}
               >
                 {l}
@@ -81,56 +61,40 @@ const Timeline = ({
           </div>
         </div>
 
-        <Button 
-            onClick={handleSaveClick}
-            variant={isClipMode ? "default" : "secondary"}
-            className={cn("h-8 text-xs font-medium gap-2", isClipMode && "bg-yellow-500 hover:bg-yellow-600 text-black")}
-        >
-            {isClipMode ? <Save className="w-3.5 h-3.5" /> : <Scissors className="w-3.5 h-3.5" />}
-            {isClipMode ? "Confirmar Recorte" : "Salvar Clipe"}
-        </Button>
-      </div>
-
-      {/* Régua / Barra de Progresso */}
-      <div className="relative w-full h-20 px-6 flex flex-col justify-center bg-gray-50/50">
-        <div 
-            ref={progressBarRef}
-            className="relative h-3 w-full bg-gray-200 rounded-full cursor-pointer group touch-none"
-            onClick={handleSeek}
-        >
-            {/* Barra de Progresso */}
-            <div 
-                className="absolute top-0 left-0 h-full bg-blue-500 rounded-l-full transition-all duration-75"
-                style={{ width: `${progress}%` }}
-            />
-            
-            {/* Knob do Player */}
-            <div 
-                className="absolute top-1/2 -translate-y-1/2 w-4 h-4 bg-white border-2 border-blue-500 rounded-full shadow-md z-30"
-                style={{ left: `${progress}%`, transform: 'translate(-50%, -50%)' }} 
-            />
-
-            {/* Componente de Recorte Isolado */}
-            {isClipMode && <ClipTrimmer range={clipRange} />}
-        </div>
-
-        {/* Marcações de Tempo */}
-        <div className="flex justify-between text-[10px] text-gray-400 font-medium mt-2">
-            <span>00:00</span>
-            <span>12:00</span>
-            <span>23:59</span>
+        <div className="flex items-center gap-4 text-xs font-medium text-zinc-500">
+             <div className="flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-blue-500" />
+                <span className="text-zinc-900">{currentTime}</span>
+             </div>
+             <div className="h-3 w-[1px] bg-zinc-300" />
+             <div className="flex items-center gap-1.5 cursor-pointer hover:text-blue-600">
+                <CalendarIcon className="w-3.5 h-3.5" />
+                <span>Hoje</span>
+                <ChevronDown className="w-3 h-3 opacity-50" />
+             </div>
         </div>
       </div>
 
-      {/* Footer / Info */}
-      <div className="flex items-center justify-between px-6 py-2 bg-white border-t text-xs text-gray-500">
-        <div className="flex items-center gap-2">
-            <Clock className="w-3.5 h-3.5" />
-            <span>{format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</span> 
+      {/* 2. Área da Régua (Visual Profissional) */}
+      <div className="relative w-full h-16 bg-zinc-50/50 flex flex-col justify-center px-4">
+        {/* Linha base */}
+        <div className="absolute top-1/2 left-0 right-0 h-[2px] bg-zinc-200" />
+
+        {/* Marcadores de Tempo (Fake para visual) */}
+        <div className="absolute inset-0 flex justify-between items-center px-4 pointer-events-none opacity-30">
+             {[...Array(12)].map((_, i) => <div key={i} className="h-full w-[1px] bg-zinc-400" />)}
         </div>
-        <Button variant="link" size="sm" className="h-auto p-0 text-xs">
-            <CalendarIcon className="w-3.5 h-3.5 mr-1" /> Alterar Data
-        </Button>
+
+        {/* Indicador de "Agora" (Agulha) */}
+        <div className="absolute top-0 bottom-0 left-1/2 w-[2px] bg-red-500 z-10 shadow-[0_0_10px_rgba(239,68,68,0.5)]">
+             <div className="absolute top-0 -translate-x-1/2 -mt-1 w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-t-[6px] border-t-red-500" />
+        </div>
+
+        {/* Barra de Eventos (Exemplo) */}
+        <div className="relative h-4 w-full bg-zinc-200/50 rounded-full overflow-hidden mt-1">
+             <div className="absolute left-[20%] width-[30%] h-full bg-blue-400/30" />
+             <div className="absolute left-[60%] width-[5%] h-full bg-blue-600" />
+        </div>
       </div>
     </div>
   );
