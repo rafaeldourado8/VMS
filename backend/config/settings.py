@@ -32,9 +32,18 @@ CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:80",
+    "http://localhost",
     "http://127.0.0.1:80",
+    "http://127.0.0.1",
     "http://localhost:3000",
+    "http://localhost:8000",
+    "http://127.0.0.1:8000",
 ]
+
+# Aceita CSRF de proxies
+CSRF_USE_SESSIONS = False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_SAMESITE = 'Lax'
 
 # Application definition
 INSTALLED_APPS = [
@@ -75,6 +84,11 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
+
+# Desabilita CSRF apenas para desenvolvimento
+if DEBUG:
+    CSRF_COOKIE_SECURE = False
+    SESSION_COOKIE_SECURE = False
 
 ROOT_URLCONF = "config.urls"
 
@@ -182,8 +196,10 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Pasta onde o 'collectstatic' vai procurar
 STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, "static"), # Pasta estática principal do projeto
-    os.path.join(BASE_DIR, "frontend_dist"), # Build do React
+    d for d in [
+        os.path.join(BASE_DIR, "static"),
+        os.path.join(BASE_DIR, "frontend_dist"),
+    ] if os.path.exists(d)
 ]
 
 # Configuração do WhiteNoise

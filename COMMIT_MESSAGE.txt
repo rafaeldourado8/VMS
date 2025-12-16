@@ -1,0 +1,69 @@
+fix: corrige CSS do Django Admin e CSRF via Kong/HAProxy
+
+## Problemas Corrigidos
+
+### 1. Django Admin sem CSS
+- Arquivos estáticos não eram servidos através do Kong
+- Adicionada rota `/static` e `/media` no Kong
+- Kong agora roteia para Nginx corretamente
+
+### 2. Erro CSRF 403
+- Django bloqueava requests via proxy
+- Configurado CSRF_TRUSTED_ORIGINS para aceitar Kong/HAProxy
+- Ajustadas configurações de cookies para desenvolvimento
+
+### 3. Erro 503 no HAProxy
+- Validado roteamento HAProxy → Kong → Backend
+- Confirmado healthchecks funcionando
+
+## Arquivos Modificados
+
+### Configuração
+- kong/kong.yml: Nova rota `django-static` para servir /static e /media
+- backend/config/settings.py: 
+  - CSRF_TRUSTED_ORIGINS expandido
+  - CSRF_COOKIE_SAMESITE = 'Lax'
+  - Cookies seguros desabilitados em DEBUG mode
+
+### Scripts de Diagnóstico (Novos)
+- fix-css.bat: Correção automática de CSS
+- check-static.bat: Diagnóstico de arquivos estáticos
+- open-admin.bat: Abre admin pela porta correta
+- diagnose.bat: Diagnóstico completo do sistema
+
+### Documentação (Nova)
+- TROUBLESHOOTING-CSS.md: Guia completo de troubleshooting
+- README-CSS-FIX.md: Guia rápido de uso dos scripts
+
+## Arquitetura Validada
+
+```
+Fluxo de Usuário (React App / API):
+Cloudflare → HAProxy → Kong → Backend Django
+
+Fluxo de Vídeo (Playback):
+Cloudflare → HAProxy → MediaMTX
+
+Fluxo de Arquivos Estáticos:
+Cloudflare → HAProxy → Kong → Nginx
+```
+
+## Status
+
+✅ HAProxy configurado e funcionando
+✅ Kong configurado com todas as rotas
+✅ Django Admin acessível e com CSS
+✅ Arquivos estáticos sendo servidos
+✅ CSRF funcionando via proxy
+
+## Próximos Passos
+
+- [ ] Implementar Keycloak (Fase 1.5)
+- [ ] Testes de carga com 50 câmeras
+- [ ] Configurar Prometheus/Grafana
+
+---
+
+Arquivos alterados: 6
+Arquivos criados: 6
+Linhas adicionadas: ~800
