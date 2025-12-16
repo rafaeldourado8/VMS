@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.venv
+venv/
+models/*.h5
+models/*.pt
+!models/.gitkeep
+logs/
+*.log
+.DS_Store

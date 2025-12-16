@@ -1,0 +1,31 @@
+services:
+  ai-service:
+    build: .
+    container_name: gtvision-ai
+    ports:
+      - "8080:8000"
+      - "9092:9090"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - WORKERS=4
+      - BATCH_SIZE=8
+      - ENABLE_GPU=false
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+    depends_on:
+      - redis
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: gtvision-ai-redis
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
+volumes:
+  redis_data:
