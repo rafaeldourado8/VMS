@@ -4,10 +4,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { FileSpreadsheet, FileText, Search } from 'lucide-react';
+import { FileText, Search } from 'lucide-react';
 import api from '@/lib/axios';
 import { useToast } from '@/hooks/use-toast';
-import * as XLSX from 'xlsx';
 
 interface Detection {
   id: number;
@@ -127,58 +126,7 @@ const Detections = () => {
     });
   };
 
-  const exportToExcel = () => {
-    if (detections.length === 0) {
-      toast({
-        title: 'Nenhum dado para exportar',
-        description: 'Realize uma busca primeiro',
-        variant: 'destructive',
-      });
-      return;
-    }
-
-    const excelData = detections.map((detection) => ({
-      Placa: detection.plate,
-      Câmera: detection.camera_name,
-      'Data/Hora': new Date(detection.timestamp).toLocaleString('pt-BR'),
-      'Confiança (%)': (detection.confidence * 100).toFixed(1),
-      Timestamp: detection.timestamp,
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(excelData);
-    const columnWidths = [
-      { wch: 15 },
-      { wch: 25 },
-      { wch: 20 },
-      { wch: 12 },
-      { wch: 20 },
-    ];
-    worksheet['!cols'] = columnWidths;
-
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Detecções LPR');
-
-    const infoSheet = XLSX.utils.aoa_to_sheet([
-      ['Relatório de Detecções LPR'],
-      ['Data de Geração:', new Date().toLocaleString('pt-BR')],
-      ['Total de Registros:', detections.length],
-      [''],
-      ['Filtros Aplicados:'],
-      ['Câmera:', filters.camera_id || 'Todas'],
-      ['Placa:', filters.plate || 'Todas'],
-      ['Data Inicial:', filters.start_date || 'Não especificada'],
-      ['Data Final:', filters.end_date || 'Não especificada'],
-      ['Marca/Modelo:', filters.brand_model || 'Não especificado'],
-    ]);
-    XLSX.utils.book_append_sheet(workbook, infoSheet, 'Informações');
-
-    XLSX.writeFile(workbook, `deteccoes_lpr_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-    toast({
-      title: 'Exportação concluída',
-      description: 'Arquivo Excel baixado com sucesso',
-    });
-  };
+  // Excel export removido - usar backend para gerar relatórios
 
   return (
     <div className="p-8 space-y-6">
@@ -259,15 +207,7 @@ const Detections = () => {
               <Search className="h-4 w-4" />
               Buscar
             </Button>
-            <Button 
-              variant="outline" 
-              className="gap-2"
-              onClick={exportToExcel}
-              disabled={detections.length === 0}
-            >
-              <FileSpreadsheet className="h-4 w-4" />
-              Exportar Excel
-            </Button>
+
             <Button 
               variant="outline" 
               className="gap-2"

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, MutableRefObject } from 'react';
-import Hls from 'hls.js';
+import type Hls from 'hls.js';
 
 interface UseHlsPlayerProps {
   url: string;
@@ -29,8 +29,12 @@ export const useHlsPlayer = ({ url, videoRef, autoPlay = true }: UseHlsPlayerPro
       }
     };
 
-    const initHls = () => {
+    const initHls = async () => {
       cleanup();
+
+      // Lazy load HLS.js
+      const HlsModule = await import('hls.js');
+      const Hls = HlsModule.default;
 
       if (Hls.isSupported()) {
         const hls = new Hls({

@@ -1,4 +1,3 @@
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import { Camera, Search, Signal, WifiOff } from "lucide-react";
 import { Input } from "@/components/ui/input";
@@ -37,7 +36,7 @@ const CameraSideList = ({ cameras, selectedId, onSelect }: CameraSideListProps) 
         </div>
       </div>
       
-      <ScrollArea className="flex-1 px-2 -mr-2 pr-4"> {/* Ajuste de margem para o scrollbar não colar */}
+      <div className="flex-1 px-2 -mr-2 pr-4 overflow-y-auto">
         <div className="flex flex-col gap-2 pb-4">
           {cameras.map((camera) => {
             const isSelected = selectedId === camera.id;
@@ -119,7 +118,7 @@ const CameraSideList = ({ cameras, selectedId, onSelect }: CameraSideListProps) 
             );
           })}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };

@@ -1,8 +1,7 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useHlsPlayer } from '@/hooks/useHlsPlayer';
-import { Skeleton } from '@/components/ui/skeleton';
 
 interface VideoPlayerProps {
   url: string;
@@ -22,8 +21,33 @@ const VideoPlayer = React.memo(({
 }: VideoPlayerProps) => {
   const internalRef = useRef<HTMLVideoElement>(null);
   const videoRef = (videoRefProp || internalRef) as React.MutableRefObject<HTMLVideoElement>;
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [isVisible, setIsVisible] = useState(false);
   
-  const { isLoading, error } = useHlsPlayer({ url, videoRef });
+  // IntersectionObserver para lazy load
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setIsVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: '50px' }
+    );
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+  
+  const { isLoading, error } = useHlsPlayer({ 
+    url, 
+    videoRef, 
+    autoPlay: isVisible 
+  });
 
   useEffect(() => {
     let animationFrameId: number;
@@ -41,7 +65,10 @@ const VideoPlayer = React.memo(({
   }, [isLoading]); // Dependências mínimas
 
   return (
-    <div className={cn("relative w-full h-full bg-black overflow-hidden group rounded-t-lg", className)}>
+    <div 
+      ref={containerRef}
+      className={cn("relative w-full h-full bg-black overflow-hidden group rounded-t-lg", className)}
+    >
       <video
         ref={videoRef}
         poster={poster || undefined}
@@ -51,9 +78,12 @@ const VideoPlayer = React.memo(({
       />
 
       {/* Loading State */}
-      {isLoading && !error && (
+      {!isVisible && (
+        <div className="absolute inset-0 z-20 bg-zinc-800 animate-pulse" />
+      )}
+      {isVisible && isLoading && !error && (
         <div className="absolute inset-0 z-20">
-           <Skeleton className="w-full h-full bg-zinc-800" />
+           <div className="w-full h-full bg-zinc-800 animate-pulse" />
            <div className="absolute inset-0 flex flex-col items-center justify-center">
               <Loader2 className="w-12 h-12 text-blue-500 animate-spin mb-4" />
               <span className="text-white/80 font-medium text-sm tracking-widest uppercase">Carregando Stream...</span>

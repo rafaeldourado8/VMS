@@ -3,7 +3,6 @@ import { useState, useRef, MouseEvent } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Calendar as CalendarIcon, Clock, Save, Pause, Play, Scissors } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { ClipTrimmer } from './ClipTrimmer'; // Importe o componente criado
@@ -67,11 +66,19 @@ const Timeline = ({
              {isPlaying ? <Pause className="h-4 w-4 fill-current" /> : <Play className="h-4 w-4 fill-current" />}
           </Button>
 
-          <ToggleGroup type="single" value={zoomLevel} onValueChange={(v) => v && setZoomLevel(v as any)} className="hidden sm:flex">
+          <div className="hidden sm:flex gap-1">
             {['24h', '1h', '5m'].map((l) => (
-               <ToggleGroupItem key={l} value={l} className="h-7 text-xs px-2">{l}</ToggleGroupItem>
+              <Button
+                key={l}
+                size="sm"
+                variant={zoomLevel === l ? "default" : "outline"}
+                className="h-7 text-xs px-2"
+                onClick={() => setZoomLevel(l as any)}
+              >
+                {l}
+              </Button>
             ))}
-          </ToggleGroup>
+          </div>
         </div>
 
         <Button 

@@ -1,5 +1,4 @@
 import React from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { 
@@ -14,31 +13,13 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// --- Componentes de Animação Reutilizáveis ---
-
-const FadeInUp = ({ children, delay = 0, className = "" }: { children: React.ReactNode, delay?: number, className?: string }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 40 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true, margin: "-50px" }}
-    transition={{ duration: 0.8, delay, type: "spring", bounce: 0.4 }}
-    className={className}
-  >
-    {children}
-  </motion.div>
+const FadeInUp = ({ children, className = "" }: { children: React.ReactNode, className?: string }) => (
+  <div className={className}>{children}</div>
 );
 
-const FeatureCard = ({ icon: Icon, title, desc, index }: any) => (
-  <motion.div
-    initial={{ opacity: 0, y: 50 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ duration: 0.5, delay: index * 0.1 }}
-    whileHover={{ scale: 1.02, translateY: -5 }}
-    className="group relative p-8 rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent backdrop-blur-md overflow-hidden hover:border-primary/30 transition-colors"
-  >
+const FeatureCard = ({ icon: Icon, title, desc }: any) => (
+  <div className="group relative p-8 rounded-3xl border border-white/10 bg-gradient-to-b from-white/5 to-transparent backdrop-blur-md overflow-hidden hover:border-primary/30 transition-all hover:-translate-y-1">
     <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-    
     <div className="relative z-10">
       <div className="h-14 w-14 rounded-2xl bg-primary/20 flex items-center justify-center mb-6 text-primary group-hover:scale-110 transition-transform duration-300">
         <Icon size={28} />
@@ -46,27 +27,17 @@ const FeatureCard = ({ icon: Icon, title, desc, index }: any) => (
       <h3 className="text-2xl font-bold mb-3 text-foreground group-hover:text-primary transition-colors">{title}</h3>
       <p className="text-muted-foreground leading-relaxed">{desc}</p>
     </div>
-  </motion.div>
+  </div>
 );
 
 const Landing = () => {
   const navigate = useNavigate();
-  const { scrollYProgress } = useScroll();
-  
-  // Efeitos Parallax
-  const yBg = useTransform(scrollYProgress, [0, 1], ["0%", "50%"]);
-  const opacityHero = useTransform(scrollYProgress, [0, 0.2], [1, 0]);
 
   return (
     <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary selection:text-white">
       
       {/* --- Navbar --- */}
-      <motion.header 
-        initial={{ y: -100 }}
-        animate={{ y: 0 }}
-        transition={{ type: "spring", stiffness: 100, damping: 20 }}
-        className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-lg border-b border-white/5 bg-background/70"
-      >
+      <header className="fixed top-0 left-0 right-0 z-50 px-6 py-4 flex justify-between items-center backdrop-blur-lg border-b border-white/5 bg-background/70 animate-in slide-in-from-top duration-500">
         <div className="flex items-center gap-3 cursor-pointer" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>
           <div className="p-2 bg-gradient-to-tr from-primary to-purple-600 rounded-xl shadow-lg shadow-primary/20">
             <Video className="text-white h-6 w-6" />
@@ -79,31 +50,25 @@ const Landing = () => {
             Acessar Sistema
           </Button>
         </div>
-      </motion.header>
+      </header>
 
       {/* --- Hero Section --- */}
       <section className="relative min-h-screen flex items-center justify-center pt-20 px-6">
         {/* Background Dinâmico */}
         <div className="absolute inset-0 overflow-hidden -z-10">
-          <motion.div style={{ y: yBg }} className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-primary/15 rounded-full blur-[150px]" />
-          <motion.div style={{ y: yBg }} className="absolute bottom-[-10%] right-[-20%] w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[150px]" />
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
+          <div className="absolute top-[-10%] left-[-10%] w-[800px] h-[800px] bg-primary/15 rounded-full blur-[150px]" />
+          <div className="absolute bottom-[-10%] right-[-20%] w-[600px] h-[600px] bg-purple-500/10 rounded-full blur-[150px]" />
         </div>
 
         <div className="container max-w-7xl mx-auto grid lg:grid-cols-2 gap-16 items-center">
-          <motion.div style={{ opacity: opacityHero }} className="space-y-8 text-center lg:text-left z-10">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ duration: 0.5 }}
-              className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium backdrop-blur-md"
-            >
+          <div className="space-y-8 text-center lg:text-left z-10 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-sm font-medium backdrop-blur-md animate-in fade-in zoom-in-95 duration-500">
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span>
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
               </span>
               <span className="bg-gradient-to-r from-primary to-purple-400 bg-clip-text text-transparent font-bold">Novo:</span> Módulo de IA Ativado
-            </motion.div>
+            </div>
 
             <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight leading-[1.1]">
               Segurança Inteligente <br />
@@ -129,15 +94,10 @@ const Landing = () => {
               <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> Setup Instantâneo</div>
               <div className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-primary" /> 99.9% Uptime</div>
             </div>
-          </motion.div>
+          </div>
 
           {/* Hero Visual Mockup */}
-          <motion.div
-            initial={{ opacity: 0, x: 100, rotateY: -20 }}
-            animate={{ opacity: 1, x: 0, rotateY: 0 }}
-            transition={{ duration: 1, type: "spring", bounce: 0.2 }}
-            className="relative hidden lg:block perspective-1000"
-          >
+          <div className="relative hidden lg:block animate-in fade-in slide-in-from-right-8 duration-1000 delay-300">
             <div className="relative z-10 bg-black/40 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden transform hover:rotate-y-6 hover:rotate-x-6 transition-transform duration-700 ease-out">
               {/* Mockup Header */}
               <div className="h-10 border-b border-white/10 bg-white/5 flex items-center px-4 gap-2">
@@ -192,7 +152,7 @@ const Landing = () => {
             
             {/* Glow effect behind mockup */}
             <div className="absolute inset-0 bg-primary/20 blur-3xl -z-10 transform translate-y-12 scale-90 rounded-full"></div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -209,42 +169,12 @@ const Landing = () => {
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <FeatureCard 
-              index={0}
-              icon={ScanFace}
-              title="Reconhecimento LPR"
-              desc="Algoritmos de Deep Learning para detecção instantânea de placas veiculares, integrados diretamente ao feed de vídeo."
-            />
-            <FeatureCard 
-              index={1}
-              icon={Zap}
-              title="Baixa Latência"
-              desc="Streaming otimizado via WebRTC e HLS com MediaMTX, garantindo delay sub-segundo em qualquer rede."
-            />
-            <FeatureCard 
-              index={2}
-              icon={Globe}
-              title="Cloud Nativo"
-              desc="Acesse suas câmeras de qualquer lugar. Arquitetura Dockerizada pronta para AWS, Azure ou On-Premise."
-            />
-            <FeatureCard 
-              index={3}
-              icon={ShieldCheck}
-              title="Segurança JWT"
-              desc="Autenticação robusta com refresh tokens, proteção CSRF e controle de acesso baseado em funções (RBAC)."
-            />
-            <FeatureCard 
-              index={4}
-              icon={Cpu}
-              title="Processamento Async"
-              desc="Ingestão de dados massiva utilizando RabbitMQ e Celery para não bloquear a experiência do usuário."
-            />
-            <FeatureCard 
-              index={5}
-              icon={Video}
-              title="Gestão Centralizada"
-              desc="Dashboard intuitivo para adicionar, configurar e monitorar múltiplas câmeras RTSP simultaneamente."
-            />
+            <FeatureCard icon={ScanFace} title="Reconhecimento LPR" desc="Algoritmos de Deep Learning para detecção instantânea de placas veiculares, integrados diretamente ao feed de vídeo." />
+            <FeatureCard icon={Zap} title="Baixa Latência" desc="Streaming otimizado via WebRTC e HLS com MediaMTX, garantindo delay sub-segundo em qualquer rede." />
+            <FeatureCard icon={Globe} title="Cloud Nativo" desc="Acesse suas câmeras de qualquer lugar. Arquitetura Dockerizada pronta para AWS, Azure ou On-Premise." />
+            <FeatureCard icon={ShieldCheck} title="Segurança JWT" desc="Autenticação robusta com refresh tokens, proteção CSRF e controle de acesso baseado em funções (RBAC)." />
+            <FeatureCard icon={Cpu} title="Processamento Async" desc="Ingestão de dados massiva utilizando RabbitMQ e Celery para não bloquear a experiência do usuário." />
+            <FeatureCard icon={Video} title="Gestão Centralizada" desc="Dashboard intuitivo para adicionar, configurar e monitorar múltiplas câmeras RTSP simultaneamente." />
           </div>
         </div>
       </section>
@@ -258,29 +188,17 @@ const Landing = () => {
             { label: "Uptime SLA", value: "99.9%" },
             { label: "Latência Média", value: "<1s" },
           ].map((stat, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, scale: 0.5 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.1, type: "spring" }}
-              className="space-y-2"
-            >
+            <div key={i} className="space-y-2">
               <div className="text-5xl md:text-6xl font-bold text-white tracking-tighter">{stat.value}</div>
               <div className="text-sm font-medium text-primary uppercase tracking-widest">{stat.label}</div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </section>
 
       {/* --- Footer CTA --- */}
       <section className="py-32 px-6 text-center relative overflow-hidden">
-        <motion.div 
-          className="absolute inset-0 opacity-20 bg-gradient-to-t from-primary/20 via-transparent to-transparent"
-          initial={{ opacity: 0 }}
-          whileInView={{ opacity: 0.2 }}
-          transition={{ duration: 1.5 }}
-        />
+        <div className="absolute inset-0 opacity-20 bg-gradient-to-t from-primary/20 via-transparent to-transparent" />
         
         <div className="relative z-10 container max-w-4xl mx-auto">
           <FadeInUp>
