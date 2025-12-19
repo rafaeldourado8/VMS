@@ -3,9 +3,8 @@ from django.urls import reverse
 from .models import Camera
 
 class CameraSerializer(serializers.ModelSerializer):
+    """Serializer com URLs dinâmicas para o Frontend."""
     owner_email = serializers.EmailField(source="owner.email", read_only=True)
-    
-    # URLs dinâmicas para o frontend consumidas via HAProxy
     stream_url_frontend = serializers.SerializerMethodField()
     ai_websocket_url = serializers.SerializerMethodField() 
     snapshot_url = serializers.SerializerMethodField()
@@ -21,11 +20,11 @@ class CameraSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "created_at", "snapshot_url"]
 
     def get_stream_url_frontend(self, obj):
-        # MediaMTX HLS/WebRTC path padrão
+        # Rota HLS/WebRTC via HAProxy
         return f"/ws/live/camera_{obj.id}"
 
     def get_ai_websocket_url(self, obj):
-        # Rota roteada pelo HAProxy para o worker de IA
+        # Rota de IA via HAProxy
         return f"/ai/stream/{obj.id}"
 
     def get_snapshot_url(self, obj):

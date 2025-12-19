@@ -4,7 +4,7 @@ from typing import Optional, Dict, Any
 
 @dataclass(frozen=True)
 class CameraDTO:
-    """Objeto de transferência de dados para Câmaras."""
+    """Objeto de transferência de dados (DTO) para Câmaras."""
     name: str
     stream_url: str
     owner_id: int

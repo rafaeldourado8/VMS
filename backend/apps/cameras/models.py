@@ -4,6 +4,7 @@ from django.db import models
 STATUS_CHOICES = (("online", "Online"), ("offline", "Offline"))
 
 class Camera(models.Model):
+    """Modelo de persistência de Câmaras."""
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,

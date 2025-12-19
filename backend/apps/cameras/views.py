@@ -1,12 +1,11 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
-
 from .serializers import CameraSerializer
 from .services import CameraService  
 from .schemas import CameraDTO
 
 class CameraViewSet(viewsets.ModelViewSet):
-    """ViewSet 'fino' para gestão de câmaras."""
+    """Thin View: Delega lógica para o CameraService."""
     serializer_class = CameraSerializer
     permission_classes = [permissions.IsAuthenticated]
     service = CameraService()
@@ -18,14 +17,12 @@ class CameraViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Mapeia dados validados para o DTO
         camera_dto = CameraDTO(
             owner_id=request.user.id,
             **serializer.validated_data
         )
         
         camera = self.service.create_camera(camera_dto)
-        
         output_serializer = self.get_serializer(camera)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 

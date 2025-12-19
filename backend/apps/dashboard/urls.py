@@ -1,14 +1,6 @@
 from django.urls import path
-
-from .views import RecentEventsAPIView, StatsAPIView  # <--- Novo import
+from .views import DashboardStatsAPIView
 
 urlpatterns = [
-    # Endpoint 2.1
-    path("dashboard/stats/", StatsAPIView.as_view(), name="dashboard-stats"),
-    # Endpoint 2.2 (NOVO)
-    path(
-        "dashboard/recent-events/",
-        RecentEventsAPIView.as_view(),
-        name="dashboard-recent-events",
-    ),
+    path("stats/", DashboardStatsAPIView.as_view(), name="dashboard-stats"),
 ]
