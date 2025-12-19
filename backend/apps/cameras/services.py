@@ -1,54 +1,71 @@
 import logging
-from typing import Protocol, List, Dict, Any
-from django.contrib.auth import get_user_model
+import httpx
+from typing import List
 from django.db import transaction
+from django.conf import settings
 from .models import Camera
+from .schemas import CameraDTO
 
 logger = logging.getLogger(__name__)
-User = get_user_model()
-
-class ICameraService(Protocol):
-    """
-    Interface (Protocol) para garantir o Princípio da Inversão de Dependência (DIP).
-    Define o contrato que qualquer serviço de câmara deve seguir.
-    """
-    def create_camera(self, user: User, data: Dict[str, Any]) -> Camera:
-        ...
-
-    def list_cameras_for_user(self, user: User) -> List[Camera]:
-        ...
 
 class CameraService:
-    """
-    Implementação concreta da lógica de negócio (SRP).
-    """
+    """Lógica de negócio para Câmaras e integração com Streaming Service."""
     
-    def create_camera(self, user: User, data: Dict[str, Any]) -> Camera:
-        """
-        Cria uma câmara associada ao utilizador.
-        Aqui centralizamos regras de negócio (ex: validação de limites de câmaras).
-        """
-        # CORREÇÃO APLICADA AQUI: user.username -> user.email
-        logger.info(f"A criar nova câmara para o utilizador: {user.email}")
-        
-        # Exemplo de regra de negócio futura:
-        # if user.cameras.count() >= user.plan.max_cameras:
-        #     raise ValidationError("Limite de câmaras atingido.")
+    def __init__(self):
+        self.streaming_url = getattr(settings, 'STREAMING_SERVICE_URL', 'http://streaming:8001')
 
+    def create_camera(self, data: CameraDTO) -> Camera:
+        """Cria câmara no DB e provisiona o stream no serviço dedicado."""
         with transaction.atomic():
-            # Remove owner do dicionário se existir, pois vamos atribuir explicitamente
-            if 'owner' in data:
-                data.pop('owner')
-            
-            camera = Camera(**data)
-            camera.owner = user
-            camera.save()
-            
-        logger.info(f"Câmara '{camera.name}' criada com sucesso (ID: {camera.id})")
+            camera = Camera.objects.create(
+                owner_id=data.owner_id,
+                name=data.name,
+                location=data.location,
+                status=data.status,
+                stream_url=data.stream_url,
+                thumbnail_url=data.thumbnail_url,
+                latitude=data.latitude,
+                longitude=data.longitude,
+                detection_settings=data.detection_settings
+            )
+        
+        # Notificar o serviço de streaming (Async ou via Thread seria ideal, mas aqui segue o plano)
+        self._provision_streaming(camera)
         return camera
 
-    def list_cameras_for_user(self, user: User):
-        """
-        Retorna as câmaras que o utilizador tem permissão de ver.
-        """
-        return Camera.objects.filter(owner=user).order_by("name")
+    def delete_camera(self, camera_id: int) -> None:
+        """Remove câmara do DB e encerra o stream no serviço de streaming."""
+        try:
+            camera = Camera.objects.get(id=camera_id)
+            self._remove_streaming(camera_id)
+            camera.delete()
+        except Camera.DoesNotExist:
+            logger.warning(f"Tentativa de eliminar câmara inexistente ID: {camera_id}")
+
+    def list_cameras_for_user(self, user):
+        """Lista as câmaras pertencentes a um utilizador específico."""
+        return Camera.objects.filter(owner=user).order_by("-created_at")
+
+    def _provision_streaming(self, camera: Camera):
+        """Chama o Streaming Service para registar o path no MediaMTX."""
+        try:
+            response = httpx.post(
+                f"{self.streaming_url}/cameras/provision",
+                json={
+                    "camera_id": camera.id,
+                    "rtsp_url": camera.stream_url,
+                    "name": camera.name
+                },
+                timeout=10.0
+            )
+            response.raise_for_status()
+            logger.info(f"Stream provisionado para câmara {camera.id}")
+        except Exception as e:
+            logger.error(f"Erro ao provisionar stream para câmara {camera.id}: {str(e)}")
+
+    def _remove_streaming(self, camera_id: int):
+        """Solicita a remoção do path no Streaming Service."""
+        try:
+            httpx.delete(f"{self.streaming_url}/cameras/{camera_id}", timeout=5.0)
+        except Exception as e:
+            logger.error(f"Erro ao remover stream da câmara {camera_id}: {str(e)}")

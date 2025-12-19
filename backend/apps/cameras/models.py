@@ -9,9 +9,7 @@ class Camera(models.Model):
         on_delete=models.CASCADE,
         related_name="cameras",
     )
-
     name = models.CharField(max_length=255, unique=True)
-    
     location = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="online")
     stream_url = models.CharField(max_length=1000, unique=True)

@@ -1,51 +1,47 @@
+# VMS/backend/apps/usuarios/views.py
+
 from rest_framework import permissions, status, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-
-# --- 1. Importe as novas classes ---
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .serializers import MyTokenObtainPairSerializer, UsuarioSerializer
 
-from .models import Usuario
+from .serializers import UsuarioSerializer, MyTokenObtainPairSerializer
+from .services import UsuarioService
+from .schemas import UsuarioDTO
 from .permissions import IsAdminOrReadOnly
 
-
-# --- Esta é a view /api/auth/me/ ---
-class MeAPIView(APIView):
-    permission_classes = [permissions.IsAuthenticated]  # ✅ Protegida
-
-    def get(self, request, format=None):
-        serializer = UsuarioSerializer(request.user)
-        return Response(serializer.data, status=status.HTTP_200_OK)
-
-
-# --- 2. Adicione esta nova View de Login ---
-class MyTokenObtainPairView(TokenObtainPairView):
-    """
-    Usa o nosso serializer customizado para o login.
-    ✅ PÚBLICO - Herda permission_classes = [AllowAny] do TokenObtainPairView
-    """
-    serializer_class = MyTokenObtainPairSerializer
-
-
 class UsuarioViewSet(viewsets.ModelViewSet):
-    permission_classes = [IsAdminOrReadOnly]  # ✅ Protegida
-    queryset = Usuario.objects.all().order_by("-created_at")
+    permission_classes = [IsAdminOrReadOnly]
+    queryset = UsuarioService.list_users()
     serializer_class = UsuarioSerializer
 
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        # Uso de Dataclass conforme solicitado
+        user_dto = UsuarioDTO(**serializer.validated_data)
+        user = UsuarioService.create_user(user_dto)
+        
+        output_serializer = self.get_serializer(user)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)
+
+class MeAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    def get(self, request):
+        serializer = UsuarioSerializer(request.user)
+        return Response(serializer.data)
+
+class MyTokenObtainPairView(TokenObtainPairView):
+    serializer_class = MyTokenObtainPairSerializer
 
 class LogoutAPIView(APIView):
-    permission_classes = [permissions.AllowAny]
-
+    permission_classes = [permissions.IsAuthenticated]
     def post(self, request):
         try:
-            refresh_token = request.data["refresh_token"]
-            token = RefreshToken(refresh_token)
+            token = RefreshToken(request.data["refresh_token"])
             token.blacklist()
             return Response(status=status.HTTP_205_RESET_CONTENT)
-        except Exception:
-            return Response(
-                {"error": "Token inválido ou ausente."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        except:
+            return Response({"error": "Token inválido."}, status=status.HTTP_400_BAD_REQUEST)

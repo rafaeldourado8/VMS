@@ -1,8 +1,10 @@
 [tool.pytest.ini_options]
 # Informa ao pytest onde encontrar as configurações do Django
 DJANGO_SETTINGS_MODULE = "config.settings" 
-# Busca por testes em todos os apps
-python_files = "apps/**/tests.py"
+# Permite encontrar arquivos que começam com test_ ou terminam com _test
+python_files = ["test_*.py", "*_test.py", "tests.py"]
+# Define onde o pytest deve começar a procurar
+testpaths = ["apps"]
 
 [tool.ruff]
 # Define o diretório 'apps' como seu código-fonte principal

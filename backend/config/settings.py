@@ -78,7 +78,7 @@ INSTALLED_APPS = [
     "apps.configuracoes",
     "apps.dashboard",
     "apps.suporte",
-    "streaming_integration",
+    # "streaming_integration",
     "apps.thumbnails",
 ]
 
