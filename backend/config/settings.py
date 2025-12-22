@@ -23,7 +23,7 @@ CSRF_TRUSTED_ORIGINS = [
 CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
 
-# --- APPLICAÇÕES (GT-Vision Refatorado) ---
+# --- APPLICAÇÕES ---
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -64,7 +64,6 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = "config.urls"
 
-# --- CORREÇÃO: TEMPLATES (admin.E403) ---
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
@@ -106,12 +105,16 @@ if DB_NAME:
     }
     DATABASE_ROUTERS = ['config.db_router.PrimaryReplicaRouter']
 else:
-    DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": BASE_DIR / "db.sqlite3"}}
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3", 
+            "NAME": BASE_DIR / "db.sqlite3"
+        }
+    }
 
 # --- AUTENTICAÇÃO E REST FRAMEWORK ---
 AUTH_USER_MODEL = "usuarios.Usuario"
 
-# CORREÇÃO: Adicionada classe de paginação para resolver rest_framework.W001
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
         "rest_framework_simplejwt.authentication.JWTAuthentication",
@@ -145,7 +148,7 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # --- CELERY / REDIS ---
 REDIS_HOST = os.environ.get("REDIS_HOST", "localhost")
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'amqp://guest:guest@localhost:5672//')
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', f'redis://{REDIS_HOST}:6379/0')
 CELERY_RESULT_BACKEND = 'django-db'
 
 CACHES = {

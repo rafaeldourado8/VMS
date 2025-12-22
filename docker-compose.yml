@@ -1,13 +1,8 @@
-# ======================================================
-# GT-Vision VMS - Docker Compose Principal (VERSÃO FINAL CORRIGIDA)
-# ======================================================
-# Serviços ativos: Backend (Django), Streaming (FastAPI), 
-# Frontend (React), Kong (API Gateway), HAProxy (Load Balancer)
-# ======================================================
+version: "3.9"
 
 services:
   # ============================================
-  # STREAMING SERVICE (FastAPI - HLS/WebSocket)
+  # STREAMING SERVICE (FastAPI)
   # ============================================
   streaming:
     build:
@@ -15,19 +10,14 @@ services:
       dockerfile: Dockerfile
     image: gtvision/streaming:latest
     container_name: gtvision_streaming
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 1G
     environment:
-      - MEDIAMTX_API_URL=http://mediamtx:9997
-      - MEDIAMTX_HLS_URL=http://mediamtx:8888
-      - MEDIAMTX_WEBRTC_URL=http://mediamtx:8889
-      - MEDIAMTX_API_USER=${MEDIAMTX_API_USER:-mediamtx_api_user}
-      - MEDIAMTX_API_PASS=${MEDIAMTX_API_PASS}
-      - REDIS_URL=redis://redis_cache:6379/2
-      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_HLS_URL: http://mediamtx:8888
+      MEDIAMTX_WEBRTC_URL: http://mediamtx:8889
+      MEDIAMTX_API_USER: ${MEDIAMTX_API_USER:-mediamtx_api_user}
+      MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
+      REDIS_URL: redis://redis_cache:6379/2
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "8001:8001"
     depends_on:
@@ -53,22 +43,26 @@ services:
       dockerfile: ./backend/Dockerfile
     container_name: gtvision_backend
     command: >
-      sh -c "python wait_for_db.py &&
+      sh -c "
+      python wait_for_db.py &&
       python manage.py migrate &&
       python manage.py collectstatic --noinput &&
-      gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 4 --timeout 120"
+      gunicorn config.wsgi:application
+      --bind 0.0.0.0:8000
+      --workers 4
+      --timeout 120
+      "
     volumes:
       - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles
       - backend_media:/app/media
       - mediamtx_recordings:/recordings:ro
-    env_file:
-      - .env
+    env_file: .env
     environment:
-      - DB_HOST=postgres_db
-      - DB_PORT=5432
-      - REDIS_HOST=redis_cache
-      - CELERY_BROKER_URL=amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      REDIS_HOST: redis_cache
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -86,23 +80,29 @@ services:
       retries: 10
       start_period: 60s
 
+  # ============================================
+  # BACKEND WORKER (Celery)
+  # ============================================
   backend_worker:
     build:
       context: .
       dockerfile: ./backend/Dockerfile
     container_name: gtvision_backend_worker
     command: sh -c "python wait_for_db.py && celery -A config worker --loglevel=info"
-    env_file:
-      - .env
+    env_file: .env
+    environment:
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
     depends_on:
       backend:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
 
   # ============================================
-  # FRONTEND (React)
+  # FRONTEND (Vite / React)
   # ============================================
   frontend:
     image: node:20-slim
@@ -123,9 +123,9 @@ services:
     image: kong:3.5
     container_name: gtvision_kong
     environment:
-      - KONG_DATABASE=off
-      - KONG_DECLARATIVE_CONFIG=/etc/kong/kong.yml
-      - KONG_PROXY_LISTEN=0.0.0.0:8000
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
     depends_on:
@@ -136,29 +136,36 @@ services:
     networks:
       - gtvision_network
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "kong", "health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ============================================
-  # HAPROXY (Load Balancer Principal)
+  # HAPROXY
   # ============================================
   haproxy:
     image: haproxy:2.9-alpine
     container_name: gtvision_haproxy
     ports:
       - "80:80"
-      - "443:443"
       - "8404:8404"
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
-      - nginx
-      - kong
-      - streaming
+      kong:
+        condition: service_healthy
+      streaming:
+        condition: service_healthy
+      frontend:
+        condition: service_started
     networks:
       - gtvision_network
     restart: unless-stopped
 
   # ============================================
-  # NGINX (Servidor Estático)
+  # NGINX (STATIC)
   # ============================================
   nginx:
     image: nginx:alpine
@@ -171,7 +178,7 @@ services:
       - gtvision_network
 
   # ============================================
-  # INFRAESTRUTURA BASE
+  # POSTGRES
   # ============================================
   postgres_db:
     image: postgres:15-alpine
@@ -187,6 +194,9 @@ services:
       timeout: 5s
       retries: 10
 
+  # ============================================
+  # REDIS
+  # ============================================
   redis_cache:
     image: redis:7-alpine
     container_name: gtvision_redis
@@ -198,9 +208,16 @@ services:
       timeout: 5s
       retries: 5
 
+  # ============================================
+  # RABBITMQ
+  # ============================================
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: gtvision_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+      RABBITMQ_DEFAULT_VHOST: /
     networks:
       - gtvision_network
     healthcheck:
@@ -209,6 +226,9 @@ services:
       timeout: 10s
       retries: 10
 
+  # ============================================
+  # MEDIAMTX
+  # ============================================
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     container_name: gtvision_mediamtx
@@ -216,7 +236,6 @@ services:
       - ./mediamtx.yml:/mediamtx.yml:ro
     networks:
       - gtvision_network
-    # CORREÇÃO: Adicionado Healthcheck para evitar erro de dependência
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9997/v3/config/global/get"]
       interval: 10s
@@ -229,13 +248,12 @@ services:
 # ============================================
 volumes:
   gtvision_pg_data:
-  gtvision_redis_data:
   backend_static:
   backend_media:
   mediamtx_recordings:
 
 # ============================================
-# NETWORKS
+# NETWORK
 # ============================================
 networks:
   gtvision_network:
