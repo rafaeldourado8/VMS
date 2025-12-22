@@ -1,0 +1,19 @@
+# VMS/test/docker-compose.yml
+services:
+  test_runner:
+    build: 
+      context: .
+      dockerfile: ../services/streaming/Dockerfile
+    container_name: gtvision_test_runner
+    volumes:
+      - .:/app
+    environment:
+      # Use o container_name do backend de streaming
+      - STREAMING_API_URL=http://gtvision_streaming:8001 
+    networks:
+      - gtvision_network
+    command: python test_cameras.py
+
+networks:
+  gtvision_network:
+    external: true

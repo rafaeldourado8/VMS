@@ -1,0 +1,52 @@
+_format_version: "3.0"
+
+services:
+  - name: django-api
+    url: http://backend:8000
+    routes:
+      - name: django-api-route
+        paths:
+          - /api
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 100
+          policy: local
+      - name: cors
+        config:
+          origins: ["http://localhost:5173"]
+          credentials: true
+
+  - name: streaming-service
+    url: http://streaming:8001
+    routes:
+      - name: streaming-api-route
+        paths:
+          - /streaming
+        strip_path: true
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 500
+          policy: local
+
+  - name: django-admin
+    url: http://backend:8000
+    routes:
+      - name: django-admin-route
+        paths:
+          - /admin
+        strip_path: false
+
+  - name: django-static
+    url: http://nginx:80
+    routes:
+      - name: django-static-route
+        paths:
+          - /static
+          - /media
+        strip_path: false
+
+plugins:
+  - name: prometheus
