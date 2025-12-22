@@ -1,47 +1,34 @@
-from rest_framework.permissions import IsAdminUser  # Apenas Admins podem mudar!
-from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser
+from rest_framework import status
 
-from .models import ConfiguracaoGlobal
 from .serializers import ConfiguracaoGlobalSerializer
-
+from .services import ConfiguracaoGlobalService
 
 class ConfiguracaoGlobalAPIView(APIView):
     """
-    Endpoint 8.1: Ler e Atualizar as Configurações Globais.
-
-    - GET: Retorna o objeto de configurações.
-    - PUT/PATCH: Atualiza o objeto de configurações.
+    Endpoint administrativo para configurações globais.
+    Utiliza o Serializer para coerção de tipos (ex: 'True' -> True).
     """
-
-    # Apenas usuários com 'role=admin' (via IsAdminUser) podem mexer aqui.
     permission_classes = [IsAdminUser]
 
-    def get(self, request, format=None):
-        """
-        Retorna a configuração global única.
-        """
-        config = ConfiguracaoGlobal.load()  # Carrega o Singleton
-        serializer = ConfiguracaoGlobalSerializer(config)
-        return Response(serializer.data)
+    def get(self, request):
+        dto = ConfiguracaoGlobalService.get_settings_dto()
+        return Response(vars(dto))
 
-    def put(self, request, format=None):
-        """
-        Atualiza a configuração global única.
-        """
-        config = ConfiguracaoGlobal.load()
+    def patch(self, request):
+        """Atualiza as definições garantindo a integridade dos tipos."""
+        # 1. Validar e converter tipos via Serializer
+        serializer = ConfiguracaoGlobalSerializer(data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        
+        try:
+            # 2. Passar dados já convertidos (validated_data) para o serviço
+            dto = ConfiguracaoGlobalService.update_settings(serializer.validated_data)
+            return Response(vars(dto), status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
-        # O 'partial=True' permite atualizações parciais (PATCH)
-        serializer = ConfiguracaoGlobalSerializer(
-            config, data=request.data, partial=True
-        )
-
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-
-        return Response(serializer.errors, status=400)
-
-    # Permite PATCH (sinônimo de PUT com partial=True)
-    def patch(self, request, format=None):
-        return self.put(request, format)
+    def put(self, request):
+        return self.patch(request)

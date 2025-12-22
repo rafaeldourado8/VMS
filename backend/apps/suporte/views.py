@@ -1,40 +1,24 @@
-from rest_framework import permissions, viewsets
-
-from .models import Mensagem
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
 from .serializers import MensagemSerializer
-
+from .services import SuporteService
+from .schemas import CreateMensagemDTO
 
 class MensagemViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint para chat de suporte (Seção 6).
-    - Permite GET (Listar) e POST (Criar).
-    - Admins veem todas as mensagens.
-    - Viewers veem apenas suas próprias mensagens.
-    """
-
+    """ViewSet refatorada para usar SuporteService."""
     serializer_class = MensagemSerializer
-    permission_classes = [permissions.IsAuthenticated]  # Exige login
+    permission_classes = [permissions.IsAuthenticated]
+    service = SuporteService()
 
     def get_queryset(self):
-        """
-        Filtra as mensagens baseado na role do usuário.
-        """
-        user = self.request.user
+        return self.service.list_messages(self.request.user)
 
-        if user.role == "admin":
-            # Admin vê todas as mensagens de todos os usuários
-            # Agrupadas por autor e data
-            return Mensagem.objects.all().order_by("autor__email", "-timestamp")
-
-        # Usuário 'viewer' vê apenas suas próprias mensagens
-        return Mensagem.objects.filter(autor=user).order_by("-timestamp")
-
-    def perform_create(self, serializer):
-        """
-        Define o 'autor' da mensagem automaticamente como o usuário logado.
-        """
-
-        # Se quem envia é admin, marcamos como "resposta"
-        is_admin_response = self.request.user.role == "admin"
-
-        serializer.save(autor=self.request.user, respondido_por_admin=is_admin_response)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
+        dto = CreateMensagemDTO(conteudo=serializer.validated_data["conteudo"])
+        mensagem = self.service.create_message(request.user, dto)
+        
+        output_serializer = self.get_serializer(mensagem)
+        return Response(output_serializer.data, status=status.HTTP_201_CREATED)

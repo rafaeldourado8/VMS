@@ -5,10 +5,7 @@ from django.http import HttpResponse
 from .services import ThumbnailService
 
 class CameraSnapshotView(APIView):
-    """
-    Retorna uma imagem JPEG do stream atual da câmara.
-    Endpoint: /api/thumbnails/{camera_id}/
-    """
+    """Retorna uma imagem JPEG do stream atual."""
     permission_classes = [permissions.IsAuthenticated]
     
     def get(self, request, camera_id=None):
