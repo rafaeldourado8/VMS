@@ -193,3 +193,4 @@ LOGGING = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+STREAMING_SERVICE_URL = os.environ.get("STREAMING_SERVICE_URL", "http://streaming:8001")

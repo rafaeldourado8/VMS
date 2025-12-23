@@ -1,5 +1,7 @@
 ###############################################
-# MediaMTX configuration file
+# MediaMTX configuration file - LIMPO
+# Câmeras são adicionadas DINAMICAMENTE via API
+# pelo Streaming Service quando criadas no frontend
 ###############################################
 
 ###############################################
@@ -10,18 +12,17 @@ logDestinations: [stdout]
 logFile: mediamtx.log
 sysLogPrefix: mediamtx
 
-# CONFIGURÁVEL: Timeouts para 250 câmeras
-readTimeout: 10s              # Timeout de leitura RTSP
-writeTimeout: 10s             # Timeout de escrita
-writeQueueSize: 1024          # CONFIGURÁVEL: Aumentado de 512 para 250 câmeras (buffer de escrita)
-udpMaxPayloadSize: 1472       # MTU padrão
+readTimeout: 20s
+writeTimeout: 20s
+writeQueueSize: 2048
+udpMaxPayloadSize: 1472
 
 runOnConnect:
 runOnConnectRestart: no
 runOnDisconnect:
 
 ###############################################
-# Global settings -> Authentication
+# Authentication
 
 authMethod: internal
 
@@ -51,14 +52,12 @@ authInternalUsers:
     permissions:
       - action: api
 
-# Optional: HTTP auth backend
 authHTTPAddress:
 authHTTPExclude:
 - action: api
 - action: metrics
 - action: pprof
 
-# JWT (optional)
 authJWTJWKS:
 authJWTJWKSFingerprint:
 authJWTClaimKey: mediamtx_permissions
@@ -66,7 +65,7 @@ authJWTExclude: []
 authJWTInHTTPQuery: true
 
 ###############################################
-# Global settings -> Control API
+# Control API
 
 api: yes
 apiAddress: :9997
@@ -77,7 +76,7 @@ apiAllowOrigins: ['*']
 apiTrustedProxies: []
 
 ###############################################
-# Global settings -> Metrics
+# Metrics
 
 metrics: yes
 metricsAddress: :9998
@@ -88,7 +87,7 @@ metricsAllowOrigins: ['*']
 metricsTrustedProxies: []
 
 ###############################################
-# Global settings -> PPROF
+# PPROF
 
 pprof: no
 pprofAddress: :9999
@@ -99,7 +98,7 @@ pprofAllowOrigins: ['*']
 pprofTrustedProxies: []
 
 ###############################################
-# Global settings -> Playback server
+# Playback server
 
 playback: yes
 playbackAddress: :9996
@@ -110,10 +109,10 @@ playbackAllowOrigins: ['*']
 playbackTrustedProxies: []
 
 ###############################################
-# Global settings -> RTSP server
+# RTSP server
 
 rtsp: yes
-rtspTransports: [tcp, udp]        # CONFIGURÁVEL: TCP primeiro (mais estável para câmeras remotas)
+rtspTransports: [tcp, udp]
 rtspEncryption: "no"
 rtspAddress: :8554
 rtspsAddress: :8322
@@ -132,7 +131,7 @@ rtspAuthMethods: [basic]
 rtspUDPReadBufferSize: 0
 
 ###############################################
-# Global settings -> RTMP server
+# RTMP server
 
 rtmp: yes
 rtmpAddress: :1935
@@ -142,7 +141,7 @@ rtmpServerKey: server.key
 rtmpServerCert: server.crt
 
 ###############################################
-# Global settings -> HLS server
+# HLS server
 
 hls: yes
 hlsAddress: :8888
@@ -152,17 +151,15 @@ hlsServerCert: server.crt
 hlsAllowOrigins: ['*']
 hlsTrustedProxies: []
 hlsAlwaysRemux: no
-
-# CONFIGURÁVEL: HLS otimizado para 250 câmeras
-hlsVariant: mpegts            # mpegts = compatível, fmp4 = moderno mas pode dar erro
-hlsSegmentCount: 3            # CONFIGURÁVEL: Reduzido de 5 para 3 (menos memória, buffer menor)
-hlsSegmentDuration: 2s        # CONFIGURÁVEL: 2s = equilíbrio latência/carga (1s=baixa latência, 4s=menos CPU)
-hlsSegmentMaxSize: 50M        # Tamanho máximo do segmento
-hlsDirectory: ''              # Segmentos em memória (mais rápido)
-hlsMuxerCloseAfter: 60s       # Fecha muxer após 60s de inatividade
+hlsVariant: mpegts
+hlsSegmentCount: 5
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 50M
+hlsDirectory: ''
+hlsMuxerCloseAfter: 120s
 
 ###############################################
-# Global settings -> WebRTC server
+# WebRTC server
 
 webrtc: yes
 webrtcAddress: :8889
@@ -172,7 +169,6 @@ webrtcServerCert: server.crt
 webrtcAllowOrigins: ['*']
 webrtcTrustedProxies: []
 webrtcLocalUDPAddress: :8189
-# webrtcLocalTCPAddress: :8889 # Comentado para evitar conflito
 webrtcIPsFromInterfaces: yes
 webrtcIPsFromInterfacesList: []
 webrtcAdditionalHosts: ["127.0.0.1", "localhost"]
@@ -182,7 +178,7 @@ webrtcTrackGatherTimeout: 2s
 webrtcSTUNGatherTimeout: 5s
 
 ###############################################
-# Global settings -> SRT server
+# SRT server
 
 srt: yes
 srtAddress: :8890
@@ -193,36 +189,35 @@ srtAddress: :8890
 pathDefaults:
   source: publisher
   sourceFingerprint:
-  sourceOnDemand: no
-  sourceOnDemandStartTimeout: 10s
-  sourceOnDemandCloseAfter: 10s
-  maxReaders: 100             # CONFIGURÁVEL: Limite de leitores simultâneos por stream (0=ilimitado, 100=seguro)
+  sourceOnDemand: yes
+  sourceOnDemandStartTimeout: 20s
+  sourceOnDemandCloseAfter: 30s
+  maxReaders: 0
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: false
 
-  # CONFIGURÁVEL: Gravação otimizada para 250 câmeras
   record: yes
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
-  recordFormat: fmp4          # fmp4 = moderno e eficiente
-  recordPartDuration: 2s      # CONFIGURÁVEL: Duração de cada parte (2s = menos I/O)
-  recordMaxPartSize: 50M      # Tamanho máximo por parte
-  recordSegmentDuration: 1h   # CONFIGURÁVEL: Segmento de 1h (facilita busca/playback)
-  recordDeleteAfter: 7d       # CONFIGURÁVEL: Retenção de 7 dias (ajustar conforme disco disponível)
+  recordFormat: fmp4
+  recordPartDuration: 2s
+  recordMaxPartSize: 50M
+  recordSegmentDuration: 1h
+  recordDeleteAfter: 7d
 
   overridePublisher: yes
   srtPublishPassphrase:
-
-  rtspTransport: tcp              # CONFIGURÁVEL: Força TCP (evita packet loss)
+  rtspTransport: tcp
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 8388608  # CONFIGURÁVEL: 8MB buffer
+  rtspUDPReadBufferSize: 16777216
 
   mpegtsUDPReadBufferSize: 0
   rtpSDP:
   rtpUDPReadBufferSize: 0
   sourceRedirect:
+  
   rpiCameraCamID: 0
   rpiCameraSecondary: false
   rpiCameraWidth: 1920
@@ -256,32 +251,22 @@ pathDefaults:
   rpiCameraMJPEGQuality: 60
 
 ###############################################
-# Path settings
+# Paths - VAZIO!
+# Câmeras são adicionadas via API pelo Streaming Service
+# quando o usuário cadastra no frontend
+###############################################
 
 paths:
-  # Câmeras reais (teste)
-  cam_1:
-    source: rtsp://admin:Camerite123@45.236.226.75:6053/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
-    sourceOnDemandStartTimeout: 10s
-    sourceOnDemandCloseAfter: 10s
-    
-  cam_2:
-    source: rtsp://admin:Camerite123@45.236.226.75:6052/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
-    
-  cam_3:
-    source: rtsp://admin:Camerite123@45.236.226.74:6050/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
-    
-  cam_4:
-    source: rtsp://admin:Camerite123@45.236.226.72:6049/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
-    
-  cam_5:
-    source: rtsp://admin:Camerite123@45.236.226.71:6046/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
-    
-  cam_6:
-    source: rtsp://admin:Camerite123@45.236.226.70:6045/cam/realmonitor?channel=1&subtype=0
-    sourceOnDemand: yes
+  # Nenhuma câmera hardcoded aqui!
+  # O fluxo correto é:
+  #
+  # 1. Usuário cadastra câmera no Frontend
+  # 2. Frontend chama POST /api/cameras/
+  # 3. Django (CameraService) chama POST /streaming/cameras/provision
+  # 4. Streaming Service chama POST /v3/config/paths/add/cam_{id}
+  # 5. MediaMTX adiciona o path dinamicamente
+  #
+  # Para debug, você pode usar um path de teste:
+  # test_stream:
+  #   source: rtsp://rtsp.stream/pattern
+  #   sourceOnDemand: yes

@@ -1,8 +1,8 @@
 """
-GT-Vision Streaming Service - VERSÃO FINAL REFATORADA
+GT-Vision Streaming Service - VERSÃO CORRIGIDA
 =====================================================
 Serviço de alta performance para streaming de vídeo via HLS e WebSocket.
-Corrigido para compatibilidade total com MediaMTX v3.
+CORREÇÃO: recordPath deve conter %path literal (não interpolado)
 """
 
 import asyncio
@@ -57,15 +57,15 @@ logging.basicConfig(
 logger = logging.getLogger("streaming")
 
 # ============================================
-# MODELOS (CORRIGIDOS PARA MEDIAMTX V3)
+# MODELOS
 # ============================================
 
 class StreamInfo(BaseModel):
     """Informações de um stream mapeadas da API v3."""
     path: str
-    source: Optional[Dict[str, Any]] = None  # Corrigido: v3 retorna dict
+    source: Optional[Dict[str, Any]] = None
     ready: bool = False
-    readers: int = 0  # Corrigido: len da lista de leitores
+    readers: int = 0
     bytes_received: int = 0
     bytes_sent: int = 0
 
@@ -167,28 +167,83 @@ class StreamingService:
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
         """Adiciona câmara ao MediaMTX."""
         stream_path = f"cam_{request.camera_id}"
+        
+        # ⚠️ CORREÇÃO: %path deve ser literal, não interpolado!
+        # Usa string sem f-string para preservar o %path
+        record_path = "/recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
+        
         config = {
             "source": request.rtsp_url,
             "sourceOnDemand": request.on_demand,
             "record": True,
-            "recordPath": f"/recordings/{stream_path}/%Y-%m-%d_%H-%M-%S-%f",
+            "recordPath": record_path,  # %path literal
             "recordFormat": "fmp4"
         }
+        
+        logger.info(f"Provisionando {stream_path} com config: {config}")
+        
         try:
             # Adiciona ou atualiza via API v3
-            resp = await self._client.post(f"{settings.mediamtx_api_url}/v3/config/paths/add/{stream_path}", json=config)
-            if resp.status_code == 409:
-                await self._client.patch(f"{settings.mediamtx_api_url}/v3/config/paths/patch/{stream_path}", json=config)
-            
-            return ProvisionResponse(
-                success=True, camera_id=request.camera_id, stream_path=stream_path,
-                hls_url=f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8",
-                webrtc_url=f"{settings.mediamtx_webrtc_url}/{stream_path}",
-                message="Provisionamento OK"
+            resp = await self._client.post(
+                f"{settings.mediamtx_api_url}/v3/config/paths/add/{stream_path}", 
+                json=config
             )
+            
+            if resp.status_code == 409:
+                # Path já existe, atualiza
+                logger.info(f"Path {stream_path} já existe, atualizando...")
+                resp = await self._client.patch(
+                    f"{settings.mediamtx_api_url}/v3/config/paths/patch/{stream_path}", 
+                    json=config
+                )
+            
+            if resp.status_code in [200, 201, 204]:
+                logger.info(f"✅ Path {stream_path} provisionado com sucesso")
+                return ProvisionResponse(
+                    success=True, 
+                    camera_id=request.camera_id, 
+                    stream_path=stream_path,
+                    hls_url=f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8",
+                    webrtc_url=f"{settings.mediamtx_webrtc_url}/{stream_path}",
+                    message="Provisionamento OK"
+                )
+            else:
+                error_msg = f"HTTP {resp.status_code}: {resp.text}"
+                logger.error(f"❌ Falha no provisionamento: {error_msg}")
+                return ProvisionResponse(
+                    success=False, 
+                    camera_id=request.camera_id, 
+                    stream_path="", 
+                    hls_url="", 
+                    webrtc_url="", 
+                    message=error_msg
+                )
+                
         except Exception as e:
-            return ProvisionResponse(success=False, camera_id=request.camera_id, 
-                                     stream_path="", hls_url="", webrtc_url="", message=str(e))
+            logger.error(f"❌ Erro ao provisionar {stream_path}: {str(e)}")
+            return ProvisionResponse(
+                success=False, 
+                camera_id=request.camera_id, 
+                stream_path="", 
+                hls_url="", 
+                webrtc_url="", 
+                message=str(e)
+            )
+
+    async def remove_camera(self, camera_id: int) -> bool:
+        """Remove câmera do MediaMTX."""
+        stream_path = f"cam_{camera_id}"
+        try:
+            resp = await self._client.delete(
+                f"{settings.mediamtx_api_url}/v3/config/paths/delete/{stream_path}"
+            )
+            if resp.status_code in [200, 404]:
+                logger.info(f"🗑️ Path {stream_path} removido")
+                return True
+            return False
+        except Exception as e:
+            logger.error(f"Erro ao remover {stream_path}: {e}")
+            return False
 
     async def list_streams(self) -> List[StreamInfo]:
         """Mapeia os campos da API v3 para o modelo interno."""
@@ -198,9 +253,9 @@ class StreamingService:
             return [
                 StreamInfo(
                     path=item.get("name", ""),
-                    source=item.get("source"), # Dict
+                    source=item.get("source"),
                     ready=item.get("ready", False),
-                    readers=len(item.get("readers", [])), # Converte lista para contagem
+                    readers=len(item.get("readers", [])),
                     bytes_received=item.get("bytesReceived", 0),
                     bytes_sent=item.get("bytesSent", 0)
                 ) for item in items
@@ -218,6 +273,26 @@ class StreamingService:
             uptime_seconds=time.time() - self.start_time,
             streams=streams
         )
+
+    async def get_camera_status(self, camera_id: int) -> dict:
+        """Retorna status de uma câmera específica."""
+        stream_path = f"cam_{camera_id}"
+        try:
+            resp = await self._client.get(
+                f"{settings.mediamtx_api_url}/v3/paths/get/{stream_path}"
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return {
+                    "status": "ready" if data.get("ready") else "waiting",
+                    "viewers": len(data.get("readers", [])),
+                    "source": data.get("source"),
+                    "hls_url": f"/hls/{stream_path}/index.m3u8"
+                }
+            return {"status": "not_found"}
+        except Exception as e:
+            return {"status": "error", "error": str(e)}
+
 
 streaming_service = StreamingService()
 
@@ -248,16 +323,27 @@ async def provision(request: ProvisionRequest):
 
 @app.delete("/cameras/{camera_id}")
 async def remove_camera(camera_id: int):
-    path = f"cam_{camera_id}"
-    resp = await streaming_service._client.delete(f"{settings.mediamtx_api_url}/v3/config/paths/delete/{path}")
-    return {"success": resp.status_code in [200, 404]}
+    success = await streaming_service.remove_camera(camera_id)
+    return {"success": success}
+
+@app.get("/cameras/{camera_id}/status")
+async def camera_status(camera_id: int):
+    return await streaming_service.get_camera_status(camera_id)
 
 @app.get("/hls/{stream_path}/index.m3u8")
 async def get_hls(stream_path: str):
     """Proxy para playlist HLS."""
     try:
-        resp = await streaming_service._client.get(f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8")
+        resp = await streaming_service._client.get(
+            f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8"
+        )
         if resp.status_code == 200:
             return Response(content=resp.content, media_type="application/vnd.apple.mpegurl")
-    except: pass
-    raise HTTPException(status_code=404)
+    except Exception as e:
+        logger.error(f"Erro ao obter HLS: {e}")
+    raise HTTPException(status_code=404, detail="Stream não encontrado")
+
+@app.get("/streams")
+async def list_streams():
+    """Lista todos os streams ativos."""
+    return await streaming_service.list_streams()
