@@ -151,8 +151,8 @@ hlsServerCert: server.crt
 hlsAllowOrigins: ['*']
 hlsTrustedProxies: []
 hlsAlwaysRemux: no
-hlsVariant: mpegts
-hlsSegmentCount: 5
+hlsVariant: fmp4
+hlsSegmentCount: 7
 hlsSegmentDuration: 2s
 hlsSegmentMaxSize: 50M
 hlsDirectory: ''
