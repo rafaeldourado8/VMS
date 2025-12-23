@@ -1,27 +1,35 @@
 # ======================================================
-# GT-Vision AI Service - Docker Compose Standalone
+# GT-Vision AI Service - Full Stack (IA + Cache)
 # ======================================================
-# Este serviço é mantido separado devido ao tempo de build
-# das dependências pesadas (PyTorch, YOLO, OpenCV).
-#
-# Uso:
-#   Build inicial (demora ~10-15 min):
-#     docker-compose build
-#
-#   Iniciar:
-#     docker-compose up -d
-#
-#   Ou conectar à rede principal:
-#     docker-compose -f docker-compose.yml up -d
-# ======================================================
+version: '3.9'
 
 services:
+  # Serviço de Cache (Obrigatório para a comunicação entre serviços)
+  redis_cache:
+    image: redis:7-alpine
+    container_name: ai_redis_cache
+    command: redis-server --appendonly yes
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Serviço de Inteligência Artificial
   ai-service:
     build:
       context: .
       dockerfile: Dockerfile
     image: gtvision/ai-service:latest
     container_name: gtvision_ai
+    depends_on:
+      redis_cache:
+        condition: service_healthy # Só inicia a IA quando o Redis estiver pronto
     deploy:
       resources:
         limits:
@@ -34,8 +42,8 @@ services:
       - "8080:8000"    # API
       - "9092:9090"    # Metrics
     environment:
-      - REDIS_HOST=${REDIS_HOST:-redis_cache}
-      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_HOST=redis_cache  # Nome do serviço acima
+      - REDIS_PORT=6379
       - REDIS_DB=1
       - WORKERS=${AI_WORKERS:-4}
       - BATCH_SIZE=${AI_BATCH_SIZE:-8}
@@ -45,20 +53,14 @@ services:
     volumes:
       - ./models:/app/models
       - ai_logs:/app/logs
-    networks:
-      - gtvision_network
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s  # Mais tempo para carregar modelos YOLO
+      start_period: 60s
 
 volumes:
   ai_logs:
-
-networks:
-  gtvision_network:
-    external: true
-    name: gtvision_gtvision_network
+  redis_data: # Volume para não perder os dados do cache se o container cair
