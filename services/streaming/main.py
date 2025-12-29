@@ -143,6 +143,7 @@ class StreamingService:
         self.redis: Optional[aioredis.Redis] = None
         self.start_time = time.time()
         self._client = httpx.AsyncClient(timeout=10.0, auth=self.auth)
+        self.drift_monitor = None
 
     async def initialize(self):
         try:
@@ -151,6 +152,17 @@ class StreamingService:
             logger.info("Conectado ao Redis")
         except Exception as e:
             logger.warning(f"Redis indisponível: {e}")
+        
+        # Inicia monitor de drift (opcional)
+        try:
+            from .drift_monitor import start_drift_monitor
+            self.drift_monitor = await start_drift_monitor(
+                settings.mediamtx_api_url, 
+                self.auth
+            )
+            logger.info("🔍 Monitor de drift iniciado")
+        except ImportError:
+            logger.warning("Monitor de drift não disponível")
         
         asyncio.create_task(self._periodic_health_check())
 
@@ -165,19 +177,26 @@ class StreamingService:
                 logger.error(f"Erro no loop de stats: {e}")
 
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
-        """Adiciona câmara ao MediaMTX."""
+        """Adiciona câmara ao MediaMTX com configurações otimizadas para estabilidade."""
         stream_path = f"cam_{request.camera_id}"
         
-        # ⚠️ CORREÇÃO: %path deve ser literal, não interpolado!
-        # Usa string sem f-string para preservar o %path
+        # Configurações otimizadas para evitar drift
         record_path = "/recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
         
         config = {
             "source": request.rtsp_url,
             "sourceOnDemand": request.on_demand,
+            "sourceOnDemandStartTimeout": "30s",
+            "sourceOnDemandCloseAfter": "60s",
+            "rtspTransport": "tcp",
+            "rtspUDPReadBufferSize": 33554432,
+            "useAbsoluteTimestamp": False,  # CRÍTICO: evita drift
             "record": True,
-            "recordPath": record_path,  # %path literal
-            "recordFormat": "fmp4"
+            "recordPath": record_path,
+            "recordFormat": "fmp4",
+            "recordPartDuration": "4s",
+            "recordSegmentDuration": "30m",
+            "maxReaders": 10
         }
         
         logger.info(f"Provisionando {stream_path} com config: {config}")

@@ -15,8 +15,8 @@ class Detection(BaseModel):
     confidence: float
     bbox: BoundingBox
     plate_number: Optional[str] = None
-    vehicle_model: Optional[str] = None
-    vehicle_confidence: Optional[float] = None
+    plate_confidence: Optional[float] = None
+    image_path: Optional[str] = None
 
 class DetectionRequest(BaseModel):
     camera_id: int
@@ -25,6 +25,7 @@ class DetectionRequest(BaseModel):
 class DetectionResponse(BaseModel):
     detections: List[Detection]
     processing_time_ms: float
+    task_id: Optional[str] = None
 
 class HealthResponse(BaseModel):
     status: str
@@ -32,3 +33,19 @@ class HealthResponse(BaseModel):
     processed_total: int
     avg_processing_time_ms: float
     gpu_available: bool
+    active_workers: int = 0
+    active_streams: int = 0
+
+class WebhookData(BaseModel):
+    """Modelo para dados de webhook LPR."""
+    Plate: Optional[dict] = None
+    Channel: Optional[int] = None
+    DeviceName: Optional[str] = None
+
+class CameraInfo(BaseModel):
+    """Informações da câmera."""
+    id: int
+    name: str
+    rtsp_url: Optional[str] = None
+    active: bool = True
+    type: str = "rtsp"  # rtsp, webhook, etc
