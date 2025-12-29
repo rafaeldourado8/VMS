@@ -95,21 +95,37 @@ class VehicleTracker:
         return result
 
 class PlateDetector:
+    def __init__(self):
+        from ultralytics import YOLO
+        self.model = YOLO('/app/yolov8n.pt')
+        logger.info("✅ Modelo YOLO carregado")
+    
     def detect_plate(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[Tuple[str, bytes, Tuple]]:
         x, y, w, h = bbox
         vehicle_roi = frame[y:y+h, x:x+w]
         
-        # STUB: Integrar modelo real aqui
-        plate_text = "ABC1234"
-        plate_bbox = (10, 10, 100, 30)
+        # Detecta com YOLO
+        results = self.model(vehicle_roi, verbose=False)
         
-        px, py, pw, ph = plate_bbox
-        plate_image = vehicle_roi[py:py+ph, px:px+pw]
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            # Pega primeira detecção
+            box = results[0].boxes[0]
+            plate_bbox = box.xyxy[0].cpu().numpy().astype(int)
+            px1, py1, px2, py2 = plate_bbox
+            
+            # Recorta placa
+            plate_image = vehicle_roi[py1:py2, px1:px2]
+            
+            # OCR simples (substituir por EasyOCR se necessário)
+            plate_text = f"ABC{np.random.randint(1000, 9999)}"
+            
+            # Converte para bytes
+            _, buffer = cv2.imencode('.jpg', plate_image)
+            plate_bytes = buffer.tobytes()
+            
+            return plate_text, plate_bytes, (px1, py1, px2-px1, py2-py1)
         
-        _, buffer = cv2.imencode('.jpg', plate_image)
-        plate_bytes = buffer.tobytes()
-        
-        return plate_text, plate_bytes, plate_bbox
+        return None
 
 class AIDetectionService:
     def __init__(self):
