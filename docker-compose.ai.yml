@@ -68,6 +68,8 @@ services:
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ai_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-ai_pass}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     deploy:
       resources:
         limits:
@@ -128,6 +130,7 @@ services:
 
 volumes:
   ai_pg_data:
+  rabbitmq_data:
 
 networks:
   ai_network:
