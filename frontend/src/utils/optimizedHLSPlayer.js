@@ -74,6 +74,23 @@ class OptimizedHLSPlayer {
             }
         });
         
+        // Ignora erros de manifest loading inicial (normal para streams on-demand)
+        this.hls.on(window.Hls.Events.MANIFEST_LOADING, () => {
+            console.log('📡 Carregando manifest...');
+        });
+        
+        this.hls.on(window.Hls.Events.MANIFEST_LOAD_ERROR, (event, data) => {
+            if (data.response?.code === 404) {
+                console.log('⏳ Stream ainda não disponível, tentando novamente...');
+                // Retry automático após 2s
+                setTimeout(() => {
+                    if (!this.isDestroyed && this.hls) {
+                        this.hls.loadSource(this.streamUrl);
+                    }
+                }, 2000);
+            }
+        });
+        
         // Monitoramento de buffer
         this.hls.on(window.Hls.Events.BUFFER_APPENDED, () => {
             this.cleanupOldBuffer();

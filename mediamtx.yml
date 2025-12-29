@@ -12,9 +12,9 @@ logDestinations: [stdout]
 logFile: mediamtx.log
 sysLogPrefix: mediamtx
 
-readTimeout: 60s
-writeTimeout: 60s
-writeQueueSize: 8192
+readTimeout: 30s
+writeTimeout: 30s
+writeQueueSize: 16384
 udpMaxPayloadSize: 1472
 
 runOnConnect:
@@ -141,7 +141,7 @@ rtmpServerKey: server.key
 rtmpServerCert: server.crt
 
 ###############################################
-# HLS server
+# HLS server - OTIMIZADO PARA 12 CÂMERAS
 
 hls: yes
 hlsAddress: :8888
@@ -150,14 +150,14 @@ hlsServerKey: server.key
 hlsServerCert: server.crt
 hlsAllowOrigins: ['*']
 hlsTrustedProxies: [172.18.0.0/16]
-hlsAlwaysRemux: yes
+hlsAlwaysRemux: no
 hlsVariant: fmp4
-hlsSegmentCount: 3
-hlsSegmentDuration: 4s
-hlsSegmentMaxSize: 50M
+hlsSegmentCount: 2          # Mínimo para baixa latência
+hlsSegmentDuration: 2s      # Segmentos curtos = baixa latência
+hlsSegmentMaxSize: 10M      # Menor para economizar banda
 hlsDirectory: ''
-hlsMuxerCloseAfter: 60s
-hlsPartDuration: 1s
+hlsMuxerCloseAfter: 15s     # Fecha rapidamente
+hlsPartDuration: 0.5s       # Partes muito pequenas
 
 ###############################################
 # WebRTC server
@@ -191,14 +191,14 @@ pathDefaults:
   source: publisher
   sourceFingerprint:
   sourceOnDemand: yes
-  sourceOnDemandStartTimeout: 30s
-  sourceOnDemandCloseAfter: 60s
-  maxReaders: 10
+  sourceOnDemandStartTimeout: 10s    # Muito rápido
+  sourceOnDemandCloseAfter: 15s      # Fecha rápido
+  maxReaders: 4                      # Máximo 4 viewers por câmera
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: no
 
-  record: yes
+  record: no  # DESABILITA GRAVAÇÃO PARA ECONOMIZAR CPU
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 4s
@@ -212,11 +212,11 @@ pathDefaults:
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 33554432
+  rtspUDPReadBufferSize: 4194304     # 4MB buffer
 
-  mpegtsUDPReadBufferSize: 8388608
+  mpegtsUDPReadBufferSize: 2097152   # 2MB
   rtpSDP:
-  rtpUDPReadBufferSize: 8388608
+  rtpUDPReadBufferSize: 2097152      # 2MB
   sourceRedirect:
   
   rpiCameraCamID: 0

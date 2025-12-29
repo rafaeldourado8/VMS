@@ -185,18 +185,14 @@ class StreamingService:
         
         config = {
             "source": request.rtsp_url,
-            "sourceOnDemand": request.on_demand,
-            "sourceOnDemandStartTimeout": "30s",
-            "sourceOnDemandCloseAfter": "60s",
+            "sourceOnDemand": True,
+            "sourceOnDemandStartTimeout": "10s",  # Muito rápido
+            "sourceOnDemandCloseAfter": "15s",
             "rtspTransport": "tcp",
-            "rtspUDPReadBufferSize": 33554432,
-            "useAbsoluteTimestamp": False,  # CRÍTICO: evita drift
-            "record": True,
-            "recordPath": record_path,
-            "recordFormat": "fmp4",
-            "recordPartDuration": "4s",
-            "recordSegmentDuration": "30m",
-            "maxReaders": 10
+            "rtspUDPReadBufferSize": 4194304,  # 4MB
+            "useAbsoluteTimestamp": False,
+            "record": False,
+            "maxReaders": 4  # Até 4 viewers por câmera
         }
         
         logger.info(f"Provisionando {stream_path} com config: {config}")
@@ -366,3 +362,4 @@ async def get_hls(stream_path: str):
 async def list_streams():
     """Lista todos os streams ativos."""
     return await streaming_service.list_streams()
+

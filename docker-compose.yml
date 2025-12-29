@@ -10,7 +10,15 @@ services:
       dockerfile: Dockerfile
     image: gtvision/streaming:latest
     container_name: gtvision_streaming
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 4
+    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    deploy:
+      resources:
+        limits:
+          cpus: '1.5'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
     environment:
       MEDIAMTX_API_URL: http://mediamtx:9997
       MEDIAMTX_HLS_URL: http://mediamtx:8888
@@ -50,9 +58,17 @@ services:
       python manage.py collectstatic --noinput &&
       gunicorn config.wsgi:application
       --bind 0.0.0.0:8000
-      --workers 4
+      --workers 1
       --timeout 120
       "
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 1G
+        reservations:
+          cpus: '0.1'
+          memory: 256M
     volumes:
       - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles
@@ -69,8 +85,6 @@ services:
         condition: service_healthy
       redis_cache:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
@@ -82,25 +96,25 @@ services:
       start_period: 60s
 
   # ============================================
-  # BACKEND WORKER (Celery)
+  # BACKEND WORKER (Celery) - DESABILITADO
   # ============================================
-  backend_worker:
-    build:
-      context: .
-      dockerfile: ./backend/Dockerfile
-    container_name: gtvision_backend_worker
-    command: sh -c "python wait_for_db.py && celery -A config worker --loglevel=info"
-    env_file: .env
-    environment:
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
-    depends_on:
-      backend:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
+  # backend_worker:
+  #   build:
+  #     context: .
+  #     dockerfile: ./backend/Dockerfile
+  #   container_name: gtvision_backend_worker
+  #   command: sh -c "python wait_for_db.py && celery -A config worker --loglevel=info"
+  #   env_file: .env
+  #   environment:
+  #     CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #     rabbitmq:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
 
   # ============================================
   # FRONTEND (Vite / React)
@@ -210,22 +224,22 @@ services:
       retries: 5
 
   # ============================================
-  # RABBITMQ
+  # RABBITMQ - DESABILITADO
   # ============================================
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: gtvision_rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
-      RABBITMQ_DEFAULT_VHOST: /
-    networks:
-      - gtvision_network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
+  # rabbitmq:
+  #   image: rabbitmq:3.13-management-alpine
+  #   container_name: gtvision_rabbitmq
+  #   environment:
+  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+  #     RABBITMQ_DEFAULT_VHOST: /
+  #   networks:
+  #     - gtvision_network
+  #   healthcheck:
+  #     test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 10
 
   # ============================================
   # MEDIAMTX
@@ -239,8 +253,11 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '4.0' # Mais CPU para o remuxing das 16 câmeras
-          memory: 4G
+          cpus: '2.5'     # Otimizado para 12 câmeras
+          memory: 2G      # Mais RAM para múltiplos streams
+        reservations:
+          cpus: '1.0'
+          memory: 512M
     networks:
       - gtvision_network
     healthcheck:
