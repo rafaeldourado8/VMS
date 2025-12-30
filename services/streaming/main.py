@@ -186,13 +186,13 @@ class StreamingService:
         config = {
             "source": request.rtsp_url,
             "sourceOnDemand": True,
-            "sourceOnDemandStartTimeout": "10s",  # Muito rápido
+            "sourceOnDemandStartTimeout": "10s",
             "sourceOnDemandCloseAfter": "15s",
             "rtspTransport": "tcp",
             "rtspUDPReadBufferSize": 4194304,  # 4MB
             "useAbsoluteTimestamp": False,
             "record": False,
-            "maxReaders": 4  # Até 4 viewers por câmera
+            "maxReaders": 4
         }
         
         logger.info(f"Provisionando {stream_path} com config: {config}")
@@ -218,7 +218,7 @@ class StreamingService:
                     success=True, 
                     camera_id=request.camera_id, 
                     stream_path=stream_path,
-                    hls_url=f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8",
+                    hls_url=f"/hls/{stream_path}/index.m3u8",
                     webrtc_url=f"{settings.mediamtx_webrtc_url}/{stream_path}",
                     message="Provisionamento OK"
                 )

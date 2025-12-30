@@ -11,11 +11,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 # Copiar e instalar dependências
-COPY backend/requirements.txt .
+COPY ./backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copiar o código do projeto
-COPY backend/ .
+COPY ./backend/ .
 
 # Garantir que pastas existam
 RUN mkdir -p /app/staticfiles /app/media /app/logs

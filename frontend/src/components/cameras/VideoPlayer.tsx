@@ -32,6 +32,8 @@ export function VideoPlayer({
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showControls, setShowControls] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
+  const maxRetries = 3
 
   useEffect(() => {
     const video = videoRef.current
@@ -47,6 +49,9 @@ export function VideoPlayer({
           enableWorker: true,
           lowLatencyMode: true,
           backBufferLength: 30,
+          maxLoadingDelay: 4,
+          maxBufferLength: 30,
+          maxBufferSize: 60 * 1000 * 1000,
         })
 
         hls.loadSource(src)
@@ -63,11 +68,25 @@ export function VideoPlayer({
         })
 
         hls.on(Hls.Events.ERROR, (_, data) => {
+          console.log('HLS Error:', data)
           if (data.fatal) {
-            const errorMsg = 'Stream indisponível'
-            setError(errorMsg)
+            switch (data.type) {
+              case Hls.ErrorTypes.NETWORK_ERROR:
+                if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
+                  setError('Câmera não está pronta. Aguarde...')
+                } else {
+                  setError('Erro de rede no stream')
+                }
+                break
+              case Hls.ErrorTypes.MEDIA_ERROR:
+                setError('Erro de mídia no stream')
+                break
+              default:
+                setError('Stream indisponível')
+                break
+            }
             setIsLoading(false)
-            onError?.(errorMsg)
+            onError?.(data.details || 'Stream error')
           }
         })
 
@@ -136,6 +155,7 @@ export function VideoPlayer({
   const retry = () => {
     setError(null)
     setIsLoading(true)
+    setRetryCount(prev => prev + 1)
     
     if (hlsRef.current) {
       hlsRef.current.loadSource(src)
@@ -143,6 +163,17 @@ export function VideoPlayer({
       videoRef.current.load()
     }
   }
+
+  // Auto retry para erros de manifest (câmera não ready)
+  useEffect(() => {
+    if (error && error.includes('não está pronta') && retryCount < maxRetries) {
+      const timer = setTimeout(() => {
+        retry()
+      }, 3000) // Retry após 3 segundos
+      
+      return () => clearTimeout(timer)
+    }
+  }, [error, retryCount, maxRetries])
 
   return (
     <div
@@ -170,11 +201,20 @@ export function VideoPlayer({
       {error && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3">
           <AlertCircle className="w-10 h-10 text-destructive" />
-          <p className="text-sm text-muted-foreground">{error}</p>
-          <Button variant="secondary" size="sm" onClick={retry}>
-            <RefreshCw className="w-4 h-4 mr-2" />
-            Tentar novamente
-          </Button>
+          <div className="text-center">
+            <p className="text-sm text-muted-foreground">{error}</p>
+            {error.includes('não está pronta') && retryCount < maxRetries && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Tentativa {retryCount + 1}/{maxRetries + 1} em 3s...
+              </p>
+            )}
+          </div>
+          {(!error.includes('não está pronta') || retryCount >= maxRetries) && (
+            <Button variant="secondary" size="sm" onClick={retry}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Tentar novamente
+            </Button>
+          )}
         </div>
       )}
 

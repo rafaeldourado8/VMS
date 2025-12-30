@@ -9,6 +9,7 @@ import json
 import pika
 import numpy as np
 import cv2
+from datetime import datetime
 from typing import Optional
 import logging
 
@@ -160,14 +161,10 @@ class AIFrameConsumer:
             frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
             frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
             
-            # STUB: Aqui você chamaria detector de veículos (YOLO, etc)
-            # detections = vehicle_detector.detect(frame)
-            detections = []  # Lista de bboxes
-            
             # Processa com serviço de detecção
             asyncio.run(
                 self.detection_service.process_frame(
-                    camera_id, frame, frame_number, detections
+                    camera_id, frame, frame_number
                 )
             )
             

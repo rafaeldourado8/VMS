@@ -1,5 +1,5 @@
 """
-Main - Serviço de IA com Trigger P1-P2
+Main - Serviço de IA com Trigger P1-P2 e Gerenciamento Automático de Câmeras
 """
 
 import asyncio
@@ -8,6 +8,7 @@ import os
 from detection_service import AIDetectionService, DetectionZone
 from ffmpeg_worker import AIFrameConsumer
 from database import DetectionDatabase
+from camera_manager import CameraManager
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +21,7 @@ async def main():
     rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://ai_user:ai_pass@rabbitmq_ai:5672/')
     redis_url = os.getenv('REDIS_URL', 'redis://redis_ai:6379/3')
     db_url = os.getenv('DB_URL', 'postgresql://ai_user:ai_pass@postgres_ai/ai_detections')
+    backend_url = os.getenv('BACKEND_URL', 'http://backend:8000')
     
     logger.info(f"🚀 Iniciando AI Worker {worker_id}")
     
@@ -27,26 +29,21 @@ async def main():
     db = DetectionDatabase(db_url)
     logger.info("✅ Banco de dados inicializado")
     
-    # Carrega configurações de zonas
-    # TODO: Carregar do banco
-    
     # Serviço de detecção
     detection_service = AIDetectionService()
     
-    # Exemplo: Configura zona para câmera 1
-    zone = DetectionZone(
-        camera_id=1,
-        p1=(100, 200),
-        p2=(100, 600),
-        distance_meters=20.0,
-        speed_limit_kmh=60.0,
-        fps=25.0
-    )
-    detection_service.configure_zone(zone)
+    # Carrega configurações de zonas do banco
+    # TODO: Implementar carregamento dinâmico
     
     # Inicia worker de processamento
     asyncio.create_task(detection_service.worker_process_queue())
     logger.info("✅ Worker de processamento iniciado")
+    
+    # Se for o worker 1, inicia o gerenciador de câmeras
+    if worker_id == '1':
+        camera_manager = CameraManager(rabbitmq_url, backend_url)
+        asyncio.create_task(camera_manager.start())
+        logger.info("✅ Gerenciador de câmeras iniciado")
     
     # Consumer de frames
     consumer = AIFrameConsumer(rabbitmq_url, detection_service)

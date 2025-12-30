@@ -51,16 +51,7 @@ services:
       context: .
       dockerfile: ./backend/Dockerfile
     container_name: gtvision_backend
-    command: >
-      sh -c "
-      python wait_for_db.py &&
-      python manage.py migrate &&
-      python manage.py collectstatic --noinput &&
-      gunicorn config.wsgi:application
-      --bind 0.0.0.0:8000
-      --workers 1
-      --timeout 120
-      "
+    command: sh -c "python manage.py runserver 0.0.0.0:8000"
     deploy:
       resources:
         limits:
@@ -79,11 +70,13 @@ services:
       DB_HOST: postgres_db
       DB_PORT: 5432
       REDIS_HOST: redis_cache
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672//
     depends_on:
       postgres_db:
         condition: service_healthy
       redis_cache:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
@@ -145,7 +138,7 @@ services:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
     depends_on:
       backend:
-        condition: service_healthy
+        condition: service_started
       streaming:
         condition: service_healthy
     networks:
@@ -170,7 +163,7 @@ services:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
     depends_on:
       kong:
-        condition: service_healthy
+        condition: service_started
       streaming:
         condition: service_healthy
       frontend:
@@ -224,22 +217,22 @@ services:
       retries: 5
 
   # ============================================
-  # RABBITMQ - DESABILITADO
+  # RABBITMQ
   # ============================================
-  # rabbitmq:
-  #   image: rabbitmq:3.13-management-alpine
-  #   container_name: gtvision_rabbitmq
-  #   environment:
-  #     RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-  #     RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
-  #     RABBITMQ_DEFAULT_VHOST: /
-  #   networks:
-  #     - gtvision_network
-  #   healthcheck:
-  #     test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-  #     interval: 10s
-  #     timeout: 10s
-  #     retries: 10
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: gtvision_rabbitmq
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
+      RABBITMQ_DEFAULT_VHOST: /
+    networks:
+      - gtvision_network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
+      interval: 10s
+      timeout: 10s
+      retries: 10
 
   # ============================================
   # MEDIAMTX
@@ -247,14 +240,18 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     container_name: gtvision_mediamtx
+    ports:
+      - "8888:8888"  # HLS
+      - "8889:8889"  # WebRTC
+      - "9997:9997"  # API
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
       - mediamtx_recordings:/recordings
     deploy:
       resources:
         limits:
-          cpus: '2.5'     # Otimizado para 12 câmeras
-          memory: 2G      # Mais RAM para múltiplos streams
+          cpus: '2.5'
+          memory: 2G
         reservations:
           cpus: '1.0'
           memory: 512M
@@ -281,14 +278,17 @@ services:
           cpus: '1.0'
           memory: 2G
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_user}:${RABBITMQ_PASS:-ai_pass}@rabbitmq_ai:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq_ai:5672/
       REDIS_URL: redis://redis_ai:6379/3
       DB_URL: postgresql://ai_user:ai_pass@postgres_ai/ai_detections
       WORKER_ID: 1
     depends_on:
-      - rabbitmq_ai
-      - redis_ai
-      - postgres_ai
+      rabbitmq_ai:
+        condition: service_healthy
+      redis_ai:
+        condition: service_healthy
+      postgres_ai:
+        condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
@@ -307,14 +307,17 @@ services:
           cpus: '1.0'
           memory: 2G
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-ai_user}:${RABBITMQ_PASS:-ai_pass}@rabbitmq_ai:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq_ai:5672/
       REDIS_URL: redis://redis_ai:6379/3
       DB_URL: postgresql://ai_user:ai_pass@postgres_ai/ai_detections
       WORKER_ID: 2
     depends_on:
-      - rabbitmq_ai
-      - redis_ai
-      - postgres_ai
+      rabbitmq_ai:
+        condition: service_healthy
+      redis_ai:
+        condition: service_healthy
+      postgres_ai:
+        condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
@@ -326,8 +329,8 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: vms_rabbitmq_ai
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-ai_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-ai_pass}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
     deploy:
       resources:
         limits:
@@ -395,6 +398,7 @@ volumes:
   backend_media:
   mediamtx_recordings:
   ai_pg_data:
+  rabbitmq_ai_data:
 
 # ============================================
 # NETWORK

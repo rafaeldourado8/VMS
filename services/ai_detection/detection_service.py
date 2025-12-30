@@ -11,6 +11,8 @@ from typing import Optional, Tuple
 import logging
 from dataclasses import dataclass
 import hashlib
+import requests
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -94,7 +96,29 @@ class VehicleTracker:
         logger.info(f"🏁 Veículo {vehicle_id} cruzou P2 - {speed_kmh} km/h - IA DESATIVADA")
         return result
 
-class PlateDetector:
+class VehicleDetector:
+    """Detector de veículos usando YOLO"""
+    def __init__(self):
+        from ultralytics import YOLO
+        self.model = YOLO('/app/yolov8n.pt')
+        logger.info("✅ Detector de veículos carregado")
+    
+    def detect_vehicles(self, frame: np.ndarray) -> list:
+        """Detecta veículos no frame e retorna bboxes"""
+        results = self.model(frame, verbose=False, classes=[2, 3, 5, 7])  # car, motorcycle, bus, truck
+        
+        detections = []
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            for box in results[0].boxes:
+                bbox = box.xyxy[0].cpu().numpy().astype(int)
+                x1, y1, x2, y2 = bbox
+                w, h = x2 - x1, y2 - y1
+                
+                # Filtra detecções muito pequenas
+                if w > 50 and h > 50:
+                    detections.append((x1, y1, w, h))
+        
+        return detections
     def __init__(self):
         from ultralytics import YOLO
         self.model = YOLO('/app/yolov8n.pt')
@@ -131,16 +155,31 @@ class AIDetectionService:
     def __init__(self):
         self.zones = {}
         self.trackers = {}
-        self.detector = PlateDetector()
+        self.vehicle_detector = VehicleDetector()
+        self.plate_detector = PlateDetector()
         self.processing_queue = asyncio.Queue()
+        self.backend_url = "http://backend:8000/api/deteccoes/ingest/"
+        self.api_key = "default_insecure_key_12345"  # Deve coincidir com INGEST_API_KEY do Django
         
     def configure_zone(self, zone: DetectionZone):
         self.zones[zone.camera_id] = zone
         self.trackers[zone.camera_id] = VehicleTracker(zone)
         logger.info(f"✅ Zona configurada: Cam{zone.camera_id} P1{zone.p1}->P2{zone.p2} {zone.distance_meters}m")
     
-    async def process_frame(self, camera_id: int, frame: np.ndarray, frame_number: int, detections: list):
+    def load_zones_from_db(self, db: 'DetectionDatabase'):
+        """Carrega zonas de detecção do banco de dados"""
+        # TODO: Implementar carregamento de todas as zonas ativas
+        # Por enquanto, configura zona padrão para câmeras que não têm
+        pass
+    
+    async def process_frame(self, camera_id: int, frame: np.ndarray, frame_number: int):
         if camera_id not in self.trackers:
+            return
+        
+        # Detecta veículos no frame
+        detections = self.vehicle_detector.detect_vehicles(frame)
+        
+        if not detections:
             return
         
         tracker = self.trackers[camera_id]
@@ -157,12 +196,13 @@ class AIDetectionService:
                 })
             
             elif tracker.check_crossing_p2(bbox):
-                for vehicle_id, vehicle_data in tracker.active_vehicles.items():
+                for vehicle_id, vehicle_data in list(tracker.active_vehicles.items()):
                     if self._bbox_match(vehicle_data['bbox'], bbox):
                         result = tracker.finish_tracking(vehicle_id, frame_number)
                         if result and result['speeding']:
                             await self.processing_queue.put({
                                 'action': 'save_detection',
+                                'camera_id': camera_id,
                                 'result': result
                             })
     
@@ -183,19 +223,96 @@ class AIDetectionService:
         iou = inter_area / union_area if union_area > 0 else 0
         return iou > threshold
     
+    async def send_to_backend(self, detection_data: dict):
+        """Envia detecção para o endpoint Django"""
+        try:
+            # Converte imagem da placa para base64
+            plate_image_b64 = base64.b64encode(detection_data['plate_image']).decode()
+            
+            payload = {
+                'camera_id': detection_data['camera_id'],
+                'timestamp': detection_data['timestamp_p1'].isoformat(),
+                'plate': detection_data['plate_text'],
+                'confidence': 0.85,  # TODO: Usar confiança real do OCR
+                'vehicle_type': 'car',  # TODO: Detectar tipo do veículo
+                'image_url': f"data:image/jpeg;base64,{plate_image_b64}"
+            }
+            
+            headers = {
+                'Content-Type': 'application/json',
+                'X-API-Key': self.api_key
+            }
+            
+            response = requests.post(
+                self.backend_url,
+                json=payload,
+                headers=headers,
+                timeout=5
+            )
+            
+            if response.status_code == 201:
+                logger.info(f"✅ Detecção enviada: {detection_data['plate_text']}")
+                return True
+            else:
+                logger.error(f"❌ Erro enviando detecção: {response.status_code} - {response.text}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"❌ Erro enviando para backend: {e}")
+            return False
     async def worker_process_queue(self):
         while True:
             try:
                 task = await self.processing_queue.get()
                 
                 if task['action'] == 'detect_plate':
-                    result = self.detector.detect_plate(task['frame'], task['bbox'])
+                    result = self.plate_detector.detect_plate(task['frame'], task['bbox'])
                     if result:
                         plate_text, plate_image, plate_bbox = result
                         logger.info(f"🔍 Placa detectada: {plate_text}")
+                        
+                        # Armazena dados da placa para quando o veículo cruzar P2
+                        vehicle_id = task['vehicle_id']
+                        if vehicle_id in self.trackers[task['camera_id']].active_vehicles:
+                            self.trackers[task['camera_id']].active_vehicles[vehicle_id]['plate_data'] = {
+                                'plate_text': plate_text,
+                                'plate_image': plate_image,
+                                'plate_bbox': plate_bbox
+                            }
                 
                 elif task['action'] == 'save_detection':
-                    logger.info(f"💾 Salvando detecção: {task['result']}")
+                    camera_id = task['camera_id']
+                    result = task['result']
+                    
+                    # Busca dados da placa
+                    vehicle_id = result['vehicle_id']
+                    plate_data = None
+                    
+                    # Tenta recuperar dados da placa do tracker
+                    if camera_id in self.trackers:
+                        for vid, vdata in self.trackers[camera_id].active_vehicles.items():
+                            if vid == vehicle_id and 'plate_data' in vdata:
+                                plate_data = vdata['plate_data']
+                                break
+                    
+                    if plate_data:
+                        detection_data = {
+                            'camera_id': camera_id,
+                            'vehicle_id': vehicle_id,
+                            'plate_text': plate_data['plate_text'],
+                            'speed_kmh': result['speed_kmh'],
+                            'speeding': result['speeding'],
+                            'timestamp_p1': result['p1_time'],
+                            'timestamp_p2': result['p2_time'],
+                            'plate_image': plate_data['plate_image']
+                        }
+                        
+                        # Envia para o backend Django
+                        await self.send_to_backend(detection_data)
+                        
+                        logger.info(f"💾 Detecção salva: {plate_data['plate_text']} - {result['speed_kmh']} km/h")
+                    else:
+                        logger.warning(f"⚠️ Dados da placa não encontrados para veículo {vehicle_id}")
                 
                 self.processing_queue.task_done()
             except Exception as e:

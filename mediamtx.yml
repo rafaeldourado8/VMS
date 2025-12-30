@@ -12,9 +12,9 @@ logDestinations: [stdout]
 logFile: mediamtx.log
 sysLogPrefix: mediamtx
 
-readTimeout: 30s
-writeTimeout: 30s
-writeQueueSize: 16384
+readTimeout: 60s
+writeTimeout: 60s
+writeQueueSize: 65536
 udpMaxPayloadSize: 1472
 
 runOnConnect:
@@ -128,7 +128,7 @@ multicastSRTCPPort: 8007
 rtspServerKey: server.key
 rtspServerCert: server.crt
 rtspAuthMethods: [basic]
-rtspUDPReadBufferSize: 0
+rtspUDPReadBufferSize: 8388608
 
 ###############################################
 # RTMP server
@@ -152,12 +152,12 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: [172.18.0.0/16]
 hlsAlwaysRemux: no
 hlsVariant: fmp4
-hlsSegmentCount: 2          # Mínimo para baixa latência
-hlsSegmentDuration: 2s      # Segmentos curtos = baixa latência
-hlsSegmentMaxSize: 10M      # Menor para economizar banda
+hlsSegmentCount: 6          # Mais segmentos para estabilidade
+hlsSegmentDuration: 4s      # Segmentos maiores = menos CPU
+hlsSegmentMaxSize: 50M      # Maior para múltiplos streams
 hlsDirectory: ''
-hlsMuxerCloseAfter: 15s     # Fecha rapidamente
-hlsPartDuration: 0.5s       # Partes muito pequenas
+hlsMuxerCloseAfter: 30s     # Mais tempo para estabilizar
+hlsPartDuration: 1s         # Partes maiores para performance
 
 ###############################################
 # WebRTC server
@@ -191,9 +191,9 @@ pathDefaults:
   source: publisher
   sourceFingerprint:
   sourceOnDemand: yes
-  sourceOnDemandStartTimeout: 10s    # Muito rápido
-  sourceOnDemandCloseAfter: 15s      # Fecha rápido
-  maxReaders: 4                      # Máximo 4 viewers por câmera
+  sourceOnDemandStartTimeout: 10s
+  sourceOnDemandCloseAfter: 15s
+  maxReaders: 8
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: no
@@ -212,11 +212,11 @@ pathDefaults:
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 4194304     # 4MB buffer
+  rtspUDPReadBufferSize: 16777216    # 16MB buffer
 
-  mpegtsUDPReadBufferSize: 2097152   # 2MB
+  mpegtsUDPReadBufferSize: 8388608   # 8MB
   rtpSDP:
-  rtpUDPReadBufferSize: 2097152      # 2MB
+  rtpUDPReadBufferSize: 8388608      # 8MB
   sourceRedirect:
   
   rpiCameraCamID: 0
@@ -258,16 +258,6 @@ pathDefaults:
 ###############################################
 
 paths:
-  # Nenhuma câmera hardcoded aqui!
-  # O fluxo correto é:
-  #
-  # 1. Usuário cadastra câmera no Frontend
-  # 2. Frontend chama POST /api/cameras/
-  # 3. Django (CameraService) chama POST /streaming/cameras/provision
-  # 4. Streaming Service chama POST /v3/config/paths/add/cam_{id}
-  # 5. MediaMTX adiciona o path dinamicamente
-  #
-  # Para debug, você pode usar um path de teste:
-  # test_stream:
-  #   source: rtsp://rtsp.stream/pattern
-  #   sourceOnDemand: yes
+  # Câmeras serão provisionadas dinamicamente via API
+  # Quando uma câmera não consegue conectar na fonte,
+  # o HLS retorna 404 até que a fonte esteja disponível
