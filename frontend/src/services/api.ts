@@ -4,9 +4,13 @@ import type {
   AuthResponse,
   Camera,
   CameraCreateRequest,
+  Clip,
+  ClipCreateRequest,
   DashboardStats,
   Detection,
   LoginRequest,
+  Mosaico,
+  MosaicoCreateRequest,
   PaginatedResponse,
   User,
 } from '@/types'
@@ -107,6 +111,21 @@ export const cameraService = {
   async delete(id: number): Promise<void> {
     await api.delete(`/cameras/${id}/`)
   },
+
+  async updateDetectionConfig(id: number, config: {
+    roi_areas: any[]
+    virtual_lines: any[]
+    tripwires: any[]
+    zone_triggers: any[]
+    recording_retention_days?: number
+    ai_enabled?: boolean
+  }): Promise<void> {
+    await api.post(`/cameras/${id}/update_detection_config/`, config)
+  },
+
+  async toggleAI(id: number, enabled: boolean): Promise<void> {
+    await api.post(`/cameras/${id}/toggle_ai/`, { enabled })
+  },
 }
 
 // ======================================================
@@ -170,4 +189,75 @@ export const streamingService = {
   },
 }
 
+// ======================================================
+// AI SERVICE
+// ======================================================
+
+export const aiService = {
+  async getStatus(cameraId: number) {
+    const { data } = await api.get(`/ai/cameras/${cameraId}/status/`)
+    return data
+  },
+
+  async startProcessing(cameraId: number) {
+    const { data } = await api.post(`/ai/cameras/${cameraId}/start/`)
+    return data
+  },
+
+  async stopProcessing(cameraId: number) {
+    const { data } = await api.post(`/ai/cameras/${cameraId}/stop/`)
+    return data
+  },
+
+  async testDetection(cameraId: number) {
+    const { data } = await api.post(`/ai/cameras/${cameraId}/test/`)
+    return data
+  },
+}
+
 export default api
+
+// ======================================================
+// CLIPS
+// ======================================================
+
+export const clipService = {
+  async list(): Promise<Clip[]> {
+    const { data } = await api.get<Clip[] | PaginatedResponse<Clip>>('/clips/')
+    return Array.isArray(data) ? data : data.results
+  },
+
+  async create(clip: ClipCreateRequest): Promise<Clip> {
+    const { data } = await api.post<Clip>('/clips/', clip)
+    return data
+  },
+
+  async delete(id: number): Promise<void> {
+    await api.delete(`/clips/${id}/`)
+  },
+}
+
+// ======================================================
+// MOSAICOS
+// ======================================================
+
+export const mosaicoService = {
+  async list(): Promise<Mosaico[]> {
+    const { data } = await api.get<Mosaico[] | PaginatedResponse<Mosaico>>('/mosaicos/')
+    return Array.isArray(data) ? data : data.results
+  },
+
+  async create(mosaico: MosaicoCreateRequest): Promise<Mosaico> {
+    const { data } = await api.post<Mosaico>('/mosaicos/', mosaico)
+    return data
+  },
+
+  async updateCameras(id: number, cameras: { camera_id: number; position: number }[]): Promise<Mosaico> {
+    const { data } = await api.post<Mosaico>(`/mosaicos/${id}/update_cameras/`, { cameras })
+    return data
+  },
+
+  async delete(id: number): Promise<void> {
+    await api.delete(`/mosaicos/${id}/`)
+  },
+}

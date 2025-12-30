@@ -11,6 +11,8 @@ import {
   Bell,
   User,
   ChevronDown,
+  Scissors,
+  Grid3X3,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
@@ -20,6 +22,8 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Câmeras', href: '/cameras', icon: Camera },
   { name: 'Detecções', href: '/detections', icon: Car },
+  { name: 'Meus Clips', href: '/clips', icon: Scissors },
+  { name: 'Mosaicos', href: '/mosaicos', icon: Grid3X3 },
   { name: 'Configurações', href: '/settings', icon: Settings },
 ]
 

@@ -1,4 +1,4 @@
-version: "3.9"
+
 
 services:
   # ============================================
@@ -278,16 +278,16 @@ services:
           cpus: '1.0'
           memory: 2G
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq_ai:5672/
-      REDIS_URL: redis://redis_ai:6379/3
-      DB_URL: postgresql://ai_user:ai_pass@postgres_ai/ai_detections
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+      REDIS_URL: redis://redis_cache:6379/3
+      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
       WORKER_ID: 1
     depends_on:
-      rabbitmq_ai:
+      rabbitmq:
         condition: service_healthy
-      redis_ai:
+      redis_cache:
         condition: service_healthy
-      postgres_ai:
+      postgres_db:
         condition: service_healthy
     networks:
       - gtvision_network
@@ -307,87 +307,20 @@ services:
           cpus: '1.0'
           memory: 2G
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq_ai:5672/
-      REDIS_URL: redis://redis_ai:6379/3
-      DB_URL: postgresql://ai_user:ai_pass@postgres_ai/ai_detections
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+      REDIS_URL: redis://redis_cache:6379/3
+      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
       WORKER_ID: 2
     depends_on:
-      rabbitmq_ai:
+      rabbitmq:
         condition: service_healthy
-      redis_ai:
+      redis_cache:
         condition: service_healthy
-      postgres_ai:
+      postgres_db:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
-
-  # ============================================
-  # RABBITMQ PARA IA
-  # ============================================
-  rabbitmq_ai:
-    image: rabbitmq:3.13-management-alpine
-    container_name: vms_rabbitmq_ai
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    networks:
-      - gtvision_network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
-  # ============================================
-  # REDIS PARA CACHE DE IA
-  # ============================================
-  redis_ai:
-    image: redis:7-alpine
-    container_name: vms_redis_ai
-    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
-    deploy:
-      resources:
-        limits:
-          cpus: '0.25'
-          memory: 256M
-    networks:
-      - gtvision_network
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
-  # ============================================
-  # POSTGRES PARA BANCO DE IA
-  # ============================================
-  postgres_ai:
-    image: postgres:15-alpine
-    container_name: vms_postgres_ai
-    environment:
-      POSTGRES_DB: ai_detections
-      POSTGRES_USER: ai_user
-      POSTGRES_PASSWORD: ai_pass
-    volumes:
-      - ai_pg_data:/var/lib/postgresql/data
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    networks:
-      - gtvision_network
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ai_user -d ai_detections"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
 # ============================================
 # VOLUMES
@@ -397,8 +330,6 @@ volumes:
   backend_static:
   backend_media:
   mediamtx_recordings:
-  ai_pg_data:
-  rabbitmq_ai_data:
 
 # ============================================
 # NETWORK

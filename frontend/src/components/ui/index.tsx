@@ -185,6 +185,55 @@ function Skeleton({
 }
 
 // ======================================================
+// SELECT
+// ======================================================
+
+interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
+  onValueChange?: (value: string) => void
+}
+
+const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
+  ({ className, children, onValueChange, onChange, ...props }, ref) => {
+    const handleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+      onChange?.(e)
+      onValueChange?.(e.target.value)
+    }
+
+    return (
+      <select
+        ref={ref}
+        className={cn(
+          "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50",
+          className
+        )}
+        onChange={handleChange}
+        {...props}
+      >
+        {children}
+      </select>
+    )
+  }
+)
+Select.displayName = "Select"
+
+const SelectTrigger = Select
+const SelectValue = ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => null
+const SelectContent = ({ children }: { children: React.ReactNode }) => <>{children}</>
+const SelectItem = React.forwardRef<
+  HTMLOptionElement,
+  React.OptionHTMLAttributes<HTMLOptionElement>
+>(({ className, children, ...props }, ref) => (
+  <option
+    ref={ref}
+    className={cn("py-1.5 pl-2 pr-8 text-sm", className)}
+    {...props}
+  >
+    {children}
+  </option>
+))
+SelectItem.displayName = "SelectItem"
+
+// ======================================================
 // EXPORTS
 // ======================================================
 
@@ -200,4 +249,9 @@ export {
   Badge,
   badgeVariants,
   Skeleton,
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
 }

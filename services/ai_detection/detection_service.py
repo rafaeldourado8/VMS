@@ -96,33 +96,12 @@ class VehicleTracker:
         logger.info(f"🏁 Veículo {vehicle_id} cruzou P2 - {speed_kmh} km/h - IA DESATIVADA")
         return result
 
-class VehicleDetector:
-    """Detector de veículos usando YOLO"""
+class PlateDetector:
+    """Detector de placas usando YOLO"""
     def __init__(self):
         from ultralytics import YOLO
         self.model = YOLO('/app/yolov8n.pt')
-        logger.info("✅ Detector de veículos carregado")
-    
-    def detect_vehicles(self, frame: np.ndarray) -> list:
-        """Detecta veículos no frame e retorna bboxes"""
-        results = self.model(frame, verbose=False, classes=[2, 3, 5, 7])  # car, motorcycle, bus, truck
-        
-        detections = []
-        if len(results) > 0 and len(results[0].boxes) > 0:
-            for box in results[0].boxes:
-                bbox = box.xyxy[0].cpu().numpy().astype(int)
-                x1, y1, x2, y2 = bbox
-                w, h = x2 - x1, y2 - y1
-                
-                # Filtra detecções muito pequenas
-                if w > 50 and h > 50:
-                    detections.append((x1, y1, w, h))
-        
-        return detections
-    def __init__(self):
-        from ultralytics import YOLO
-        self.model = YOLO('/app/yolov8n.pt')
-        logger.info("✅ Modelo YOLO carregado")
+        logger.info("✅ Detector de placas carregado")
     
     def detect_plate(self, frame: np.ndarray, bbox: Tuple[int, int, int, int]) -> Optional[Tuple[str, bytes, Tuple]]:
         x, y, w, h = bbox
@@ -150,6 +129,30 @@ class VehicleDetector:
             return plate_text, plate_bytes, (px1, py1, px2-px1, py2-py1)
         
         return None
+
+class VehicleDetector:
+    """Detector de veículos usando YOLO"""
+    def __init__(self):
+        from ultralytics import YOLO
+        self.model = YOLO('/app/yolov8n.pt')
+        logger.info("✅ Detector de veículos carregado")
+    
+    def detect_vehicles(self, frame: np.ndarray) -> list:
+        """Detecta veículos no frame e retorna bboxes"""
+        results = self.model(frame, verbose=False, classes=[2, 3, 5, 7])  # car, motorcycle, bus, truck
+        
+        detections = []
+        if len(results) > 0 and len(results[0].boxes) > 0:
+            for box in results[0].boxes:
+                bbox = box.xyxy[0].cpu().numpy().astype(int)
+                x1, y1, x2, y2 = bbox
+                w, h = x2 - x1, y2 - y1
+                
+                # Filtra detecções muito pequenas
+                if w > 50 and h > 50:
+                    detections.append((x1, y1, w, h))
+        
+        return detections
 
 class AIDetectionService:
     def __init__(self):

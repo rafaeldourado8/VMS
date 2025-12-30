@@ -1,10 +1,13 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
+import { useTheme } from '@/hooks/useTheme'
 import { Layout } from '@/components/layout/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { CamerasPage } from '@/pages/CamerasPage'
 import { DetectionsPage } from '@/pages/DetectionsPage'
+import { ClipsPage } from '@/pages/ClipsPage'
+import { MosaicosPage } from '@/pages/MosaicosPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 
 // Protected Route wrapper
@@ -30,6 +33,11 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const { isAuthenticated } = useAuthStore()
+  
+  // Always call useTheme hook
+  useTheme()
+  
   return (
     <BrowserRouter>
       <Routes>
@@ -54,6 +62,8 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/cameras" element={<CamerasPage />} />
           <Route path="/detections" element={<DetectionsPage />} />
+          <Route path="/clips" element={<ClipsPage />} />
+          <Route path="/mosaicos" element={<MosaicosPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>
 

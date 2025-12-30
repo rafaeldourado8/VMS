@@ -35,9 +35,45 @@ export interface Camera {
   latitude: number | null;
   longitude: number | null;
   detection_settings: Record<string, unknown>;
+  // Novas configurações de detecção
+  roi_areas: ROIArea[];
+  virtual_lines: VirtualLine[];
+  tripwires: VirtualLine[];
+  zone_triggers: ZoneTrigger[];
+  recording_enabled: boolean;
+  recording_retention_days: number;
+  ai_enabled: boolean;
   created_at: string;
   stream_url_frontend: string;
   ai_websocket_url: string;
+}
+
+// Configurações de detecção
+export interface ROIArea {
+  id: string;
+  name: string;
+  points: { x: number; y: number }[];
+  enabled: boolean;
+  color?: string;
+}
+
+export interface VirtualLine {
+  id: string;
+  name: string;
+  start: { x: number; y: number };
+  end: { x: number; y: number };
+  direction: 'both' | 'left-to-right' | 'right-to-left';
+  enabled: boolean;
+  color?: string;
+}
+
+export interface ZoneTrigger {
+  id: string;
+  name: string;
+  points: { x: number; y: number }[];
+  triggerType: 'enter' | 'exit' | 'both';
+  enabled: boolean;
+  color?: string;
 }
 
 export interface CameraCreateRequest {
@@ -113,4 +149,42 @@ export interface WSEvent {
   type: 'status' | 'detection' | 'alert' | 'ping' | 'pong';
   data?: unknown;
   timestamp: string;
+}
+
+// Clips
+export interface Clip {
+  id: number;
+  name: string;
+  camera: Camera;
+  start_time: string;
+  end_time: string;
+  file_path: string;
+  thumbnail_path: string | null;
+  duration_seconds: number;
+  created_at: string;
+}
+
+export interface ClipCreateRequest {
+  camera_id: number;
+  name: string;
+  start_time: string;
+  end_time: string;
+}
+
+// Mosaicos
+export interface Mosaico {
+  id: number;
+  name: string;
+  cameras_positions: MosaicoCameraPosition[];
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MosaicoCameraPosition {
+  camera: Camera;
+  position: number;
+}
+
+export interface MosaicoCreateRequest {
+  name: string;
 }

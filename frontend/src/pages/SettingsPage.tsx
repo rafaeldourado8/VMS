@@ -22,6 +22,7 @@ import {
   Badge,
 } from '@/components/ui'
 import { useAuthStore } from '@/store/authStore'
+import { useTheme } from '@/hooks/useTheme'
 import { streamingService } from '@/services/api'
 import { formatBytes, formatDuration } from '@/lib/utils'
 
@@ -341,9 +342,9 @@ function NotificationSettings() {
   )
 }
 
-// Appearance Settings
+// Appearance Settings - Clean version
 function AppearanceSettings() {
-  const [theme, setTheme] = useState('dark')
+  const { theme, setTheme } = useTheme()
 
   return (
     <Card>
@@ -361,7 +362,7 @@ function AppearanceSettings() {
               {['light', 'dark', 'system'].map((t) => (
                 <button
                   key={t}
-                  onClick={() => setTheme(t)}
+                  onClick={() => setTheme(t as 'light' | 'dark' | 'system')}
                   className={`p-4 rounded-lg border text-center transition-colors ${
                     theme === t
                       ? 'border-primary bg-primary/10'
@@ -369,7 +370,9 @@ function AppearanceSettings() {
                   }`}
                 >
                   <Palette className="w-5 h-5 mx-auto mb-2" />
-                  <span className="text-sm capitalize">{t}</span>
+                  <span className="text-sm capitalize">
+                    {t === 'system' ? 'Sistema' : t === 'light' ? 'Claro' : 'Escuro'}
+                  </span>
                 </button>
               ))}
             </div>

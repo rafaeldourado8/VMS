@@ -18,9 +18,9 @@ logger = logging.getLogger(__name__)
 
 async def main():
     worker_id = os.getenv('WORKER_ID', '1')
-    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://ai_user:ai_pass@rabbitmq_ai:5672/')
-    redis_url = os.getenv('REDIS_URL', 'redis://redis_ai:6379/3')
-    db_url = os.getenv('DB_URL', 'postgresql://ai_user:ai_pass@postgres_ai/ai_detections')
+    rabbitmq_url = os.getenv('RABBITMQ_URL', 'amqp://gtvision_user:your-rabbitmq-password-here@rabbitmq:5672/')
+    redis_url = os.getenv('REDIS_URL', 'redis://redis_cache:6379/3')
+    db_url = os.getenv('DB_URL', 'postgresql://gtvision_user:your-strong-password-here@postgres_db/gtvision_db')
     backend_url = os.getenv('BACKEND_URL', 'http://backend:8000')
     
     logger.info(f"🚀 Iniciando AI Worker {worker_id}")

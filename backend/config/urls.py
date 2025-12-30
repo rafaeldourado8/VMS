@@ -20,6 +20,7 @@ urlpatterns = [
     path("api/", include("apps.usuarios.urls")),
     path("api/", include("apps.cameras.urls")),
     path("api/", include("apps.deteccoes.urls")),
+    path("api/", include("apps.clips.urls")),
     path("api/", include("apps.dashboard.urls")),
     path("api/", include("apps.analytics.urls")),
     path("api/", include("apps.configuracoes.urls")),

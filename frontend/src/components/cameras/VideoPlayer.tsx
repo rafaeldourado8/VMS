@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
-import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, AlertCircle } from 'lucide-react'
+import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, AlertCircle, Scissors, Circle, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 
@@ -12,6 +12,8 @@ interface VideoPlayerProps {
   className?: string
   onError?: (error: string) => void
   onReady?: () => void
+  showRecordingControls?: boolean
+  cameraId?: number
 }
 
 export function VideoPlayer({
@@ -22,6 +24,8 @@ export function VideoPlayer({
   className,
   onError,
   onReady,
+  showRecordingControls = false,
+  cameraId,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
@@ -33,6 +37,9 @@ export function VideoPlayer({
   const [error, setError] = useState<string | null>(null)
   const [showControls, setShowControls] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
+  const [isRecording, setIsRecording] = useState(false)
+  const [recordingStartTime, setRecordingStartTime] = useState<Date | null>(null)
+  const [showClipModal, setShowClipModal] = useState(false)
   const maxRetries = 3
 
   useEffect(() => {
@@ -164,6 +171,24 @@ export function VideoPlayer({
     }
   }
 
+  const toggleRecording = () => {
+    if (isRecording) {
+      // Parar gravação
+      setIsRecording(false)
+      setRecordingStartTime(null)
+    } else {
+      // Iniciar gravação
+      setIsRecording(true)
+      setRecordingStartTime(new Date())
+    }
+  }
+
+  const createClip = () => {
+    if (recordingStartTime) {
+      setShowClipModal(true)
+    }
+  }
+
   // Auto retry para erros de manifest (câmera não ready)
   useEffect(() => {
     if (error && error.includes('não está pronta') && retryCount < maxRetries) {
@@ -263,6 +288,38 @@ export function VideoPlayer({
             >
               <Maximize className="w-4 h-4" />
             </Button>
+
+            {/* Recording Controls */}
+            {showRecordingControls && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-8 w-8 hover:bg-white/20",
+                    isRecording ? "text-red-500" : "text-white"
+                  )}
+                  onClick={toggleRecording}
+                >
+                  {isRecording ? (
+                    <Square className="w-4 h-4" />
+                  ) : (
+                    <Circle className="w-4 h-4" />
+                  )}
+                </Button>
+
+                {recordingStartTime && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-white hover:bg-white/20"
+                    onClick={createClip}
+                  >
+                    <Scissors className="w-4 h-4" />
+                  </Button>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

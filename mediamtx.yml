@@ -128,7 +128,7 @@ multicastSRTCPPort: 8007
 rtspServerKey: server.key
 rtspServerCert: server.crt
 rtspAuthMethods: [basic]
-rtspUDPReadBufferSize: 8388608
+rtspUDPReadBufferSize: 65536
 
 ###############################################
 # RTMP server
@@ -212,11 +212,11 @@ pathDefaults:
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 16777216    # 16MB buffer
+  rtspUDPReadBufferSize: 65536    # 64KB buffer
 
-  mpegtsUDPReadBufferSize: 8388608   # 8MB
+  mpegtsUDPReadBufferSize: 65536   # 64KB
   rtpSDP:
-  rtpUDPReadBufferSize: 8388608      # 8MB
+  rtpUDPReadBufferSize: 65536      # 64KB
   sourceRedirect:
   
   rpiCameraCamID: 0

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X, Loader2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, Settings, Play, Eye, Grid, Trash2 } from 'lucide-react'
 import {
   Button,
   Input,
@@ -12,6 +12,8 @@ import {
 } from '@/components/ui'
 import { CameraGrid } from '@/components/cameras/CameraGrid'
 import { VideoPlayer } from '@/components/cameras/VideoPlayer'
+import { StreamThumbnail } from '@/components/cameras/StreamThumbnail'
+import { DetectionConfig } from '@/components/cameras/DetectionConfig'
 import { cameraService, streamingService } from '@/services/api'
 import type { Camera, CameraCreateRequest } from '@/types'
 
@@ -20,6 +22,8 @@ export function CamerasPage() {
   const [search, setSearch] = useState('')
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [showDetectionConfig, setShowDetectionConfig] = useState<Camera | null>(null)
+  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
 
   const { data: cameras, isLoading } = useQuery({
     queryKey: ['cameras'],
@@ -52,10 +56,27 @@ export function CamerasPage() {
           <h1 className="text-2xl font-bold">Câmeras</h1>
           <p className="text-muted-foreground">Gerencie suas câmeras de vigilância</p>
         </div>
-        <Button onClick={() => setShowAddModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Adicionar Câmera
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            variant={viewMode === 'list' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('list')}
+          >
+            Lista
+          </Button>
+          <Button
+            variant={viewMode === 'grid' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setViewMode('grid')}
+          >
+            <Grid className="w-4 h-4 mr-2" />
+            Grade
+          </Button>
+          <Button onClick={() => setShowAddModal(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            Adicionar Câmera
+          </Button>
+        </div>
       </div>
 
       {/* Search */}
@@ -69,13 +90,20 @@ export function CamerasPage() {
         />
       </div>
 
-      {/* Grid */}
+      {/* Content */}
       {isLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-4">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Skeleton key={i} className="aspect-video rounded-xl" />
+            <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
+      ) : viewMode === 'list' ? (
+        <CameraList
+          cameras={filteredCameras}
+          onCameraView={setSelectedCamera}
+          onCameraConfig={setShowDetectionConfig}
+          onCameraDelete={handleDelete}
+        />
       ) : (
         <CameraGrid
           cameras={filteredCameras}
@@ -92,9 +120,110 @@ export function CamerasPage() {
         />
       )}
 
+      {/* Detection Config Modal */}
+      {showDetectionConfig && (
+        <DetectionConfig
+          camera={showDetectionConfig}
+          onClose={() => setShowDetectionConfig(null)}
+        />
+      )}
+
       {/* Add Camera Modal */}
       {showAddModal && (
         <AddCameraModal onClose={() => setShowAddModal(false)} />
+      )}
+    </div>
+  )
+}
+
+// Camera List Component
+function CameraList({
+  cameras,
+  onCameraView,
+  onCameraConfig,
+  onCameraDelete,
+}: {
+  cameras: Camera[]
+  onCameraView: (camera: Camera) => void
+  onCameraConfig: (camera: Camera) => void
+  onCameraDelete: (camera: Camera) => void
+}) {
+  return (
+    <div className="space-y-3">
+      {cameras.map((camera) => (
+        <Card key={camera.id} className="hover:shadow-md transition-shadow">
+          <CardContent className="p-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <StreamThumbnail
+                  src={streamingService.getHlsUrl(camera.id)}
+                  fallbackSrc={camera.thumbnail_url || undefined}
+                  className="w-20 h-12 flex-shrink-0"
+                  onClick={() => onCameraView(camera)}
+                  cameraName={camera.name}
+                  showStatus={true}
+                />
+                <div>
+                  <h3 className="font-semibold">{camera.name}</h3>
+                  <p className="text-sm text-muted-foreground">{camera.location || 'Sem localização'}</p>
+                  <div className="flex items-center gap-4 mt-1">
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      camera.status === 'online' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {camera.status === 'online' ? 'Online' : 'Offline'}
+                    </span>
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      camera.ai_enabled 
+                        ? 'bg-blue-100 text-blue-800' 
+                        : 'bg-gray-100 text-gray-600'
+                    }`}>
+                      IA {camera.ai_enabled ? 'Ativa' : 'Inativa'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      ID: {camera.id}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onCameraView(camera)}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  Visualizar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onCameraConfig(camera)}
+                >
+                  <Settings className="w-4 h-4 mr-2" />
+                  Configurar
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onCameraDelete(camera)}
+                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Remover
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+      
+      {cameras.length === 0 && (
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Nenhuma câmera encontrada</p>
+        </div>
       )}
     </div>
   )
@@ -111,18 +240,18 @@ function CameraDetailModal({
   const hlsUrl = streamingService.getHlsUrl(camera.id)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <div className="relative w-full max-w-5xl bg-card rounded-xl overflow-hidden animate-slide-in">
+      <div className="relative w-full max-w-5xl bg-white dark:bg-gray-900 rounded-xl overflow-hidden animate-slide-in shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
           <div>
-            <h2 className="text-lg font-semibold">{camera.name}</h2>
+            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">{camera.name}</h2>
             {camera.location && (
-              <p className="text-sm text-muted-foreground">{camera.location}</p>
+              <p className="text-sm text-gray-600 dark:text-gray-400">{camera.location}</p>
             )}
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+          <Button variant="ghost" size="icon" onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
             <X className="w-5 h-5" />
           </Button>
         </div>
@@ -133,29 +262,31 @@ function CameraDetailModal({
             src={hlsUrl}
             autoPlay
             muted={false}
+            showRecordingControls={true}
+            cameraId={camera.id}
             className="h-full"
           />
         </div>
 
         {/* Info */}
-        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+        <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm bg-white dark:bg-gray-900">
           <div>
-            <p className="text-muted-foreground">Status</p>
-            <p className="font-medium capitalize">{camera.status}</p>
+            <p className="text-gray-600 dark:text-gray-400">Status</p>
+            <p className="font-medium capitalize text-gray-900 dark:text-white">{camera.status}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">ID</p>
-            <p className="font-medium font-mono">{camera.id}</p>
+            <p className="text-gray-600 dark:text-gray-400">ID</p>
+            <p className="font-medium font-mono text-gray-900 dark:text-white">{camera.id}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Criada em</p>
-            <p className="font-medium">
+            <p className="text-gray-600 dark:text-gray-400">Criada em</p>
+            <p className="font-medium text-gray-900 dark:text-white">
               {new Date(camera.created_at).toLocaleDateString('pt-BR')}
             </p>
           </div>
           <div>
-            <p className="text-muted-foreground">Stream</p>
-            <p className="font-medium font-mono text-xs truncate">
+            <p className="text-gray-600 dark:text-gray-400">Stream</p>
+            <p className="font-medium font-mono text-xs truncate text-gray-900 dark:text-white">
               cam_{camera.id}
             </p>
           </div>
@@ -194,7 +325,7 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
       <Card className="relative w-full max-w-md animate-slide-in">
         <CardHeader>

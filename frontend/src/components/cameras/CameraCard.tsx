@@ -3,7 +3,7 @@ import { MapPin, MoreVertical, Maximize2, Settings, Trash2 } from 'lucide-react'
 import type { Camera } from '@/types'
 import { cn } from '@/lib/utils'
 import { Button, Badge } from '@/components/ui'
-import { VideoPlayer } from './VideoPlayer'
+import { StreamThumbnail } from './StreamThumbnail'
 import { streamingService } from '@/services/api'
 
 interface CameraCardProps {
@@ -43,23 +43,13 @@ export function CameraCard({
     >
       {/* Video */}
       <div className={cn("relative", compact ? "aspect-video" : "aspect-video")}>
-        {isOnline ? (
-          <VideoPlayer
-            src={hlsUrl}
-            poster={camera.thumbnail_url || undefined}
-            autoPlay
-            muted
-          />
-        ) : (
-          <div className="absolute inset-0 flex items-center justify-center bg-secondary">
-            <div className="text-center">
-              <div className="w-12 h-12 mx-auto mb-2 rounded-full bg-destructive/20 flex items-center justify-center">
-                <div className="w-3 h-3 bg-destructive rounded-full" />
-              </div>
-              <p className="text-sm text-muted-foreground">Câmera Offline</p>
-            </div>
-          </div>
-        )}
+        <StreamThumbnail
+          src={hlsUrl}
+          fallbackSrc={camera.thumbnail_url || undefined}
+          className="w-full h-full"
+          onClick={onClick}
+          showStatus={false}
+        />
 
         {/* Status badge */}
         <div className="absolute top-3 left-3">

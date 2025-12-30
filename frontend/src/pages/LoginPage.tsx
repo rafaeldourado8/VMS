@@ -32,18 +32,18 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-900">
       {/* Background pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#1a1a2e_1px,transparent_1px),linear-gradient(to_bottom,#1a1a2e_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#374151_1px,transparent_1px),linear-gradient(to_bottom,#374151_1px,transparent_1px)] bg-[size:4rem_4rem]" />
       
-      <Card className="w-full max-w-md relative z-10">
+      <Card className="w-full max-w-md relative z-10 bg-gray-800 border-gray-700">
         <CardHeader className="text-center pb-2">
           {/* Logo */}
           <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
             <Camera className="w-8 h-8 text-white" />
           </div>
-          <CardTitle className="text-2xl">GT-Vision VMS</CardTitle>
-          <p className="text-sm text-muted-foreground mt-1">
+          <CardTitle className="text-2xl text-white">GT-Vision VMS</CardTitle>
+          <p className="text-sm text-gray-400 mt-1">
             Sistema de Videomonitoramento Inteligente
           </p>
         </CardHeader>
@@ -57,7 +57,7 @@ export function LoginPage() {
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium">
+              <label htmlFor="email" className="text-sm font-medium text-gray-200">
                 Email
               </label>
               <Input
@@ -73,7 +73,7 @@ export function LoginPage() {
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium">
+              <label htmlFor="password" className="text-sm font-medium text-gray-200">
                 Senha
               </label>
               <div className="relative">
@@ -117,7 +117,7 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-xs text-muted-foreground">
+          <div className="mt-6 text-center text-xs text-gray-500">
             <p>Demo: admin@test.com / admin123</p>
           </div>
         </CardContent>

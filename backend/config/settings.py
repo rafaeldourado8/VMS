@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     "apps.usuarios",
     "apps.cameras",
     "apps.deteccoes",
+    "apps.clips",
     "apps.analytics",
     "apps.configuracoes",
     "apps.dashboard",

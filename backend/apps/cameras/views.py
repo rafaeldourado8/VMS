@@ -107,22 +107,26 @@ class CameraViewSet(viewsets.ModelViewSet):
         return Response(status_data)
 
     @action(detail=True, methods=['post'])
-    def reprovision_single(self, request, pk=None):
-        """
-        Reprovisiona uma única câmera no MediaMTX.
-        
-        Útil quando uma câmera específica parou de funcionar.
-        """
+    def update_detection_config(self, request, pk=None):
+        """Atualiza configurações de detecção da câmera"""
         camera = self.get_object()
-        success = self.service._provision_streaming(camera)
+        config_data = request.data
         
-        if success:
-            return Response({
-                "success": True,
-                "message": f"Câmera {camera.name} reprovisionada com sucesso"
-            })
-        else:
-            return Response({
-                "success": False,
-                "message": "Falha ao reprovisionar. Verifique os logs."
-            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # Atualizar configurações de detecção
+        if 'roi_areas' in config_data:
+            camera.roi_areas = config_data['roi_areas']
+        if 'virtual_lines' in config_data:
+            camera.virtual_lines = config_data['virtual_lines']
+        if 'tripwires' in config_data:
+            camera.tripwires = config_data['tripwires']
+        if 'zone_triggers' in config_data:
+            camera.zone_triggers = config_data['zone_triggers']
+        if 'recording_retention_days' in config_data:
+            camera.recording_retention_days = config_data['recording_retention_days']
+        
+        camera.save()
+        
+        return Response({
+            "success": True,
+            "message": "Configurações de detecção atualizadas"
+        })

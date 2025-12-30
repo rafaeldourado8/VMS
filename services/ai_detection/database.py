@@ -61,7 +61,7 @@ class VehicleDetection(Base):
 class DetectionCache:
     """Cache Redis para evitar duplicatas"""
     
-    def __init__(self, redis_url: str = 'redis://localhost:6379/3'):
+    def __init__(self, redis_url: str = 'redis://redis_cache:6379/3'):
         self.redis = redis.from_url(redis_url)
         self.ttl = 300  # 5 minutos
     
@@ -96,9 +96,14 @@ class DetectionCache:
 class DetectionDatabase:
     """Gerenciador de banco de dados de detecções"""
     
-    def __init__(self, db_url: str = 'postgresql://user:pass@localhost/ai_detections'):
+    def __init__(self, db_url: str = 'postgresql://gtvision_user:your-strong-password-here@postgres_db/gtvision_db'):
         self.engine = create_engine(db_url, pool_size=10, max_overflow=20)
-        Base.metadata.create_all(self.engine)
+        # Não criar tabelas automaticamente - usar apenas se não existirem
+        try:
+            Base.metadata.create_all(self.engine, checkfirst=True)
+        except Exception as e:
+            # Ignorar erros de tabelas já existentes
+            pass
         self.Session = sessionmaker(bind=self.engine)
         self.cache = DetectionCache()
     
