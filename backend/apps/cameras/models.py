@@ -10,14 +10,15 @@ class Camera(models.Model):
         on_delete=models.CASCADE,
         related_name="cameras",
     )
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="online")
-    stream_url = models.CharField(max_length=1000, unique=True)
+    stream_url = models.CharField(max_length=1000)
     thumbnail_url = models.CharField(max_length=1000, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     detection_settings = models.JSONField(default=dict, blank=True, null=True)
+    ai_enabled = models.BooleanField(default=False)  # Status da IA
     # Configurações de detecção avançadas
     roi_areas = models.JSONField(default=list, blank=True, null=True)  # Áreas ROI
     virtual_lines = models.JSONField(default=list, blank=True, null=True)  # Linhas virtuais

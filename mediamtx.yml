@@ -27,6 +27,12 @@ runOnDisconnect:
 authMethod: internal
 
 authInternalUsers:
+  - user: mediamtx_api_user
+    pass: "GtV!sionMed1aMTX$2025"
+    ips: []
+    permissions:
+      - action: api
+
   - user: any
     pass:
     ips: []
@@ -42,15 +48,8 @@ authInternalUsers:
     pass:
     ips: ['127.0.0.1', '::1']
     permissions:
-      - action: api
       - action: metrics
       - action: pprof
-
-  - user: mediamtx_api_user
-    pass: "GtV!sionMed1aMTX$2025"
-    ips: []
-    permissions:
-      - action: api
 
 authHTTPAddress:
 authHTTPExclude:

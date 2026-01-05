@@ -47,6 +47,10 @@ class CameraViewSet(viewsets.ModelViewSet):
         }
         """
         serializer = self.get_serializer(data=request.data)
+        if not serializer.is_valid():
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"Erro de validação: {serializer.errors}")
         serializer.is_valid(raise_exception=True)
         
         camera_dto = CameraDTO(
@@ -129,4 +133,30 @@ class CameraViewSet(viewsets.ModelViewSet):
         return Response({
             "success": True,
             "message": "Configurações de detecção atualizadas"
+        })
+
+    @action(detail=True, methods=['post'], url_path='start')
+    def start_ai(self, request, pk=None):
+        """Inicia IA para uma câmera (temporário até AI service estar pronto)"""
+        camera = self.get_object()
+        camera.ai_enabled = True
+        camera.save()
+        return Response({"success": True, "ai_enabled": True, "camera_id": camera.id})
+
+    @action(detail=True, methods=['post'], url_path='stop')
+    def stop_ai(self, request, pk=None):
+        """Para IA para uma câmera (temporário até AI service estar pronto)"""
+        camera = self.get_object()
+        camera.ai_enabled = False
+        camera.save()
+        return Response({"success": True, "ai_enabled": False, "camera_id": camera.id})
+
+    @action(detail=True, methods=['get'], url_path='status')
+    def ai_status(self, request, pk=None):
+        """Retorna status da IA para uma câmera (temporário até AI service estar pronto)"""
+        camera = self.get_object()
+        return Response({
+            "camera_id": camera.id,
+            "ai_enabled": getattr(camera, 'ai_enabled', False),
+            "has_roi": bool(camera.roi_areas)
         })

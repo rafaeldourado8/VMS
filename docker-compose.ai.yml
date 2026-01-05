@@ -1,0 +1,45 @@
+services:
+  # ============================================
+  # AI DETECTION SERVICE (FastAPI + DDD)
+  # ============================================
+  ai_detection:
+    build:
+      context: ./services/ai_detection
+      dockerfile: Dockerfile
+    image: gtvision/ai_detection:latest
+    container_name: gtvision_ai_detection
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --workers 1
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+      REDIS_URL: redis://redis_cache:6379/3
+      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "8002:8002"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  gtvision_network:
+    external: true

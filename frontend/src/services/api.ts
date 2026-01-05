@@ -165,12 +165,12 @@ export const dashboardService = {
 
 export const streamingService = {
   async getStats() {
-    const { data } = await axios.get('/streaming/stats')
+    const { data } = await api.get('/streaming/stats')
     return data
   },
 
   async provisionCamera(cameraId: number, rtspUrl: string, name: string) {
-    const { data } = await axios.post('/streaming/cameras/provision', {
+    const { data } = await api.post('/streaming/cameras/provision', {
       camera_id: cameraId,
       rtsp_url: rtspUrl,
       name,
@@ -180,7 +180,7 @@ export const streamingService = {
   },
 
   async getCameraStatus(cameraId: number) {
-    const { data } = await axios.get(`/streaming/cameras/${cameraId}/status`)
+    const { data } = await api.get(`/streaming/cameras/${cameraId}/status`)
     return data
   },
 

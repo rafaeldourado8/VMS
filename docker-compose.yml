@@ -2,6 +2,55 @@
 
 services:
   # ============================================
+  # AI DETECTION SERVICE (FastAPI)
+  # ============================================
+  ai_detection:
+    build:
+      context: ./services/ai_detection
+      dockerfile: Dockerfile
+      args:
+        BUILDKIT_INLINE_CACHE: 1
+    image: gtvision/ai_detection:latest
+    container_name: gtvision_ai_detection
+    command: uvicorn main:app --host 0.0.0.0 --port 8002 --workers 1 --timeout-keep-alive 5 --limit-concurrency 10
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 3G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+    environment:
+      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+      REDIS_URL: redis://redis_cache:6379/3
+      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PYTHONUNBUFFERED: 1
+    ports:
+      - "8002:8002"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: on-failure:3
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 2
+      start_period: 20s
+
+  # ============================================
   # STREAMING SERVICE (FastAPI)
   # ============================================
   streaming:
@@ -222,10 +271,14 @@ services:
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
     container_name: gtvision_rabbitmq
+    user: rabbitmq
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
       RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-gtvision_secret_cookie_change_me}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - gtvision_network
     healthcheck:
@@ -233,6 +286,7 @@ services:
       interval: 10s
       timeout: 10s
       retries: 10
+      start_period: 30s
 
   # ============================================
   # MEDIAMTX
@@ -240,6 +294,7 @@ services:
   mediamtx:
     image: bluenviron/mediamtx:latest-ffmpeg
     container_name: gtvision_mediamtx
+    env_file: .env
     ports:
       - "8888:8888"  # HLS
       - "8889:8889"  # WebRTC
@@ -257,70 +312,17 @@ services:
           memory: 512M
     networks:
       - gtvision_network
+    environment:
+      MEDIAMTX_API_USER: ${MEDIAMTX_API_USER:-mediamtx_api_user}
+      MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9997/v3/config/global/get"]
+      test: ["CMD-SHELL", "wget -q --spider --header='Authorization: Basic bWVkaWFtdHhfYXBpX3VzZXI6R3RWIXNpb25NZWQxYU1UWCQyMDI1' http://localhost:9997/v3/config/global/get || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
 
-  # ============================================
-  # SERVIÇO DE IA - WORKER 1
-  # ============================================
-  ai_worker_1:
-    build:
-      context: ./services/ai_detection
-      dockerfile: Dockerfile
-    container_name: vms_ai_worker_1
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      WORKER_ID: 1
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
 
-  # ============================================
-  # SERVIÇO DE IA - WORKER 2
-  # ============================================
-  ai_worker_2:
-    build:
-      context: ./services/ai_detection
-      dockerfile: Dockerfile
-    container_name: vms_ai_worker_2
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      WORKER_ID: 2
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
 
 # ============================================
 # VOLUMES
@@ -330,6 +332,7 @@ volumes:
   backend_static:
   backend_media:
   mediamtx_recordings:
+  rabbitmq_data:
 
 # ============================================
 # NETWORK

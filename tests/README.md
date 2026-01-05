@@ -1,185 +1,110 @@
-# 🧪 TESTES VMS - Suite Completa de Testes
+📹 VMS — Sistema de Monitoramento com IA
+(Versão MVP – Implantação Inicial)
+🏛️ Visão Geral
 
-Esta pasta contém todos os testes para validar o desempenho, capacidade e funcionalidades do sistema VMS.
+O VMS é uma plataforma de monitoramento de câmeras com transmissão de vídeo em alta qualidade e inteligência artificial integrada, desenvolvida para ambientes institucionais, como prefeituras e órgãos públicos.
 
-## 📋 Testes Disponíveis
+O foco desta versão é:
 
-### 1. 🎬 Teste de Streaming e Latência
-**Arquivo:** `test_streaming_capacity.py`
+Estabilidade
 
-**O que testa:**
-- Streaming simultâneo de múltiplas câmeras
-- Latência dos streams HLS
-- Qualidade de reprodução
-- Capacidade de viewers simultâneos
+Baixa latência
 
-**Métricas:**
-- Latência média/máxima/mínima
-- Taxa de sucesso dos streams
-- Qualidade geral (Excelente/Boa/Regular/Ruim)
+Operação simples
 
-### 2. 🤖 Teste de Detecções de IA
-**Arquivo:** `test_detections.py`
+Escalabilidade controlada
 
-**O que testa:**
-- Status dos AI Workers
-- Detecções ativas no sistema
-- Configurações de ROI, linhas virtuais, zonas
-- Atividade de detecção por câmera
+IA funcionando sem comprometer o vídeo ao vivo
 
-**Métricas:**
-- Workers ativos/inativos
-- Total de detecções
-- Detecções recentes (última hora)
-- Nível de atividade
+🎯 Objetivo do MVP
 
-### 3. 🔥 Teste de Capacidade Máxima
-**Arquivo:** `test_system_capacity.py`
+Entregar uma solução funcional que permita:
 
-**O que testa:**
-- Capacidade máxima de câmeras simultâneas
-- Uso de recursos (CPU, RAM)
-- Performance dos containers Docker
-- Limites do MediaMTX
+Visualização ao vivo de câmeras
 
-**Métricas:**
-- Máximo de câmeras suportadas
-- Uso de CPU/RAM no pico
-- Capacidade estimada recomendada
+Organização em mosaicos
 
-## 🚀 Como Executar
+Detecção automática de eventos via IA
 
-### Pré-requisitos
-```bash
-# Instalar dependências
-pip install aiohttp psutil
-```
+Uso simultâneo por múltiplos operadores
 
-### Execução Individual
-```bash
-# Teste de streaming
-python tests/test_streaming_capacity.py
+Tudo isso com baixo custo operacional e alta confiabilidade.
 
-# Teste de detecções  
-python tests/test_detections.py
+🎥 Funcionalidades Principais
+🔴 Monitoramento ao Vivo
 
-# Teste de capacidade
-python tests/test_system_capacity.py
-```
+Reprodução automática de vídeo
 
-### Execução Completa
-```bash
-# Executar todos os testes
-tests/run_all_tests.bat
-```
+Visualização individual de câmeras
 
-## 📹 Configuração de Câmeras de Teste
+Mosaico fixo com até 4 câmeras simultâneas
 
-### Adicionar Câmeras Automaticamente
-```bash
-python tests/setup_test_cameras.py
-```
+Qualidade de vídeo preservada (sem perda por IA)
 
-### Lista de Câmeras Incluídas
-- **9 câmeras RTSP** (45.236.226.x)
-- **3 câmeras RTSP** (186.226.193.111, 170.84.217.84)  
-- **3 streams RTMP** (Camerite services)
+📋 Gestão de Câmeras
 
-**Total: 15 câmeras de teste**
+Lista centralizada de câmeras
 
-## 📊 Interpretação dos Resultados
+Status online/offline
 
-### Streaming e Latência
-- **🟢 Excelente:** < 1.0s latência
-- **🟡 Boa:** 1.0-2.0s latência
-- **🟠 Regular:** 2.0-3.0s latência
-- **🔴 Ruim:** > 3.0s latência
+Criação rápida de mosaicos
 
-### Detecções de IA
-- **🟢 Alta:** > 10 detecções/hora
-- **🟡 Média:** 5-10 detecções/hora
-- **🟠 Baixa:** 1-5 detecções/hora
-- **🔴 Nenhuma:** 0 detecções/hora
+Limite técnico para evitar sobrecarga do sistema
 
-### Capacidade do Sistema
-- **CPU < 70%:** Sistema pode suportar mais câmeras
-- **CPU 70-85%:** Capacidade próxima do limite
-- **CPU > 85%:** Sistema no limite máximo
+🤖 Inteligência Artificial Ativa
 
-## 🎯 Cenários de Teste
+Processamento desacoplado do vídeo
 
-### Teste Básico (5 câmeras)
-- Validar funcionamento básico
-- Verificar latência inicial
-- Confirmar detecções ativas
+Detecção de placas veiculares
 
-### Teste Médio (10-15 câmeras)
-- Testar capacidade normal de uso
-- Avaliar performance com carga média
-- Verificar estabilidade
+Operação em modo econômico (1 frame por segundo)
 
-### Teste de Stress (25+ câmeras)
-- Encontrar limite máximo
-- Testar comportamento sob stress
-- Identificar gargalos
+Indicador visual de IA ativa
 
-## 🔧 Troubleshooting
+📌 A IA não interfere no streaming e pode ser pausada automaticamente em caso de alta carga.
 
-### Erro de Login
-```
-❌ Falha no login
-```
-**Solução:** Criar usuário admin em http://localhost
+👥 Usuários
 
-### Câmeras não Conectam
-```
-❌ Câmera X: HTTP 400/500
-```
-**Solução:** Verificar URLs RTSP/RTMP e conectividade
+Acesso restrito
 
-### AI Workers Inativos
-```
-❌ AI Worker 1: Inativo
-```
-**Solução:** 
-```bash
-docker-compose restart ai_worker_1 ai_worker_2
-```
+Perfis administrativos
 
-### MediaMTX Indisponível
-```
-❌ MediaMTX API: Erro
-```
-**Solução:**
-```bash
-docker-compose restart mediamtx
-```
+Controle de usuários simultâneos
 
-## 📈 Benchmarks Esperados
+📄 Registro de Eventos
 
-### Sistema Básico (4GB RAM, 4 cores)
-- **Câmeras simultâneas:** 10-15
-- **Latência média:** 1-2s
-- **CPU máximo:** 60-70%
+Lista simples de ocorrências detectadas
 
-### Sistema Médio (8GB RAM, 8 cores)  
-- **Câmeras simultâneas:** 25-35
-- **Latência média:** 0.5-1s
-- **CPU máximo:** 50-60%
+Registro de data, horário e câmera
 
-### Sistema Avançado (16GB RAM, 16 cores)
-- **Câmeras simultâneas:** 50+
-- **Latência média:** < 0.5s
-- **CPU máximo:** 40-50%
+Preparado para auditoria e análise futura
 
-## 🎯 Objetivos dos Testes
+⚙️ Limites Operacionais (MVP)
 
-1. **Validar funcionalidades** implementadas
-2. **Medir performance** real do sistema
-3. **Identificar limites** de capacidade
-4. **Otimizar configurações** para melhor desempenho
-5. **Garantir qualidade** antes da produção
+Até 4 câmeras por mosaico
 
----
+Até 4 usuários simultâneos por unidade
 
-**💡 Dica:** Execute os testes em horários diferentes para avaliar variações de performance e conectividade das câmeras externas.
+Streaming sob demanda
+
+IA operando em baixa frequência para estabilidade
+
+Esses limites garantem funcionamento contínuo e previsível.
+
+🚫 Funcionalidades Planejadas (não inclusas nesta fase)
+
+Playback de vídeo
+
+Recorte e exportação
+
+Timeline de gravações
+
+Dashboards analíticos
+
+Relatórios avançados
+
+Essas funcionalidades fazem parte da evolução do sistema e serão entregues em fases posteriores.
+
+🏁 Conclusão
+
+Este MVP foi projetado para implantação rápida, uso real e evolução segura, atendendo às necessidades iniciais de monitoramento com IA sem comprometer a qualidade do serviço.

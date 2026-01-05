@@ -3,6 +3,7 @@ from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
 from apps.usuarios.views import LogoutAPIView, MeAPIView, MyTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
+from apps.cameras.views import CameraViewSet
 
 # Desabilita CSRF para o admin em ambiente de dev se necessário
 admin.site.login = csrf_exempt(admin.site.login)
@@ -26,4 +27,9 @@ urlpatterns = [
     path("api/", include("apps.configuracoes.urls")),
     path("api/", include("apps.suporte.urls")),
     path("api/", include("apps.thumbnails.urls")),
+
+    # Rotas temporárias de AI (até o serviço AI estar pronto)
+    path("api/ai/cameras/<int:pk>/start/", CameraViewSet.as_view({'post': 'start_ai'}), name="ai_start"),
+    path("api/ai/cameras/<int:pk>/stop/", CameraViewSet.as_view({'post': 'stop_ai'}), name="ai_stop"),
+    path("api/ai/cameras/<int:pk>/status/", CameraViewSet.as_view({'get': 'ai_status'}), name="ai_status"),
 ]
