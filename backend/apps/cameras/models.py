@@ -18,17 +18,17 @@ class Camera(models.Model):
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     detection_settings = models.JSONField(default=dict, blank=True, null=True)
-    ai_enabled = models.BooleanField(default=False)  # Status da IA
-    # Configurações de detecção avançadas
-    roi_areas = models.JSONField(default=list, blank=True, null=True)  # Áreas ROI
-    virtual_lines = models.JSONField(default=list, blank=True, null=True)  # Linhas virtuais
-    tripwires = models.JSONField(default=list, blank=True, null=True)  # Tripwires
-    zone_triggers = models.JSONField(default=list, blank=True, null=True)  # Zonas de trigger
-    # Configurações de gravação
+    ai_enabled = models.BooleanField(default=False)
+    roi_areas = models.JSONField(default=list, blank=True, null=True)
+    virtual_lines = models.JSONField(default=list, blank=True, null=True)
+    tripwires = models.JSONField(default=list, blank=True, null=True)
+    zone_triggers = models.JSONField(default=list, blank=True, null=True)
     recording_enabled = models.BooleanField(default=True)
-    recording_retention_days = models.IntegerField(default=30)  # 7, 15, 30 dias
+    recording_retention_days = models.IntegerField(default=30)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name
+
+__all__ = ['Camera']

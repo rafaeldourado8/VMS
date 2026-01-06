@@ -1,7 +1,7 @@
 from typing import List, Optional
 from domain.monitoring.entities.camera import Camera
 from domain.monitoring.repositories.camera_repository import CameraRepository
-from ..models.camera_model import CameraModel
+from apps.cameras.models import Camera as CameraModel
 from .camera_mapper import CameraMapper
 
 

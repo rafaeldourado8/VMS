@@ -2,7 +2,7 @@ from typing import List, Optional
 from datetime import datetime
 from domain.detection.entities.detection import Detection
 from domain.detection.repositories.detection_repository import DetectionRepository
-from ..models.detection_model import DetectionModel
+from apps.deteccoes.models import Deteccao as DetectionModel
 from .detection_mapper import DetectionMapper
 
 

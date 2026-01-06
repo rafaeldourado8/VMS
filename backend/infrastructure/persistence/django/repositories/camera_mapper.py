@@ -3,7 +3,7 @@ from domain.monitoring.entities.camera import Camera, CameraStatus
 from domain.monitoring.value_objects.stream_url import StreamUrl
 from domain.monitoring.value_objects.location import Location
 from domain.monitoring.value_objects.geo_coordinates import GeoCoordinates
-from ..models.camera_model import CameraModel
+from apps.cameras.models import Camera as CameraModel
 
 
 class CameraMapper:
