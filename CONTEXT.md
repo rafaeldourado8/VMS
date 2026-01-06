@@ -1,155 +1,273 @@
-# 📋 Contexto Técnico - VMS (Video Management System)
+# GT-Vision – Project Context (AI Coding Assistant)
 
-## 🎯 Status Atual: REFATORAÇÃO DDD 100% COMPLETA (BACKEND + FRONTEND) ✅🎉🚀
+## 1. Project Overview
 
-**Objetivo Alcançado**: Domain-Driven Design (DDD) aplicado com sucesso em **TODO** o sistema:
-- ✅ Backend Django (100%)
-- ✅ Streaming Service FastAPI (100%)
-- ✅ AI Detection Service FastAPI (100%)
-- ✅ Frontend React + TypeScript (100%)
+**GT-Vision** is a **high-availability traffic monitoring system** focused on **vehicle detection and license plate recognition (LPR/ANPR)**. The service is designed primarily for **municipal governments (prefeituras)** and must comply with **LGPD (Brazilian General Data Protection Law)**, security best practices, and strict uptime requirements.
 
-**Documentos de Referência**:
-- `docs/DDD_FINAL_COMPLETE.md` - Resumo executivo completo (backend + frontend)
-- `docs/DDD_100_COMPLETE.md` - Resumo backend
-- `docs/DDD_COMPLETE_SUMMARY.md` - Detalhes
-- `README.md` - Especificações MVP
+The system is intended to operate **24/7**, handling real-time video streaming and AI-based detection with minimal latency, strong fault tolerance, and horizontal scalability.
 
 ---
 
-## 🏛️ Visão Geral
+## 2. Target Clients
 
-O VMS é uma plataforma institucional de monitoramento com IA integrada, focada em estabilidade e baixo custo operacional. O sistema utiliza processamento desacoplado para garantir que a análise de vídeo não afete a fluidez do streaming ao vivo.
+* Municipal governments (Prefeituras)
+* Traffic departments
+* Public safety departments
+* Civil police
+* City administrators and mayors
 
-## 🛠️ Stack Tecnológica
-
-**Backend**: Django (API Administrativa e Persistência) - **EM REFATORAÇÃO DDD**
-- Domain Layer: Entidades, Value Objects, Repositories (interfaces)
-- Application Layer: Commands, Queries, Handlers (CQRS)
-- Infrastructure Layer: Django Models, External Services
-- Interface Layer: REST API
-
-**Streaming**: FastAPI + MediaMTX (HLS/WebRTC)
-
-**IA Worker**: Python com YOLOv8 e extração via FFmpeg
-
-**Mensageria**: RabbitMQ (Fila de frames e eventos)
-
-**Cache/Signals**: Redis
-
-**Frontend**: React + Vite
+The system is **not consumer-oriented**; it is a **B2G (Business-to-Government)** platform.
 
 ---
 
-## 🤖 Fluxo de Inteligência (Trigger P1-P2)
+## 3. Core Principles
 
-**Extração**: Worker FFmpeg extrai frames a 1 FPS e envia para RabbitMQ
-
-**Monitoramento**: AIDetectionService monitora veículos cruzando linha virtual P1
-
-**Ativação**: Ao cruzar P1, detecção de placas (OCR) é ativada para aquele veículo
-
-**Finalização**: Ao cruzar P2, velocidade é calculada. Se houver excesso, dados são enviados ao backend Django
-
----
-
-## 🎯 Bounded Contexts (DDD)
-
-### 1. Monitoring Context
-- **Entidades**: Camera, StreamSession
-- **Value Objects**: StreamUrl, Location, GeoCoordinates
-- **Responsabilidade**: Gerenciar câmeras e streaming
-
-### 2. Detection Context
-- **Entidades**: Detection, Vehicle
-- **Value Objects**: LicensePlate, Confidence, VehicleType
-- **Responsabilidade**: Processar detecções de IA
-
-### 3. Configuration Context
-- **Entidades**: ROI, VirtualLine, TripWire
-- **Responsabilidade**: Configurações de detecção
-
-### 4. Identity Context
-- **Entidades**: User, Permission
-- **Responsabilidade**: Autenticação e autorização
+* **High Availability (HA)** – no single point of failure
+* **Low Latency Streaming** – optimized for browser playback
+* **Fault Isolation** – streaming and AI must fail independently
+* **Security First** – OWASP, JWT, encryption, least privilege
+* **Compliance** – LGPD by design
+* **Observability** – metrics, logs, tracing
+* **Maintainability** – clean code, tests, cyclomatic complexity control
 
 ---
 
-## 🔄 Desafios Técnicos
+## 4. Actors (User Roles)
 
-**Otimização**: Redução de CPU de 429% para 0.71% no modo minimalista
+### 4.1 Administrators
 
-**Resiliência**: Processamento assíncrono de eventos de detecção
+Users with elevated privileges, including:
 
-**Configuração Dinâmica**: ROIs para filtrar alarmes falsos
+* Traffic agents
+* Civil police
+* City security operators
+* IT/security administrators
+* City executives (read-only dashboards)
 
-**Refatoração DDD**: Migração gradual sem quebrar API existente
+Capabilities:
 
-## 📐 Princípios SOLID Aplicados
-
-**S - Single Responsibility**: Cada entidade tem uma única responsabilidade
-
-**O - Open/Closed**: Interfaces de repositório permitem extensão
-
-**L - Liskov Substitution**: Implementações de repositório são intercambiáveis
-
-**I - Interface Segregation**: Interfaces específicas por contexto
-
-**D - Dependency Inversion**: Domínio não depende de infraestrutura
+* Access live streams
+* Configure AI detection rules (ROI, triggers)
+* Review detections and alerts
+* Manage cameras
+* Audit logs and reports
 
 ---
 
-## 📊 Métricas de Qualidade
+## 5. System Architecture (High Level)
 
-**Complexidade Ciclomática (CC)**:
-- Meta: CC < 10 para todos os métodos
-- Ferramenta: radon, pytest-cov
+The platform is divided into **independent, decoupled services**:
 
-**Cobertura de Testes**:
-- Meta: > 80% cobertura total
-- Domain layer: > 90%
-- Application layer: > 85%
+```
+[ Cameras ]
+     |
+     v
+[ Streaming Service ]  --->  [ Browser / Dashboard ]
+     |
+     +----> [ AI Detection Service ] ---> [ Events / Alerts / DB ]
+```
 
-**Tipos de Testes**:
-- Unitários: Domain entities, value objects, services
-- Integração: Repositories, external services
-- E2E: API endpoints (mínimo)
+### Key Rule
+
+> **Streaming must NEVER depend on AI detection.**
+
+If AI fails, streaming continues unaffected.
 
 ---
 
-## 🚀 Status Final
+## 6. Streaming Service
 
-### Backend Django (100% ✅)
-1. ✅ Estrutura de diretórios DDD
-2. ✅ Monitoring Context (domain)
-3. ✅ Detection Context (domain)
-4. ✅ Application Layer (CQRS)
-5. ✅ Infrastructure Layer
-6. ✅ Análise de qualidade
+### 6.1 Responsibilities
 
-### Streaming Service (100% ✅)
-7. ✅ Domain Layer (Stream, StreamPath, HLSUrl)
-8. ✅ Application Layer (Provision/Remove handlers)
-9. ✅ Infrastructure Layer (MediaMTX client)
-10. ✅ API FastAPI refatorada
+* Ingest camera feeds (RTSP / ONVIF / HLS)
+* Transcode or relay streams
+* Deliver low-latency video to browsers
+* Handle thousands of concurrent viewers
 
-### AI Detection Service (100% ✅)
-11. ✅ Domain Layer (Vehicle, ROI, VirtualLine, TriggerService)
-12. ✅ Application Commands (ProcessFrame, ToggleAI, UpdateROI)
-13. ✅ Application Handlers (ProcessFrame, ToggleAI, UpdateROI)
-14. ✅ Infrastructure Layer (YOLO, OCR, CameraConfigRepository)
-15. ✅ API FastAPI (5 endpoints)
+### 6.2 Requirements
 
-**Métricas Totais:**
-- ✅ 104 testes (63 backend + 28 streaming + 13 AI)
-- ✅ CC médio: ~3 (meta < 10)
-- ✅ Cobertura: > 80% (meta > 80%)
-- ✅ SOLID: 100% aplicado
-- ✅ **PROJETO 100% COMPLETO** 🎉
+* 24/7 availability
+* No memory leaks or buffer overflows
+* No data explosion (controlled bitrate)
+* Backpressure handling
+* Graceful degradation
 
-**Scripts de Análise:**
-- `run_quality_analysis.bat` - Backend completo
-- `run_streaming_tests.bat` - Streaming service
-- `analyze_complexity.bat` - CC por camada
-- `analyze_coverage.bat` - Cobertura
+### 6.3 Non-Functional Constraints
 
-**Consulte `docs/DDD_COMPLETE_SUMMARY.md` para resumo executivo completo**
+* Must not overload CPU/RAM
+* Must scale horizontally
+* Stateless whenever possible
+
+---
+
+## 7. AI Detection Service
+
+### 7.1 Overview
+
+Runs independently from streaming. Receives frames or substreams and performs detection only when **ROI + Trigger conditions** are met.
+
+### 7.2 Detection Models
+
+1. **YOLO-based model (on-prem / GPU)**
+
+   * Vehicle detection
+   * License plate detection
+   * Fast inference
+
+2. **AWS Rekognition Integration**
+
+   * Optional cloud-based detection
+   * Used when configured per camera
+   * Must respect ROI boundaries
+
+### 7.3 ROI & Trigger System
+
+* ROI (Region of Interest) is defined in the frontend
+* User draws polygons or lines on the video
+* AI processes frames **only inside ROI**
+* Triggers activate detection events
+
+Examples:
+
+* Virtual line crossing
+* Restricted area entry
+* Stop line violation
+
+---
+
+## 8. High Availability Strategy
+
+### 8.1 Service Isolation
+
+* Streaming Service: multiple replicas
+* AI Workers: multiple independent workers
+
+### 8.2 Worker Model
+
+* If one AI worker fails, another takes over
+* No shared mutable state between workers
+* Jobs must be idempotent
+
+### 8.3 Failure Scenarios
+
+* AI down → Streaming continues
+* Worker crash → Job reassigned
+* Node crash → Container rescheduled
+
+---
+
+## 9. Security Architecture
+
+### 9.1 Authentication & Authorization
+
+* JWT access tokens
+* Bcrypt for password hashing
+* Role-Based Access Control (RBAC)
+
+### 9.2 Token Policy
+
+* Access token with short TTL
+* Refresh token issued immediately after login
+* Automatic token rotation
+
+### 9.3 Session Rules
+
+* Auto logout after **3 minutes of inactivity**
+* Token invalidation on logout
+
+### 9.4 OWASP Compliance
+
+* Input validation
+* Rate limiting
+* Secure headers
+* SQL injection prevention
+* XSS / CSRF mitigation
+
+---
+
+## 10. LGPD Compliance
+
+* Minimum data retention
+* Access logging
+* Audit trails
+* Encryption at rest and in transit
+* Clear separation between:
+
+  * Raw video
+  * Metadata
+  * Personal data
+
+---
+
+## 11. Observability
+
+* Structured logging
+* Metrics (CPU, RAM, FPS, latency)
+* Health checks
+* Alerts for service degradation
+
+---
+
+## 12. Testing & Quality
+
+### 12.1 Unit Tests
+
+* Mandatory for core logic
+* Especially:
+
+  * ROI logic
+  * Trigger evaluation
+  * Auth flows
+
+### 12.2 Cyclomatic Complexity
+
+* Must be measured continuously
+* Avoid overly complex functions
+* Prefer composition over condition-heavy logic
+
+---
+
+## 13. Debugging Guidelines
+
+### Common Issues
+
+* Stream freezing → check buffer / bitrate
+* AI lag → GPU saturation or ROI misconfiguration
+* High memory usage → frame leaks
+* Auth issues → token expiration or clock drift
+
+Each known issue must have:
+
+* Symptoms
+* Root cause
+* Resolution steps
+
+---
+
+## 14. Documentation Rules
+
+* All documentation must be placed under `/docs`
+* Markdown (`.md`) only
+* Clear, objective, technical language
+* This file is the **primary context source** for AI coding assistants
+
+---
+
+## 15. Code Style Guidelines
+
+* Clean Architecture principles
+* Small, focused functions
+* Explicit naming
+* No hidden side effects
+* Prefer immutability
+
+---
+
+## 16. Final Notes for AI Assistants
+
+When generating code or suggestions:
+
+* NEVER couple streaming with AI
+* ALWAYS assume high-load scenarios
+* PRIORITIZE safety, security, and availability
+* THINK like a public-sector, mission-critical system

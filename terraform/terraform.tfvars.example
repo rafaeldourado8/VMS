@@ -1,0 +1,5 @@
+aws_region   = "us-east-1"
+environment  = "dev"
+project_name = "vms"
+max_cameras  = 4
+max_users    = 4

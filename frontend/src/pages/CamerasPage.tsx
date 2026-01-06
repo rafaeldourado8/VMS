@@ -306,13 +306,7 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
   })
 
   const createMutation = useMutation({
-    mutationFn: async (data: CameraCreateRequest) => {
-      // Criar câmera no Django
-      const camera = await cameraService.create(data)
-      // Provisionar no MediaMTX via Streaming Service
-      await streamingService.provisionCamera(camera.id, data.stream_url, data.name)
-      return camera
-    },
+    mutationFn: cameraService.create,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['cameras'] })
       onClose()

@@ -1,6 +1,8 @@
 from django.contrib import admin
 from django.urls import include, path
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
+from django.conf.urls.static import static
 from apps.usuarios.views import LogoutAPIView, MeAPIView, MyTokenObtainPairView
 from rest_framework_simplejwt.views import TokenRefreshView
 from apps.cameras.views import CameraViewSet
@@ -33,3 +35,7 @@ urlpatterns = [
     path("api/ai/cameras/<int:pk>/stop/", CameraViewSet.as_view({'post': 'stop_ai'}), name="ai_stop"),
     path("api/ai/cameras/<int:pk>/status/", CameraViewSet.as_view({'get': 'ai_status'}), name="ai_status"),
 ]
+
+# Servir arquivos de media em desenvolvimento
+if settings.DEBUG:
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

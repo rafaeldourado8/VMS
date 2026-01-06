@@ -135,6 +135,14 @@ class CameraViewSet(viewsets.ModelViewSet):
             "message": "Configurações de detecção atualizadas"
         })
 
+    @action(detail=True, methods=['post'], url_path='toggle_ai')
+    def toggle_ai(self, request, pk=None):
+        """Alterna estado da IA para uma câmera"""
+        camera = self.get_object()
+        camera.ai_enabled = not getattr(camera, 'ai_enabled', False)
+        camera.save()
+        return Response({"success": True, "ai_enabled": camera.ai_enabled, "camera_id": camera.id})
+
     @action(detail=True, methods=['post'], url_path='start')
     def start_ai(self, request, pk=None):
         """Inicia IA para uma câmera (temporário até AI service estar pronto)"""

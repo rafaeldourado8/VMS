@@ -1,8 +1,13 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
+from django.core.files.storage import default_storage
+from django.core.files.base import ContentFile
+import os
+from datetime import datetime
 
 from .serializers import DeteccaoSerializer, IngestDeteccaoSerializer
 from .services import DeteccaoService
@@ -28,11 +33,30 @@ class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
 class IngestDeteccaoAPIView(APIView):
     """Endpoint de ingestão rápida para o Worker de IA."""
     permission_classes = [HasIngestAPIKey]
-    authentication_classes = [] # Ingestão via API Key, sem necessidade de sessão/JWT
+    authentication_classes = []
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def post(self, request):
         """Processa o recebimento de uma nova detecção."""
-        serializer = IngestDeteccaoSerializer(data=request.data)
+        # Processa upload de imagem se presente
+        image_url = None
+        if 'image' in request.FILES:
+            image_file = request.FILES['image']
+            # Gera nome único
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            camera_id = request.data.get('camera_id', 'unknown')
+            filename = f"detections/cam_{camera_id}_{timestamp}.jpg"
+            
+            # Salva arquivo
+            path = default_storage.save(filename, ContentFile(image_file.read()))
+            image_url = default_storage.url(path)
+        
+        # Prepara dados para serializer
+        data = request.data.copy()
+        if image_url:
+            data['image_url'] = image_url
+        
+        serializer = IngestDeteccaoSerializer(data=data)
         serializer.is_valid(raise_exception=True)
         
         # Mapeia para DTO e delega a criação ao serviço especializado

@@ -86,7 +86,11 @@ export function Layout() {
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:text-foreground hover:bg-secondary"
                 )}
-                onClick={() => setSidebarOpen(false)}
+                onClick={(e) => {
+                  e.preventDefault()
+                  navigate(item.href)
+                  setSidebarOpen(false)
+                }}
               >
                 <item.icon className="w-5 h-5" />
                 {item.name}
