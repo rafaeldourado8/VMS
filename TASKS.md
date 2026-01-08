@@ -13,10 +13,10 @@
 - [x] Rebuild: `docker-compose build --no-cache ai_worker_1 ai_worker_2`
 
 ### Task 1.2: Fix RabbitMQ Permissions
-- [ ] Edit `docker-compose.yml`
+- [x] Edit `docker-compose.yml`
   - Add volume: `- ./config/rabbitmq/.erlang.cookie:/var/lib/rabbitmq/.erlang.cookie:ro`
-- [ ] Create `config/rabbitmq/.erlang.cookie` (chmod 400)
-- [ ] Restart: `docker-compose up -d rabbitmq_ai`
+- [x] Create `config/rabbitmq/.erlang.cookie` (chmod 400)
+- [x] Restart: `docker-compose up -d rabbitmq_ai`
 
 ### Task 1.3: Frame Ingestion
 - [ ] Create `services/ai_detection/infrastructure/frame_extractor.py`
