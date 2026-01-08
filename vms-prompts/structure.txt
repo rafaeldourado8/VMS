@@ -1,0 +1,41 @@
+vms-prompts/
+├── README.md
+├── system/
+│   ├── core.md
+│   ├── architecture.md
+│   └── constraints.md
+├── context/
+│   ├── domains/
+│   │   ├── live.md
+│   │   ├── playback.md
+│   │   └── ai.md
+│   ├── services/
+│   │   ├── mediamtx.md
+│   │   ├── django-backend.md
+│   │   ├── streaming-service.md
+│   │   ├── ai-service.md
+│   │   └── infrastructure.md
+│   └── interfaces/
+│       ├── detection-provider.md
+│       └── api-contracts.md
+├── memory/
+│   ├── persistent/
+│   │   ├── decisions.md
+│   │   └── patterns.md
+│   ├── session/
+│   │   └── .gitkeep
+│   └── rules.md
+├── tasks/
+│   ├── feature.md
+│   ├── debug.md
+│   ├── review.md
+│   ├── refactor.md
+│   └── integrate.md
+├── agents/
+│   ├── backend.md
+│   ├── streaming.md
+│   ├── ai-integration.md
+│   └── devops.md
+└── compression/
+    ├── summarize.md
+    └── extract.md
