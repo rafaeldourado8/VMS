@@ -1,10 +1,12 @@
+from .models import Clip
+from datetime import datetime
 import os
 import subprocess
-from datetime import datetime
+
 from django.conf import settings
 from django.shortcuts import get_object_or_404
+
 from apps.cameras.models import Camera
-from .models import Clip
 
 class ClipService:
     @staticmethod

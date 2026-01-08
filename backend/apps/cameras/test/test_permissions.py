@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+import pytest
+
 from apps.cameras.permissions import IsAdminOrReadOnly
 
 class TestCameraPermissions:

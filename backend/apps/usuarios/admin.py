@@ -1,5 +1,6 @@
-from django.contrib import admin
 from .models import Usuario
+
+from django.contrib import admin
 
 @admin.register(Usuario)
 class UsuarioAdmin(admin.ModelAdmin):

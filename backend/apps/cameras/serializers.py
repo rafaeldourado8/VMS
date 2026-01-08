@@ -1,6 +1,7 @@
-from rest_framework import serializers
-from django.urls import reverse
 from .models import Camera
+
+from django.urls import reverse
+from rest_framework import serializers
 
 class CameraSerializer(serializers.ModelSerializer):
     """Serializer com URLs dinâmicas para o Frontend."""

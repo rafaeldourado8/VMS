@@ -1,16 +1,14 @@
+from ..value_objects.geo_coordinates import GeoCoordinates
+from ..value_objects.location import Location
+from ..value_objects.stream_url import StreamUrl
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Optional
 from enum import Enum
-from ..value_objects.stream_url import StreamUrl
-from ..value_objects.location import Location
-from ..value_objects.geo_coordinates import GeoCoordinates
-
+from typing import Optional
 
 class CameraStatus(Enum):
     ONLINE = "online"
     OFFLINE = "offline"
-
 
 @dataclass
 class Camera:

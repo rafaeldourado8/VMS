@@ -1,8 +1,8 @@
+from ..queries.list_cameras_query import ListCamerasQuery
 from typing import List
+
 from domain.monitoring.entities.camera import Camera
 from domain.monitoring.repositories.camera_repository import CameraRepository
-from ..queries.list_cameras_query import ListCamerasQuery
-
 
 class ListCamerasHandler:
     """Handler para listar câmeras"""

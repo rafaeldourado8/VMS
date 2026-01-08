@@ -1,4 +1,5 @@
 import pytest
+
 from apps.usuarios.serializers import UsuarioSerializer
 
 @pytest.mark.django_db

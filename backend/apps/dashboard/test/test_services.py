@@ -1,8 +1,10 @@
-import pytest
-from django.utils import timezone
 from datetime import timedelta
-from apps.dashboard.services import DashboardService
+import pytest
+
+from django.utils import timezone
+
 from apps.cameras.models import Camera
+from apps.dashboard.services import DashboardService
 from apps.deteccoes.models import Deteccao
 
 @pytest.mark.django_db

@@ -92,7 +92,7 @@ if DB_NAME:
             "NAME": DB_NAME,
             "USER": os.environ.get("POSTGRES_USER"),
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "HOST": os.environ.get("DB_HOST", "postgres_db"),
             "PORT": os.environ.get("DB_PORT", "5432"),
         },
         "replica1": { # LEITURA 1
@@ -100,7 +100,7 @@ if DB_NAME:
             "NAME": DB_NAME,
             "USER": os.environ.get("POSTGRES_USER"),
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-            "HOST": os.environ.get("DB_HOST_REPLICA_1", "localhost"),
+            "HOST": os.environ.get("DB_HOST_REPLICA_1", "postgres_db"),
             "PORT": "5432",
         }
     }

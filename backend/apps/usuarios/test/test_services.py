@@ -1,7 +1,8 @@
 import pytest
-from apps.usuarios.services import UsuarioService
-from apps.usuarios.schemas import UsuarioDTO
+
 from apps.usuarios.models import Usuario
+from apps.usuarios.schemas import UsuarioDTO
+from apps.usuarios.services import UsuarioService
 
 @pytest.mark.django_db
 class TestUsuarioService:

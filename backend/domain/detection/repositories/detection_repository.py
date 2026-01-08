@@ -1,8 +1,7 @@
-from abc import ABC, abstractmethod
-from typing import List, Optional
-from datetime import datetime
 from ..entities.detection import Detection
-
+from abc import ABC, abstractmethod
+from datetime import datetime
+from typing import List, Optional
 
 class DetectionRepository(ABC):
     """Interface de repositório para Detection"""

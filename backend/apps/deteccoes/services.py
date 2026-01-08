@@ -1,9 +1,11 @@
-import logging
-from typing import Optional
-from django.db import transaction
-from apps.cameras.models import Camera
 from .models import Deteccao
 from .schemas import IngestDeteccaoDTO
+from typing import Optional
+import logging
+
+from django.db import transaction
+
+from apps.cameras.models import Camera
 
 logger = logging.getLogger(__name__)
 

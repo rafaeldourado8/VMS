@@ -1,7 +1,8 @@
-import pytest
 from unittest.mock import patch, MagicMock
-from apps.thumbnails.services import ThumbnailService
+import pytest
+
 from apps.cameras.models import Camera
+from apps.thumbnails.services import ThumbnailService
 
 @pytest.mark.django_db
 class TestThumbnailService:

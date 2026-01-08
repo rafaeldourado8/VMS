@@ -1,10 +1,12 @@
-from celery import shared_task
-from django.core.cache import cache
-from apps.cameras.models import Camera
-from apps.deteccoes.models import Deteccao
-from django.utils import timezone
 from datetime import timedelta
 import logging
+
+from celery import shared_task
+from django.core.cache import cache
+from django.utils import timezone
+
+from apps.cameras.models import Camera
+from apps.deteccoes.models import Deteccao
 
 logger = logging.getLogger(__name__)
 

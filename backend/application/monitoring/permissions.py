@@ -1,6 +1,5 @@
-from rest_framework import permissions
 from infrastructure.persistence.django.models import AuditLogModel
-
+from rest_framework import permissions
 
 class CameraAccessPermission(permissions.BasePermission):
     """Usuário só acessa câmeras do seu setor"""
@@ -8,7 +7,6 @@ class CameraAccessPermission(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         user_sectors = request.user.sectors.all()
         return obj.sector in user_sectors
-
 
 class RecordingAccessPermission(permissions.BasePermission):
     """Log obrigatório para acesso a gravações (LGPD Art. 37)"""

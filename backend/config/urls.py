@@ -13,6 +13,9 @@ admin.site.login = csrf_exempt(admin.site.login)
 urlpatterns = [
     path("admin/", admin.site.urls),
     
+    # Health Check
+    path("health/", include("apps.health.urls")),
+    
     # Endpoints de Autenticação Central
     path("api/auth/login/", MyTokenObtainPairView.as_view(), name="token_obtain_pair"),
     path("api/auth/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
@@ -25,10 +28,10 @@ urlpatterns = [
     path("api/", include("apps.deteccoes.urls")),
     path("api/", include("apps.clips.urls")),
     path("api/", include("apps.dashboard.urls")),
-    path("api/", include("apps.analytics.urls")),
-    path("api/", include("apps.configuracoes.urls")),
-    path("api/", include("apps.suporte.urls")),
-    path("api/", include("apps.thumbnails.urls")),
+    # path("api/", include("apps.analytics.urls")),  # TODO: Verificar implementação
+    # path("api/", include("apps.configuracoes.urls")),  # TODO: Verificar implementação
+    # path("api/", include("apps.suporte.urls")),  # TODO: Verificar implementação
+    # path("api/", include("apps.thumbnails.urls")),  # TODO: Verificar implementação
 
     # Rotas temporárias de AI (até o serviço AI estar pronto)
     path("api/ai/cameras/<int:pk>/start/", CameraViewSet.as_view({'post': 'start_ai'}), name="ai_start"),

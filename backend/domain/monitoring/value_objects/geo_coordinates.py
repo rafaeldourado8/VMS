@@ -1,7 +1,6 @@
+from ..exceptions import InvalidCoordinatesException
 from dataclasses import dataclass
 from typing import Optional
-from ..exceptions import InvalidCoordinatesException
-
 
 @dataclass(frozen=True)
 class GeoCoordinates:

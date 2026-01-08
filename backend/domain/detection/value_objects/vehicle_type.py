@@ -1,6 +1,5 @@
 from enum import Enum
 
-
 class VehicleType(Enum):
     """Value Object para tipo de veículo"""
     

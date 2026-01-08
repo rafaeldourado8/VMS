@@ -1,5 +1,6 @@
-from django.contrib import admin
 from .models import Camera
+
+from django.contrib import admin
 
 @admin.register(Camera)
 class CameraAdmin(admin.ModelAdmin):

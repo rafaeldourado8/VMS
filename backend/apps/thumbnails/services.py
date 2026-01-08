@@ -1,6 +1,8 @@
 import logging
 import subprocess
+
 from django.core.cache import cache
+
 from apps.cameras.models import Camera
 
 logger = logging.getLogger(__name__)

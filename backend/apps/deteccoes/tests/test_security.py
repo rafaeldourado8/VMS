@@ -1,9 +1,11 @@
 import pytest
-from rest_framework.test import APIClient
+
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from rest_framework.test import APIClient
+
 from apps.cameras.models import Camera
 from apps.deteccoes.models import Deteccao
-from django.utils import timezone
 
 User = get_user_model()
 

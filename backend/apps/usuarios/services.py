@@ -1,6 +1,7 @@
-from django.db import transaction
 from .models import Usuario
 from .schemas import UsuarioDTO
+
+from django.db import transaction
 
 class UsuarioService:
     """Camada de serviço para gestão de utilizadores."""

@@ -1,57 +1,82 @@
-from rest_framework import viewsets, status
-from rest_framework.decorators import action
-from rest_framework.response import Response
+from django.utils.dateparse import parse_datetime
+from infrastructure.persistence.django.repositories.django_clip_repository import DjangoClipRepository
+from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
-from django.shortcuts import get_object_or_404
-from .models import Clip, Mosaico
-from .serializers import ClipSerializer, MosaicoSerializer, ClipCreateSerializer
-from .services import ClipService
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
-class ClipViewSet(viewsets.ModelViewSet):
-    serializer_class = ClipSerializer
+from application.clips.commands.create_clip_command import CreateClipCommand
+from application.clips.handlers.create_clip_handler import CreateClipHandler
+
+class ClipAPIView(APIView):
+    """API para clips usando DDD"""
+    
     permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Clip.objects.filter(owner=self.request.user)
-
-    def create(self, request):
-        serializer = ClipCreateSerializer(data=request.data)
-        if serializer.is_valid():
-            clip = ClipService.create_clip(
-                user=request.user,
-                **serializer.validated_data
-            )
-            return Response(ClipSerializer(clip).data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-class MosaicoViewSet(viewsets.ModelViewSet):
-    serializer_class = MosaicoSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Mosaico.objects.filter(owner=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def update_cameras(self, request, pk=None):
-        mosaico = self.get_object()
-        camera_positions = request.data.get('cameras', [])
+    
+    def __init__(self):
+        super().__init__()
+        self._repository = DjangoClipRepository()
+        self._create_handler = CreateClipHandler(self._repository)
+    
+    def get(self, request):
+        """Lista clips do usuário"""
+        clips = self._repository.get_clips_by_user(request.user.id)
         
-        # Limpar posições existentes
-        mosaico.mosaicoCameraPosition_set.all().delete()
+        data = [
+            {
+                "id": clip.id,
+                "name": clip.name,
+                "camera_id": clip.camera_id,
+                "start_time": clip.start_time,
+                "end_time": clip.end_time,
+                "duration_seconds": clip.duration_seconds,
+                "file_path": clip.file_path,
+                "thumbnail_path": clip.thumbnail_path,
+                "created_at": clip.created_at
+            }
+            for clip in clips
+        ]
         
-        # Adicionar novas posições (máximo 4)
-        for pos_data in camera_positions[:4]:
-            from .models import MosaicoCameraPosition
-            from apps.cameras.models import Camera
+        return Response(data, status=status.HTTP_200_OK)
+    
+    def post(self, request):
+        """Cria novo clip"""
+        data = request.data
+        
+        try:
+            start_time = parse_datetime(data.get('start_time'))
+            end_time = parse_datetime(data.get('end_time'))
             
-            camera = get_object_or_404(Camera, id=pos_data['camera_id'], owner=request.user)
-            MosaicoCameraPosition.objects.create(
-                mosaico=mosaico,
-                camera=camera,
-                position=pos_data['position']
+            if not start_time or not end_time:
+                return Response(
+                    {"error": "start_time e end_time são obrigatórios"}, 
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+            
+            command = CreateClipCommand(
+                owner_id=request.user.id,
+                camera_id=data.get('camera_id'),
+                name=data.get('name', ''),
+                start_time=start_time,
+                end_time=end_time,
+                file_path=data.get('file_path', ''),
+                thumbnail_path=data.get('thumbnail_path')
             )
-        
-        return Response(MosaicoSerializer(mosaico).data)
+            
+            clip = self._create_handler.handle(command)
+            
+            return Response(
+                {
+                    "id": clip.id,
+                    "name": clip.name,
+                    "duration_seconds": clip.duration_seconds,
+                    "created_at": clip.created_at
+                },
+                status=status.HTTP_201_CREATED
+            )
+            
+        except ValueError as e:
+            return Response(
+                {"error": str(e)}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )

@@ -1,4 +1,5 @@
 import pytest
+
 from apps.configuracoes.services import ConfiguracaoGlobalService
 
 @pytest.mark.django_db

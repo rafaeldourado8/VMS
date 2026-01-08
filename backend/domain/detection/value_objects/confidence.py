@@ -1,7 +1,6 @@
+from ..exceptions import InvalidConfidenceException
 from dataclasses import dataclass
 from typing import Optional
-from ..exceptions import InvalidConfidenceException
-
 
 @dataclass(frozen=True)
 class Confidence:

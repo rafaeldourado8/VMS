@@ -1,8 +1,7 @@
+from ..exceptions import InvalidLicensePlateException
 from dataclasses import dataclass
 from typing import Optional
 import re
-from ..exceptions import InvalidLicensePlateException
-
 
 @dataclass(frozen=True)
 class LicensePlate:

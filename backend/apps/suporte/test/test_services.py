@@ -1,7 +1,8 @@
 import pytest
-from apps.suporte.services import SuporteService
-from apps.suporte.schemas import CreateMensagemDTO
+
 from apps.suporte.models import Mensagem
+from apps.suporte.schemas import CreateMensagemDTO
+from apps.suporte.services import SuporteService
 
 @pytest.mark.django_db
 class TestSuporteService:

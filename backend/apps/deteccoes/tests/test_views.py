@@ -1,7 +1,8 @@
 import pytest
+
+from django.conf import settings
 from django.urls import reverse
 from rest_framework import status
-from django.conf import settings
 
 @pytest.mark.django_db
 class TestDeteccaoViews:

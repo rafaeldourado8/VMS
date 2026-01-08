@@ -1,11 +1,6 @@
-from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import ClipViewSet, MosaicoViewSet
-
-router = DefaultRouter()
-router.register(r'clips', ClipViewSet, basename='clips')
-router.register(r'mosaicos', MosaicoViewSet, basename='mosaicos')
+from django.urls import path
+from .views import ClipAPIView
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path('clips/', ClipAPIView.as_view(), name='clips'),
 ]

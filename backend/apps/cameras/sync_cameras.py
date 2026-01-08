@@ -14,7 +14,6 @@ from django.core.management.base import BaseCommand, CommandError
 from apps.cameras.models import Camera
 from apps.cameras.services import CameraService
 
-
 class Command(BaseCommand):
     help = 'Sincroniza todas as câmeras do banco de dados com o MediaMTX'
 

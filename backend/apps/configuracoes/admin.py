@@ -1,7 +1,6 @@
-from django.contrib import admin
-
 from .models import ConfiguracaoGlobal
 
+from django.contrib import admin
 
 @admin.register(ConfiguracaoGlobal)
 class ConfiguracaoGlobalAdmin(admin.ModelAdmin):

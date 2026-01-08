@@ -1,9 +1,9 @@
+from ..queries.list_detections_query import ListDetectionsQuery
 from typing import List
+
 from domain.detection.entities.detection import Detection
 from domain.detection.repositories.detection_repository import DetectionRepository
 from domain.monitoring.repositories.camera_repository import CameraRepository
-from ..queries.list_detections_query import ListDetectionsQuery
-
 
 class ListDetectionsHandler:
     """Handler para listar detecções"""

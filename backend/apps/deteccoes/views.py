@@ -23,7 +23,6 @@ from application.detection.handlers import (
 from application.detection.queries.list_detections_query import ListDetectionsQuery
 from application.detection.commands.process_detection_command import ProcessDetectionCommand
 
-
 class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = DeteccaoSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -50,7 +49,6 @@ class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
         from apps.deteccoes.models import Deteccao
         return Deteccao.objects.filter(id__in=[d.id for d in detections])
 
-    @method_decorator(cache_page(60 * 5))
     def list(self, request, *args, **kwargs):
         return super().list(request, *args, **kwargs)
 
@@ -64,7 +62,6 @@ class DeteccaoViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(serializer.data)
         except ValueError:
             return Response({"detail": "Não encontrado."}, status=status.HTTP_404_NOT_FOUND)
-
 
 class IngestDeteccaoAPIView(APIView):
     permission_classes = [HasIngestAPIKey]

@@ -1,5 +1,7 @@
 import pytest
+
 from django.utils import timezone
+
 from apps.analytics.services import AnalyticsService
 from apps.cameras.models import Camera
 from apps.deteccoes.models import Deteccao

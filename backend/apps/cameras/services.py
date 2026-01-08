@@ -14,7 +14,6 @@ from .schemas import CameraDTO
 
 logger = logging.getLogger(__name__)
 
-
 class CameraService:
     """Lógica de negócio e integração HTTP com o Streaming Service."""
     

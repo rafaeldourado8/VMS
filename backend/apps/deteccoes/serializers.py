@@ -1,5 +1,6 @@
-from rest_framework import serializers
 from .models import VEHICLE_TYPE_CHOICES, Deteccao
+
+from rest_framework import serializers
 
 class DeteccaoSerializer(serializers.ModelSerializer):
     """Serializer para leitura (Frontend)."""

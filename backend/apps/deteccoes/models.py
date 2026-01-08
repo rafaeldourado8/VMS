@@ -1,6 +1,5 @@
 from django.db import models
 
-# Opções de tipo de veículo conforme a especificação da API
 VEHICLE_TYPE_CHOICES = (
     ("car", "Carro"),
     ("motorcycle", "Motocicleta"),

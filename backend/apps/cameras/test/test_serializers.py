@@ -1,6 +1,7 @@
 import pytest
-from apps.cameras.serializers import CameraSerializer
+
 from apps.cameras.models import Camera
+from apps.cameras.serializers import CameraSerializer
 
 @pytest.mark.django_db
 class TestCameraSerializer:

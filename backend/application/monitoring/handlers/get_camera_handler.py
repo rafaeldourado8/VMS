@@ -1,12 +1,10 @@
 from domain.monitoring.entities.camera import Camera
 from domain.monitoring.repositories.camera_repository import CameraRepository
 
-
 class GetCameraQuery:
     def __init__(self, camera_id: int, owner_id: int):
         self.camera_id = camera_id
         self.owner_id = owner_id
-
 
 class GetCameraHandler:
     def __init__(self, repository: CameraRepository):

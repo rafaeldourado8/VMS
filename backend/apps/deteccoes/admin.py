@@ -1,5 +1,6 @@
-from django.contrib import admin
 from .models import Deteccao
+
+from django.contrib import admin
 
 @admin.register(Deteccao)
 class DeteccaoAdmin(admin.ModelAdmin):

@@ -18,7 +18,6 @@ from application.monitoring.commands.create_camera_command import CreateCameraCo
 from application.monitoring.commands.delete_camera_command import DeleteCameraCommand
 from application.monitoring.queries.list_cameras_query import ListCamerasQuery
 
-
 class CameraViewSet(viewsets.ModelViewSet):
     serializer_class = CameraSerializer
     permission_classes = [permissions.IsAuthenticated, CameraAccessPermission]

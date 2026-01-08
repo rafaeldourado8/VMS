@@ -1,7 +1,9 @@
+from .schemas import VehicleDistributionDTO, DetectionPeriodDTO
+
 from django.db.models import Count
 from django.db.models.functions import Trunc
+
 from apps.deteccoes.models import Deteccao
-from .schemas import VehicleDistributionDTO, DetectionPeriodDTO
 
 class AnalyticsService:
     def __init__(self, user):

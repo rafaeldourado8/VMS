@@ -1,9 +1,8 @@
 from domain.monitoring.entities.camera import Camera
 from domain.monitoring.repositories.camera_repository import CameraRepository
-from domain.monitoring.value_objects.stream_url import StreamUrl
-from domain.monitoring.value_objects.location import Location
 from domain.monitoring.value_objects.geo_coordinates import GeoCoordinates
-
+from domain.monitoring.value_objects.location import Location
+from domain.monitoring.value_objects.stream_url import StreamUrl
 
 class UpdateCameraCommand:
     def __init__(self, camera_id: int, owner_id: int, **kwargs):
@@ -15,7 +14,6 @@ class UpdateCameraCommand:
         self.latitude = kwargs.get('latitude')
         self.longitude = kwargs.get('longitude')
         self.thumbnail_url = kwargs.get('thumbnail_url')
-
 
 class UpdateCameraHandler:
     def __init__(self, repository: CameraRepository):

@@ -1,5 +1,5 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
 
 class Clip(models.Model):
     """Modelo para clips de vídeo recortados"""

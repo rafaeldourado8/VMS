@@ -1,8 +1,10 @@
 import pytest
+
 from django.utils import timezone
-from apps.deteccoes.services import DeteccaoService
-from apps.deteccoes.schemas import IngestDeteccaoDTO
+
 from apps.deteccoes.models import Deteccao
+from apps.deteccoes.schemas import IngestDeteccaoDTO
+from apps.deteccoes.services import DeteccaoService
 
 @pytest.mark.django_db
 class TestDeteccaoService:

@@ -1,9 +1,10 @@
+from httpx import Response
 import pytest
 import respx
-from httpx import Response
-from apps.cameras.services import CameraService
-from apps.cameras.schemas import CameraDTO
+
 from apps.cameras.models import Camera
+from apps.cameras.schemas import CameraDTO
+from apps.cameras.services import CameraService
 
 @pytest.mark.django_db
 class TestCameraService:

@@ -1,35 +1,27 @@
-from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import permissions
-from django.core.cache import cache
-from .services import DashboardService
+from rest_framework.views import APIView
+from apps.cameras.models import Camera
+from apps.deteccoes.models import Deteccao
+from django.utils import timezone
+from datetime import timedelta
 
 class DashboardStatsAPIView(APIView):
     """
-    Endpoint de alta performance para o Dashboard.
-    Tenta ler do cache global antes de processar via Service.
+    Endpoint mínimo para Dashboard - MVP (sem autenticação)
     """
-    permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        # 1. Tenta obter estatísticas globais do cache (populado via Celery Task)
-        global_stats = cache.get("global_dashboard_stats")
+        # Stats básicas para o MVP
+        total_cameras = Camera.objects.count()
+        active_cameras = Camera.objects.filter(status='online').count()
         
-        # 2. Se for um admin e quisermos os dados globais rápidos
-        if request.user.is_staff and global_stats:
-            return Response(global_stats)
-
-        # 3. Fallback ou dados específicos do utilizador via Service
-        stats_dto = DashboardService.get_user_stats(request.user)
+        # Detecções das últimas 24h
+        last_24h = timezone.now() - timedelta(hours=24)
+        recent_detections = Deteccao.objects.filter(timestamp__gte=last_24h).count()
         
         return Response({
-            "total_cameras": stats_dto.total_cameras,
-            "cameras_status": {
-                "online": stats_dto.cameras_online,
-                "offline": stats_dto.cameras_offline,
-            },
-            "detections_24h": stats_dto.total_detections_24h,
-            "detections_by_type": stats_dto.detections_by_type,
-            "recent_activity": stats_dto.recent_activity,
-            "cached": False
+            "total_cameras": total_cameras,
+            "active_cameras": active_cameras,
+            "total_detections": recent_detections,
+            "period": "24h"
         })

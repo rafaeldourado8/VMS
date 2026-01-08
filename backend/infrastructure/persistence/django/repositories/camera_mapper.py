@@ -1,10 +1,10 @@
 from typing import Optional
-from domain.monitoring.entities.camera import Camera, CameraStatus
-from domain.monitoring.value_objects.stream_url import StreamUrl
-from domain.monitoring.value_objects.location import Location
-from domain.monitoring.value_objects.geo_coordinates import GeoCoordinates
-from apps.cameras.models import Camera as CameraModel
 
+from apps.cameras.models import Camera as CameraModel
+from domain.monitoring.entities.camera import Camera, CameraStatus
+from domain.monitoring.value_objects.geo_coordinates import GeoCoordinates
+from domain.monitoring.value_objects.location import Location
+from domain.monitoring.value_objects.stream_url import StreamUrl
 
 class CameraMapper:
     """Mapper entre entidade Camera e CameraModel Django"""

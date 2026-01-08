@@ -1,8 +1,10 @@
 import pytest
+
 from django.core.cache import cache
 from django.utils import timezone
-from apps.dashboard.tasks import update_dashboard_stats_cache
+
 from apps.cameras.models import Camera
+from apps.dashboard.tasks import update_dashboard_stats_cache
 
 @pytest.mark.django_db
 def test_update_dashboard_stats_task(admin_user):

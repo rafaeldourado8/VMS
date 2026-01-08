@@ -26,7 +26,7 @@ services:
         delay: 5s
         max_attempts: 3
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       REDIS_URL: redis://redis_cache:6379/3
       DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
@@ -98,7 +98,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./backend/Dockerfile
+      dockerfile: ./backend/deploy/Dockerfile
     container_name: gtvision_backend
     command: sh -c "python manage.py runserver 0.0.0.0:8000"
     deploy:
@@ -119,7 +119,8 @@ services:
       DB_HOST: postgres_db
       DB_PORT: 5432
       REDIS_HOST: redis_cache
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672//
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+      STREAMING_SERVICE_URL: http://streaming:8001
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -275,8 +276,8 @@ services:
     container_name: gtvision_rabbitmq
     user: rabbitmq
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
       RABBITMQ_DEFAULT_VHOST: /
       RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-gtvision_secret_cookie_change_me}
     volumes:
@@ -315,7 +316,7 @@ services:
     networks:
       - gtvision_network
     environment:
-      MEDIAMTX_API_USER: ${MEDIAMTX_API_USER:-mediamtx_api_user}
+      MEDIAMTX_API_USER: ${MEDIAMTX_API_USER}
       MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider --header='Authorization: Basic bWVkaWFtdHhfYXBpX3VzZXI6R3RWIXNpb25NZWQxYU1UWCQyMDI1' http://localhost:9997/v3/config/global/get || exit 1"]

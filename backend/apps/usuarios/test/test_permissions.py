@@ -1,5 +1,6 @@
-import pytest
 from unittest.mock import Mock
+import pytest
+
 from apps.usuarios.permissions import IsAdminOrReadOnly
 
 class TestIsAdminOrReadOnly:

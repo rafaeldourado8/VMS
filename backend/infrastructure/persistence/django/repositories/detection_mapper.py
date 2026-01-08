@@ -1,10 +1,10 @@
 from typing import Optional
-from domain.detection.entities.detection import Detection
-from domain.detection.value_objects.license_plate import LicensePlate
-from domain.detection.value_objects.confidence import Confidence
-from domain.detection.value_objects.vehicle_type import VehicleType
-from apps.deteccoes.models import Deteccao as DetectionModel
 
+from apps.deteccoes.models import Deteccao as DetectionModel
+from domain.detection.entities.detection import Detection
+from domain.detection.value_objects.confidence import Confidence
+from domain.detection.value_objects.license_plate import LicensePlate
+from domain.detection.value_objects.vehicle_type import VehicleType
 
 class DetectionMapper:
     """Mapper entre entidade Detection e DetectionModel Django"""

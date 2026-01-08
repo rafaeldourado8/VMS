@@ -1,5 +1,6 @@
-import pytest
 import json
+import pytest
+
 from apps.deteccoes.tasks import process_detection_message
 
 @pytest.mark.django_db

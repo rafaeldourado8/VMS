@@ -1,8 +1,9 @@
-import logging
-import json
-from celery import shared_task
-from .services import DeteccaoService
 from .schemas import IngestDeteccaoDTO
+from .services import DeteccaoService
+import json
+import logging
+
+from celery import shared_task
 
 logger = logging.getLogger(__name__)
 

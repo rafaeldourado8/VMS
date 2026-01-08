@@ -1,10 +1,9 @@
+from ..value_objects.confidence import Confidence
+from ..value_objects.license_plate import LicensePlate
+from ..value_objects.vehicle_type import VehicleType
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Optional
-from ..value_objects.license_plate import LicensePlate
-from ..value_objects.confidence import Confidence
-from ..value_objects.vehicle_type import VehicleType
-
 
 @dataclass
 class Detection:

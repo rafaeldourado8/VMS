@@ -1,7 +1,9 @@
 import pytest
+
 from django.contrib import admin
-from apps.usuarios.models import Usuario
+
 from apps.usuarios.admin import UsuarioAdmin
+from apps.usuarios.models import Usuario
 
 class TestUsuarioAdmin:
     def test_usuario_is_registered(self):

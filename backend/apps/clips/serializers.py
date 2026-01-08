@@ -1,5 +1,7 @@
-from rest_framework import serializers
 from .models import Clip, Mosaico, MosaicoCameraPosition
+
+from rest_framework import serializers
+
 from apps.cameras.serializers import CameraSerializer
 
 class ClipSerializer(serializers.ModelSerializer):

@@ -1,7 +1,6 @@
+from ..exceptions import InvalidStreamUrlException
 from dataclasses import dataclass
 from typing import Final
-from ..exceptions import InvalidStreamUrlException
-
 
 @dataclass(frozen=True)
 class StreamUrl:

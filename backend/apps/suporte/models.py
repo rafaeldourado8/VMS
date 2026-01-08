@@ -1,7 +1,6 @@
 from django.conf import settings
 from django.db import models
 
-
 class Mensagem(models.Model):
     """
     Modelo para armazenar mensagens de suporte (Seção 6).

@@ -1,42 +1,97 @@
-from django.core.cache import cache
-from rest_framework.views import APIView
+from datetime import datetime, timedelta
+
+from django.utils.dateparse import parse_datetime
+from rest_framework import status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from .services import AnalyticsService
+from rest_framework.views import APIView
 
-class VehicleTypesAPIView(APIView):
-    """Endpoint para distribuição de tipos de veículos com cache de 5 min."""
-    permission_classes = [IsAuthenticated]
-    CACHE_TIMEOUT = 300 
+from ..application.analytics.handlers import (
 
+    GetDashboardHandler,
+    GetMetricsHandler,
+    GetAggregatedMetricsHandler
+)
+from ..application.analytics.queries import (
+    GetDashboardQuery,
+    GetMetricsQuery,
+    GetAggregatedMetricsQuery
+)
+from ..infrastructure.analytics.django_metric_repository import DjangoMetricRepository
+from ..domain.analytics.entities.metric import MetricType
+
+class DashboardAPIView(APIView):
+    """API para dados do dashboard."""
+    
+    def __init__(self):
+        super().__init__()
+        self._repository = DjangoMetricRepository()
+        self._handler = GetDashboardHandler(self._repository)
+    
     def get(self, request):
-        cache_key = f"analytics_types_{request.user.id}"
-        data = cache.get(cache_key)
+        """Retorna dados do dashboard."""
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if start_date:
+            start_date = parse_datetime(start_date)
+        if end_date:
+            end_date = parse_datetime(end_date)
+        
+        query = GetDashboardQuery(start_date=start_date, end_date=end_date)
+        result = self._handler.handle(query)
+        
+        return Response(result, status=status.HTTP_200_OK)
 
-        if not data:
-            service = AnalyticsService(user=request.user)
-            # Converte DTOs para dicionários para a resposta
-            data = [vars(dto) for dto in service.get_vehicle_type_distribution()]
-            cache.set(cache_key, data, timeout=self.CACHE_TIMEOUT)
-
-        return Response({"data": data})
-
-class DetectionsByPeriodAPIView(APIView):
-    """Endpoint para detecções temporais agrupadas."""
-    permission_classes = [IsAuthenticated]
-    CACHE_TIMEOUT = 300
-
+class MetricsAPIView(APIView):
+    """API para métricas específicas."""
+    
+    def __init__(self):
+        super().__init__()
+        self._repository = DjangoMetricRepository()
+        self._metrics_handler = GetMetricsHandler(self._repository)
+        self._aggregated_handler = GetAggregatedMetricsHandler(self._repository)
+    
     def get(self, request):
-        period = request.query_params.get("period", "day")
-        cache_key = f"analytics_period_{request.user.id}_{period}"
-        data = cache.get(cache_key)
-
-        if not data:
-            service = AnalyticsService(user=request.user)
-            try:
-                data = [vars(dto) for dto in service.get_detections_by_period(period)]
-                cache.set(cache_key, data, timeout=self.CACHE_TIMEOUT)
-            except ValueError as e:
-                return Response({"error": str(e)}, status=400)
-
-        return Response({"period": period, "data": data})
+        """Retorna métricas por tipo."""
+        metric_type = request.query_params.get('type', 'camera_status')
+        start_date = parse_datetime(request.query_params.get('start_date', 
+            (datetime.now() - timedelta(days=7)).isoformat()))
+        end_date = parse_datetime(request.query_params.get('end_date', 
+            datetime.now().isoformat()))
+        aggregated = request.query_params.get('aggregated', 'false').lower() == 'true'
+        
+        try:
+            metric_type_enum = MetricType(metric_type)
+        except ValueError:
+            return Response(
+                {"error": "Tipo de métrica inválido"}, 
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        if aggregated:
+            aggregation = request.query_params.get('aggregation', 'avg')
+            query = GetAggregatedMetricsQuery(
+                metric_type=metric_type_enum,
+                start_date=start_date,
+                end_date=end_date,
+                aggregation=aggregation
+            )
+            result = self._aggregated_handler.handle(query)
+        else:
+            query = GetMetricsQuery(
+                metric_type=metric_type_enum,
+                start_date=start_date,
+                end_date=end_date
+            )
+            metrics = self._metrics_handler.handle(query)
+            result = [
+                {
+                    "type": m.type.value,
+                    "value": m.value,
+                    "metadata": m.metadata,
+                    "timestamp": m.timestamp
+                }
+                for m in metrics
+            ]
+        
+        return Response(result, status=status.HTTP_200_OK)

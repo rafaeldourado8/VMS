@@ -1,6 +1,5 @@
 from rest_framework import permissions
 
-
 class IsAdminOrReadOnly(permissions.BasePermission):
     """
     Permite acesso de escrita (POST, PUT, DELETE) apenas para usuários com role 'admin'.

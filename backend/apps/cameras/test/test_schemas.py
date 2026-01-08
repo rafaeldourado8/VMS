@@ -1,6 +1,7 @@
 import pytest
-from apps.cameras.schemas import CameraDTO
+
 from apps.cameras.models import Camera
+from apps.cameras.schemas import CameraDTO
 
 @pytest.mark.django_db
 class TestCameraDTO:

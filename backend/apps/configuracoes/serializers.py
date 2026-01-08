@@ -1,7 +1,6 @@
-from rest_framework import serializers
-
 from .models import ConfiguracaoGlobal
 
+from rest_framework import serializers
 
 class ConfiguracaoGlobalSerializer(serializers.ModelSerializer):
     class Meta:

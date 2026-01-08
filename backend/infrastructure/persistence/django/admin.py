@@ -1,12 +1,10 @@
 from django.contrib import admin
 from infrastructure.persistence.django.models import SectorModel, AuditLogModel
 
-
 @admin.register(SectorModel)
 class SectorAdmin(admin.ModelAdmin):
     list_display = ['name', 'description', 'created_at']
     search_fields = ['name']
-
 
 @admin.register(AuditLogModel)
 class AuditLogAdmin(admin.ModelAdmin):

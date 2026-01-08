@@ -1,7 +1,6 @@
-from rest_framework import serializers
-
 from .models import Mensagem
 
+from rest_framework import serializers
 
 class MensagemSerializer(serializers.ModelSerializer):
     # Vamos mostrar o email do autor, é mais útil

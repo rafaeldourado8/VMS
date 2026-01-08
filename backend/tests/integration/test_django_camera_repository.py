@@ -13,7 +13,7 @@ User = get_user_model()
 class TestDjangoCameraRepository:
     
     def test_save_new_camera(self):
-        user = User.objects.create_user(username="test", password="test123")
+        user = User.objects.create_user(email="test@test.com", name="Test User", password="test123")
         repo = DjangoCameraRepository()
         
         camera = Camera(
@@ -29,7 +29,7 @@ class TestDjangoCameraRepository:
         assert saved.name == "Test Camera"
     
     def test_find_by_id(self):
-        user = User.objects.create_user(username="test", password="test123")
+        user = User.objects.create_user(email="test@test.com", name="Test User", password="test123")
         repo = DjangoCameraRepository()
         
         camera = Camera(
@@ -46,7 +46,7 @@ class TestDjangoCameraRepository:
         assert found.name == "Find Test"
     
     def test_find_by_owner(self):
-        user = User.objects.create_user(username="test", password="test123")
+        user = User.objects.create_user(email="test@test.com", name="Test User", password="test123")
         repo = DjangoCameraRepository()
         
         camera1 = Camera(
@@ -70,7 +70,7 @@ class TestDjangoCameraRepository:
         assert len(cameras) == 2
     
     def test_delete_camera(self):
-        user = User.objects.create_user(username="test", password="test123")
+        user = User.objects.create_user(email="test@test.com", name="Test User", password="test123")
         repo = DjangoCameraRepository()
         
         camera = Camera(
@@ -87,7 +87,7 @@ class TestDjangoCameraRepository:
         assert found is None
     
     def test_exists_by_name(self):
-        user = User.objects.create_user(username="test", password="test123")
+        user = User.objects.create_user(email="test@test.com", name="Test User", password="test123")
         repo = DjangoCameraRepository()
         
         camera = Camera(

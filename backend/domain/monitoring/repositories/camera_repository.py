@@ -1,7 +1,6 @@
+from ..entities.camera import Camera
 from abc import ABC, abstractmethod
 from typing import List, Optional
-from ..entities.camera import Camera
-
 
 class CameraRepository(ABC):
     """Interface de repositório para Camera"""

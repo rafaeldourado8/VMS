@@ -1,7 +1,8 @@
-import logging
-from django.db import transaction
 from .models import ConfiguracaoGlobal
 from .schemas import ConfiguracaoGlobalDTO
+import logging
+
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 

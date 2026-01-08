@@ -1,8 +1,9 @@
-from rest_framework import permissions, status
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from django.http import HttpResponse
 from .services import ThumbnailService
+
+from django.http import HttpResponse
+from rest_framework import permissions, status
+from rest_framework.response import Response
+from rest_framework.views import APIView
 
 class CameraSnapshotView(APIView):
     """Retorna uma imagem JPEG do stream atual."""

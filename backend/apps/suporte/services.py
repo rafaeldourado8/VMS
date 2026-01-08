@@ -1,7 +1,8 @@
-import logging
-from django.db import transaction
 from .models import Mensagem
 from .schemas import CreateMensagemDTO
+import logging
+
+from django.db import transaction
 
 logger = logging.getLogger(__name__)
 

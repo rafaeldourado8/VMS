@@ -1,7 +1,8 @@
 import pytest
+
+from django.core.cache import cache
 from django.urls import reverse
 from rest_framework import status
-from django.core.cache import cache
 
 @pytest.mark.django_db
 class TestAnalyticsViews:

@@ -2,12 +2,10 @@ from domain.detection.entities.detection import Detection
 from domain.detection.repositories.detection_repository import DetectionRepository
 from domain.monitoring.repositories.camera_repository import CameraRepository
 
-
 class GetDetectionQuery:
     def __init__(self, detection_id: int, owner_id: int):
         self.detection_id = detection_id
         self.owner_id = owner_id
-
 
 class GetDetectionHandler:
     def __init__(

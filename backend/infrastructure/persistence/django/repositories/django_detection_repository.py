@@ -1,10 +1,10 @@
-from typing import List, Optional
+from .detection_mapper import DetectionMapper
 from datetime import datetime
+from typing import List, Optional
+
+from apps.deteccoes.models import Deteccao as DetectionModel
 from domain.detection.entities.detection import Detection
 from domain.detection.repositories.detection_repository import DetectionRepository
-from apps.deteccoes.models import Deteccao as DetectionModel
-from .detection_mapper import DetectionMapper
-
 
 class DjangoDetectionRepository(DetectionRepository):
     """Implementação Django do repositório de detecções"""

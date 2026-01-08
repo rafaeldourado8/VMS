@@ -1,6 +1,5 @@
 from django.db import models
 
-
 class SectorModel(models.Model):
     """Modelo de persistência para Setor"""
     name = models.CharField(max_length=100, unique=True)
@@ -14,7 +13,6 @@ class SectorModel(models.Model):
 
     def __str__(self):
         return self.name
-
 
 class AuditLogModel(models.Model):
     """Log de auditoria imutável (LGPD Art. 37)"""

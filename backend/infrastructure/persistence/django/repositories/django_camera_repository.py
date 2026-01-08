@@ -1,9 +1,9 @@
+from .camera_mapper import CameraMapper
 from typing import List, Optional
+
+from apps.cameras.models import Camera as CameraModel
 from domain.monitoring.entities.camera import Camera
 from domain.monitoring.repositories.camera_repository import CameraRepository
-from apps.cameras.models import Camera as CameraModel
-from .camera_mapper import CameraMapper
-
 
 class DjangoCameraRepository(CameraRepository):
     """Implementação Django do repositório de câmeras"""

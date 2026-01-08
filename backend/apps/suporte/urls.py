@@ -1,7 +1,7 @@
+from .views import MensagemViewSet
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-
-from .views import MensagemViewSet
 
 router = DefaultRouter()
 # Registra a rota /api/support/chat/

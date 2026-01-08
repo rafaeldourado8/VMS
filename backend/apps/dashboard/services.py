@@ -1,9 +1,11 @@
-from django.utils import timezone
+from .schemas import DashboardStatsDTO
 from datetime import timedelta
+
 from django.db.models import Count
+from django.utils import timezone
+
 from apps.cameras.models import Camera
 from apps.deteccoes.models import Deteccao
-from .schemas import DashboardStatsDTO
 
 class DashboardService:
     """Serviço para consolidação de métricas e indicadores do dashboard."""
