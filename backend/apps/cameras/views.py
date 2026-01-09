@@ -146,3 +146,30 @@ class CameraViewSet(viewsets.ModelViewSet):
             "ai_enabled": getattr(camera, 'ai_enabled', False),
             "has_roi": bool(camera.roi_areas)
         })
+
+    @action(detail=True, methods=['get'], url_path='stream')
+    def get_stream(self, request, pk=None):
+        from .services import StreamLimiter
+        
+        camera = self.get_object()
+        user = request.user
+        max_streams = user.max_concurrent_streams
+        
+        if not StreamLimiter.can_start_stream(user.id, max_streams):
+            return Response(
+                {
+                    "error": "Stream limit exceeded",
+                    "current_streams": StreamLimiter.get_current_streams(user.id),
+                    "max_streams": max_streams
+                },
+                status=status.HTTP_429_TOO_MANY_REQUESTS
+            )
+        
+        StreamLimiter.increment_stream(user.id)
+        
+        return Response({
+            "stream_url": camera.stream_url,
+            "camera_id": camera.id,
+            "current_streams": StreamLimiter.get_current_streams(user.id),
+            "max_streams": max_streams
+        })

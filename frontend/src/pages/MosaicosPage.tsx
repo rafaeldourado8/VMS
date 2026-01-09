@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Settings, Play, Grid3X3 } from 'lucide-react'
+import { Plus, Search, Settings, Play, Grid3X3, AlertCircle } from 'lucide-react'
 import {
   Button,
   Input,
@@ -12,6 +12,7 @@ import {
 } from '@/components/ui'
 import { VideoPlayer } from '@/components/cameras/VideoPlayer'
 import { mosaicoService, cameraService, streamingService } from '@/services/api'
+import { useDynamicMosaic } from '@/hooks/useDynamicMosaic'
 import type { Mosaico, Camera } from '@/types'
 
 export function MosaicosPage() {
@@ -114,8 +115,7 @@ export function MosaicosPage() {
 // Mosaico Card Component
 function MosaicoCard({ 
   mosaico, 
-  onView, 
-  onDelete 
+  onView
 }: { 
   mosaico: Mosaico
   onView: () => void
@@ -172,29 +172,88 @@ function MosaicoViewer({
   mosaico: Mosaico
   onClose: () => void 
 }) {
+  const { slots, activateSlot, activeCount } = useDynamicMosaic(4)
+  const [error, setError] = useState<string | null>(null)
+  const [streamUrls, setStreamUrls] = useState<Record<number, string>>({})
+  const [maxStreams, setMaxStreams] = useState<number>(4)
+
+  const handleActivateStream = async (cameraId: number, position: number) => {
+    // Check limit before requesting stream
+    if (activeCount >= maxStreams) {
+      setError(`Limite de ${maxStreams} streams atingido`)
+      return
+    }
+
+    try {
+      setError(null)
+      const response = await cameraService.getStream(cameraId)
+      setStreamUrls(prev => ({ ...prev, [cameraId]: response.stream_url }))
+      activateSlot(position, cameraId.toString())
+    } catch (err: any) {
+      if (err.response?.status === 429) {
+        const data = err.response.data
+        setMaxStreams(data.max_streams || 4)
+        setError(`Limite de ${data.max_streams} streams atingido`)
+      } else {
+        setError('Erro ao iniciar stream')
+      }
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/90" onClick={onClose} />
       <div className="relative w-full max-w-6xl bg-card rounded-xl overflow-hidden">
         <div className="p-4 border-b">
-          <h2 className="text-lg font-semibold">{mosaico.name}</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">{mosaico.name}</h2>
+            {error && (
+              <div className="flex items-center gap-2 text-red-500 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                {error}
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="aspect-video bg-black p-4">
           <div className="grid grid-cols-2 grid-rows-2 h-full gap-2">
-            {mosaico.cameras_positions.slice(0, 4).map((pos, index) => (
-              <div key={index} className="bg-gray-900 rounded overflow-hidden">
-                <VideoPlayer
-                  src={streamingService.getHlsUrl(pos.camera.id)}
-                  autoPlay
-                  muted
-                  className="h-full"
-                />
-                <div className="absolute bottom-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
-                  {pos.camera.name}
+            {mosaico.cameras_positions.slice(0, 4).map((pos, index) => {
+              const slot = slots[index]
+              const streamUrl = streamUrls[pos.camera.id] || streamingService.getHlsUrl(pos.camera.id)
+              
+              return (
+                <div key={index} className="bg-gray-900 rounded overflow-hidden relative">
+                  {slot.streamActive ? (
+                    <>
+                      <VideoPlayer
+                        src={streamUrl}
+                        autoPlay
+                        muted
+                        className="h-full"
+                      />
+                      <div className="absolute bottom-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded">
+                        {pos.camera.name}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center">
+                      <div className="text-gray-600 text-center">
+                        <div className="text-lg mb-2">📹</div>
+                        <div className="text-sm mb-3">{pos.camera.name}</div>
+                        <Button
+                          size="sm"
+                          onClick={() => handleActivateStream(pos.camera.id, index)}
+                        >
+                          <Play className="w-3 h-3 mr-1" />
+                          Iniciar
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
             {Array.from({ length: 4 - mosaico.cameras_positions.length }).map((_, index) => (
               <div key={`empty-${index}`} className="bg-gray-900 rounded flex items-center justify-center">
                 <div className="text-gray-600">

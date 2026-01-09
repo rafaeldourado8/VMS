@@ -25,10 +25,17 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
         ("admin", "Administrador"),
         ("viewer", "Visualizador"),
     )
+    
+    PLAN_CHOICES = (
+        ("free", "Free"),
+        ("pro", "Pro"),
+        ("enterprise", "Enterprise"),
+    )
 
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="viewer")
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default="free")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
@@ -36,6 +43,11 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     objects = UsuarioManager()
     USERNAME_FIELD = "email"
     REQUIRED_FIELDS = ["name"]
+
+    @property
+    def max_concurrent_streams(self):
+        limits = {"free": 4, "pro": 16, "enterprise": 64}
+        return limits.get(self.plan, 4)
 
     def __str__(self):
         return self.email

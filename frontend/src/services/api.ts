@@ -126,6 +126,11 @@ export const cameraService = {
   async toggleAI(id: number, enabled: boolean): Promise<void> {
     await api.post(`/cameras/${id}/toggle_ai/`, { enabled })
   },
+
+  async getStream(id: number): Promise<{ stream_url: string; camera_id: number; current_streams: number; max_streams: number }> {
+    const { data } = await api.get(`/cameras/${id}/stream/`)
+    return data
+  },
 }
 
 // ======================================================

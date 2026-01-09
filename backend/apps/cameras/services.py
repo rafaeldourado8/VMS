@@ -9,10 +9,38 @@ import logging
 import httpx
 from django.db import transaction
 from django.conf import settings
+from django.core.cache import cache
 from .models import Camera
 from .schemas import CameraDTO
 
 logger = logging.getLogger(__name__)
+
+class StreamLimiter:
+    """Controla limites de streams simultâneos por usuário."""
+    
+    @staticmethod
+    def can_start_stream(user_id: int, max_streams: int) -> bool:
+        key = f"user_streams:{user_id}"
+        current = cache.get(key, 0)
+        return current < max_streams
+    
+    @staticmethod
+    def increment_stream(user_id: int) -> None:
+        key = f"user_streams:{user_id}"
+        current = cache.get(key, 0)
+        cache.set(key, current + 1, timeout=None)
+    
+    @staticmethod
+    def decrement_stream(user_id: int) -> None:
+        key = f"user_streams:{user_id}"
+        current = cache.get(key, 0)
+        if current > 0:
+            cache.set(key, current - 1, timeout=None)
+    
+    @staticmethod
+    def get_current_streams(user_id: int) -> int:
+        key = f"user_streams:{user_id}"
+        return cache.get(key, 0)
 
 class CameraService:
     """Lógica de negócio e integração HTTP com o Streaming Service."""

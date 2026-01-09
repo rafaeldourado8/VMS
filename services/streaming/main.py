@@ -3,6 +3,7 @@ Streaming Service API - Refatorado com DDD
 """
 import os
 import logging
+import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -13,6 +14,7 @@ from application.streaming.handlers.provision_stream_handler import ProvisionStr
 from application.streaming.handlers.remove_stream_handler import RemoveStreamHandler
 from infrastructure.repositories.in_memory_stream_repository import InMemoryStreamRepository
 from infrastructure.mediamtx.mediamtx_client import MediaMTXClient
+from infrastructure.watchdog import StreamWatchdog
 from domain.streaming.exceptions import StreamAlreadyExistsException, StreamNotFoundException
 
 logger = logging.getLogger(__name__)
@@ -36,8 +38,26 @@ mediamtx_client = MediaMTXClient(
 provision_handler = ProvisionStreamHandler(repository, base_url=mediamtx_webrtc_url)
 remove_handler = RemoveStreamHandler(repository)
 
+# Inicializa watchdog
+rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672")
+watchdog = StreamWatchdog(rabbitmq_url)
+
 app = FastAPI(title="Streaming Service - DDD")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+
+@app.on_event("startup")
+async def startup():
+    """Start watchdog on service startup"""
+    asyncio.create_task(watchdog.start())
+    logger.info("🐕 Watchdog started")
+
+
+@app.on_event("shutdown")
+async def shutdown():
+    """Stop watchdog on service shutdown"""
+    watchdog.stop()
+    logger.info("🐕 Watchdog stopped")
 
 
 # DTOs
