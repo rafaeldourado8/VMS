@@ -3,15 +3,6 @@ class DetectionDomainException(Exception):
     pass
 
 
-class InvalidPointException(DetectionDomainException):
-    """Ponto inválido"""
-    pass
-
-
-class InvalidPolygonException(DetectionDomainException):
-    """Polígono inválido"""
-    pass
-
 
 class InvalidBoundingBoxException(DetectionDomainException):
     """Bounding box inválido"""
