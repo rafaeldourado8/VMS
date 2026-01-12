@@ -3,6 +3,8 @@ import Hls from 'hls.js'
 import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, AlertCircle, Scissors, Circle, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
+import { metricsClient } from '@/lib/metrics'
+import { useVideoPlayer } from '@/hooks/useVideoPlayer'
 
 interface VideoPlayerProps {
   src: string
@@ -14,6 +16,7 @@ interface VideoPlayerProps {
   onReady?: () => void
   showRecordingControls?: boolean
   cameraId?: number
+  onProtocolSwitch?: (from: string, to: string) => void
 }
 
 export function VideoPlayer({
@@ -26,10 +29,12 @@ export function VideoPlayer({
   onReady,
   showRecordingControls = false,
   cameraId,
+  onProtocolSwitch,
 }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const webrtcRetryTimer = useRef<NodeJS.Timeout | null>(null)
   
   const [isPlaying, setIsPlaying] = useState(autoPlay)
   const [isMuted, setIsMuted] = useState(muted)
@@ -40,7 +45,44 @@ export function VideoPlayer({
   const [isRecording, setIsRecording] = useState(false)
   const [recordingStartTime, setRecordingStartTime] = useState<Date | null>(null)
   const [showClipModal, setShowClipModal] = useState(false)
+  const [protocol, setProtocol] = useState<'webrtc' | 'hls' | 'rtmp'>('hls')
   const maxRetries = 3
+
+  const { 
+    isStalled, 
+    retryCount: stallRetryCount, 
+    showError: showStallError, 
+    manualRetry,
+    setVolume: saveVolume 
+  } = useVideoPlayer(videoRef, {
+    onStalled: () => setError('Reconectando...'),
+    onRecovery: () => setError(null),
+    onError: (err) => setError(err)
+  })
+
+  const switchToHLS = () => {
+    const prevProtocol = protocol
+    setProtocol('hls')
+    setError(null)
+    onProtocolSwitch?.(prevProtocol, 'hls')
+    
+    if (cameraId) {
+      metricsClient.recordProtocolFallback(cameraId, prevProtocol, 'hls')
+    }
+    
+    // Retry WebRTC after 60s
+    webrtcRetryTimer.current = setTimeout(() => {
+      if (src.includes('webrtc') || src.includes('whip')) {
+        setProtocol('webrtc')
+      }
+    }, 60000)
+  }
+
+  useEffect(() => {
+    return () => {
+      if (webrtcRetryTimer.current) clearTimeout(webrtcRetryTimer.current)
+    }
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -49,8 +91,39 @@ export function VideoPlayer({
     setIsLoading(true)
     setError(null)
 
-    // Verificar se é HLS
-    if (src.includes('.m3u8')) {
+    // Detect protocol
+    const isWebRTC = src.includes('webrtc') || src.includes('whip')
+    const isRTMP = src.includes('rtmp')
+    const isHLS = src.includes('.m3u8')
+
+    // Try WebRTC first if available
+    if (isWebRTC && protocol === 'webrtc') {
+      const timeout = setTimeout(() => {
+        setError('WebRTC timeout')
+        switchToHLS()
+      }, 5000)
+
+      // WebRTC connection logic would go here
+      // For now, fallback to HLS
+      clearTimeout(timeout)
+      switchToHLS()
+      return
+    }
+
+    // RTMP support
+    if (isRTMP) {
+      setProtocol('rtmp')
+      video.src = src
+      video.addEventListener('loadeddata', () => {
+        setIsLoading(false)
+        onReady?.()
+      })
+      return
+    }
+
+    // HLS
+    if (isHLS || protocol === 'hls') {
+      setProtocol('hls')
       if (Hls.isSupported()) {
         const hls = new Hls({
           enableWorker: true,
@@ -146,6 +219,7 @@ export function VideoPlayer({
 
     video.muted = !video.muted
     setIsMuted(video.muted)
+    saveVolume(video.muted ? 0 : video.volume)
   }
 
   const toggleFullscreen = () => {
@@ -222,24 +296,41 @@ export function VideoPlayer({
         </div>
       )}
 
+      {/* Reconnecting overlay */}
+      {isStalled && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 gap-3">
+          <div className="w-10 h-10 border-2 border-yellow-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-yellow-500">Reconectando... ({stallRetryCount}/3)</p>
+        </div>
+      )}
+
       {/* Error overlay */}
-      {error && (
+      {(error || showStallError) && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3">
           <AlertCircle className="w-10 h-10 text-destructive" />
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">{error}</p>
-            {error.includes('não está pronta') && retryCount < maxRetries && (
+            <p className="text-sm text-muted-foreground">{error || 'Falha ao reconectar'}</p>
+            {error?.includes('não está pronta') && retryCount < maxRetries && (
               <p className="text-xs text-muted-foreground mt-1">
                 Tentativa {retryCount + 1}/{maxRetries + 1} em 3s...
               </p>
             )}
           </div>
-          {(!error.includes('não está pronta') || retryCount >= maxRetries) && (
-            <Button variant="secondary" size="sm" onClick={retry}>
+          {(showStallError || (!error?.includes('não está pronta') || retryCount >= maxRetries)) && (
+            <Button variant="secondary" size="sm" onClick={showStallError ? manualRetry : retry}>
               <RefreshCw className="w-4 h-4 mr-2" />
               Tentar novamente
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Protocol indicator */}
+      {!error && !isLoading && (
+        <div className="absolute top-2 right-2 px-2 py-1 bg-black/60 rounded text-xs text-white">
+          {protocol === 'webrtc' && '⚡ Baixa Latência'}
+          {protocol === 'hls' && '📡 Modo Compatível'}
+          {protocol === 'rtmp' && '📺 RTMP'}
         </div>
       )}
 

@@ -2,6 +2,42 @@
 
 services:
   # ============================================
+  # LPR DETECTION SERVICE (YOLO + OCR)
+  # ============================================
+  lpr_detection:
+    build:
+      context: ./services/lpr_detection
+      dockerfile: Dockerfile
+    image: gtvision/lpr_detection:latest
+    container_name: gtvision_lpr_detection
+    command: python main.py
+    environment:
+      BACKEND_URL: http://backend:8000
+      ADMIN_API_KEY: ${ADMIN_API_KEY}
+      REDIS_URL: redis://redis_cache:6379/4
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+    ports:
+      - "5000:5000"
+    volumes:
+      - lpr_captures:/app/captures
+      - lpr_training:/app/pending_training
+      - lpr_webhooks:/app/received_webhooks
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
   # AI DETECTION SERVICE (FastAPI)
   # ============================================
   ai_detection:
@@ -45,13 +81,13 @@ services:
         condition: service_healthy
     networks:
       - gtvision_network
-    restart: on-failure:3
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8002/health || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 2
-      start_period: 20s
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ============================================
   # STREAMING SERVICE (FastAPI)
@@ -78,6 +114,7 @@ services:
       MEDIAMTX_API_USER: ${MEDIAMTX_API_USER:-mediamtx_api_user}
       MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
       REDIS_URL: redis://redis_cache:6379/2
+      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     ports:
       - "8001:8001"
@@ -94,6 +131,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   # ============================================
   # BACKEND (Django API)
@@ -135,11 +173,11 @@ services:
       - gtvision_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8000/admin/login/ || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
+      test: ["CMD", "curl", "-f", "http://localhost:8000/admin/login/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ============================================
   # BACKEND WORKER (Celery) - DESABILITADO
@@ -251,11 +289,13 @@ services:
       - gtvision_pg_data:/var/lib/postgresql/data
     networks:
       - gtvision_network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ============================================
   # REDIS
@@ -265,11 +305,13 @@ services:
     container_name: gtvision_redis
     networks:
       - gtvision_network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ============================================
   # RABBITMQ
@@ -281,17 +323,43 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
       RABBITMQ_DEFAULT_VHOST: /
-      RABBITMQ_ERLANG_COOKIE: ${RABBITMQ_ERLANG_COOKIE:-gtvision_secret_cookie_change_me}
+      RABBITMQ_ERLANG_COOKIE: GTVISIONRABBITMQCOOKIE
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - gtvision_network
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
+      interval: 30s
       timeout: 10s
-      retries: 10
-      start_period: 30s
+      retries: 3
+      start_period: 40s
+
+  # ============================================
+  # PROMETHEUS
+  # ============================================
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: gtvision_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:9090/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # ============================================
   # MEDIAMTX
@@ -320,12 +388,13 @@ services:
     environment:
       MEDIAMTX_API_USER: ${MEDIAMTX_API_USER}
       MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
+    restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q --spider --header='Authorization: Basic bWVkaWFtdHhfYXBpX3VzZXI6R3RWIXNpb25NZWQxYU1UWCQyMDI1' http://localhost:9997/v3/config/global/get || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
+      test: ["CMD", "wget", "-q", "--spider", "--header=Authorization: Basic bWVkaWFtdHhfYXBpX3VzZXI6R3RWIXNpb25NZWQxYU1UWCQyMDI1", "http://localhost:9997/v3/config/global/get"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 
 
@@ -338,6 +407,10 @@ volumes:
   backend_media:
   mediamtx_recordings:
   rabbitmq_data:
+  prometheus_data:
+  lpr_captures:
+  lpr_training:
+  lpr_webhooks:
 
 # ============================================
 # NETWORK

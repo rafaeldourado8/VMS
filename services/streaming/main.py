@@ -15,7 +15,11 @@ from application.streaming.handlers.remove_stream_handler import RemoveStreamHan
 from infrastructure.repositories.in_memory_stream_repository import InMemoryStreamRepository
 from infrastructure.mediamtx.mediamtx_client import MediaMTXClient
 from infrastructure.watchdog import StreamWatchdog
+from infrastructure.last_frame_cache import LastFrameCache
+from infrastructure.metrics import vms_streams_active, vms_stream_errors_total
+from redis import Redis
 from domain.streaming.exceptions import StreamAlreadyExistsException, StreamNotFoundException
+from prometheus_client import make_asgi_app
 
 logger = logging.getLogger(__name__)
 
@@ -42,8 +46,17 @@ remove_handler = RemoveStreamHandler(repository)
 rabbitmq_url = os.getenv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672")
 watchdog = StreamWatchdog(rabbitmq_url)
 
+# Inicializa last frame cache
+redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/2")
+redis_client = Redis.from_url(redis_url, decode_responses=False)
+last_frame_cache = LastFrameCache(redis_client, ttl=300)
+
 app = FastAPI(title="Streaming Service - DDD")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+# Mount Prometheus metrics
+metrics_app = make_asgi_app()
+app.mount("/metrics", metrics_app)
 
 
 @app.on_event("startup")
@@ -120,8 +133,10 @@ async def provision(request: ProvisionRequest):
         
         if not success:
             logger.error(f"❌ Falha ao provisionar no MediaMTX: {stream.path}")
+            vms_stream_errors_total.labels(camera_id=request.camera_id, error_type='provision_failed').inc()
             raise HTTPException(status_code=500, detail="Falha ao provisionar no MediaMTX")
         
+        vms_streams_active.labels(camera_id=request.camera_id).set(1)
         logger.info(f"✅ Câmera {request.camera_id} provisionada com sucesso")
         return ProvisionResponse(
             success=True,
@@ -136,6 +151,7 @@ async def provision(request: ProvisionRequest):
         raise HTTPException(status_code=409, detail=str(e))
     except Exception as e:
         logger.error(f"❌ Erro ao provisionar: {e}", exc_info=True)
+        vms_stream_errors_total.labels(camera_id=request.camera_id, error_type='unknown').inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -149,6 +165,7 @@ async def remove_camera(camera_id: int):
         # Remove do MediaMTX
         mediamtx_client.remove_path(f"cam_{camera_id}")
         
+        vms_streams_active.labels(camera_id=camera_id).set(0)
         return {"success": True, "message": "Stream removido"}
         
     except StreamNotFoundException as e:
@@ -175,6 +192,17 @@ async def camera_status(camera_id: int):
         "hls_url": str(stream.hls_url),
         "mediamtx_ready": mtx_status.get("ready", False) if mtx_status else False
     }
+
+
+@app.get("/cameras/{camera_id}/last_frame")
+async def get_last_frame(camera_id: int):
+    """Get cached last frame"""
+    frame = last_frame_cache.get(camera_id)
+    if not frame:
+        raise HTTPException(status_code=404, detail="No cached frame")
+    
+    from fastapi.responses import Response
+    return Response(content=frame, media_type="image/jpeg")
 
 
 @app.get("/streams")

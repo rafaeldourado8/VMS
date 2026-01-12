@@ -1,0 +1,48 @@
+groups:
+  - name: vms_alerts
+    interval: 30s
+    rules:
+      - alert: CameraOffline
+        expr: time() - vms_camera_last_frame_timestamp > 120
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Camera {{ $labels.camera_id }} is offline"
+          description: "No frames received from camera {{ $labels.camera_id }} for more than 2 minutes"
+
+      - alert: HighReconnectRate
+        expr: rate(vms_camera_reconnect_total[1h]) > 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High reconnect rate for camera {{ $labels.camera_id }}"
+          description: "Camera {{ $labels.camera_id }} has reconnected more than 5 times in the last hour"
+
+      - alert: StreamingServiceDown
+        expr: up{job="streaming"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Streaming service is down"
+          description: "The streaming service has been down for more than 1 minute"
+
+      - alert: HighStreamErrors
+        expr: rate(vms_stream_errors_total[5m]) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High stream error rate for camera {{ $labels.camera_id }}"
+          description: "Camera {{ $labels.camera_id }} has more than 1 error per 5 minutes"
+
+      - alert: NoActiveStreams
+        expr: sum(vms_streams_active) == 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "No active streams"
+          description: "There are no active streams for more than 5 minutes"

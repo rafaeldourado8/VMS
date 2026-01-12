@@ -35,45 +35,12 @@ export interface Camera {
   latitude: number | null;
   longitude: number | null;
   detection_settings: Record<string, unknown>;
-  // Novas configurações de detecção
-  roi_areas: ROIArea[];
-  virtual_lines: VirtualLine[];
-  tripwires: VirtualLine[];
-  zone_triggers: ZoneTrigger[];
   recording_enabled: boolean;
   recording_retention_days: number;
   ai_enabled: boolean;
   created_at: string;
   stream_url_frontend: string;
   ai_websocket_url: string;
-}
-
-// Configurações de detecção
-export interface ROIArea {
-  id: string;
-  name: string;
-  points: { x: number; y: number }[];
-  enabled: boolean;
-  color?: string;
-}
-
-export interface VirtualLine {
-  id: string;
-  name: string;
-  start: { x: number; y: number };
-  end: { x: number; y: number };
-  direction: 'both' | 'left-to-right' | 'right-to-left';
-  enabled: boolean;
-  color?: string;
-}
-
-export interface ZoneTrigger {
-  id: string;
-  name: string;
-  points: { x: number; y: number }[];
-  triggerType: 'enter' | 'exit' | 'both';
-  enabled: boolean;
-  color?: string;
 }
 
 export interface CameraCreateRequest {

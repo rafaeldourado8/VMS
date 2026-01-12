@@ -20,6 +20,25 @@ class CameraSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "created_at", "snapshot_url"]
 
+    def validate_name(self, value):
+        owner = self.context['request'].user
+        if self.instance:  # Update
+            if Camera.objects.filter(owner=owner, name=value).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError("Você já possui uma câmera com este nome.")
+        else:  # Create
+            if Camera.objects.filter(owner=owner, name=value).exists():
+                raise serializers.ValidationError("Você já possui uma câmera com este nome.")
+        return value
+
+    def validate_stream_url(self, value):
+        if self.instance:  # Update
+            if Camera.objects.filter(stream_url=value).exclude(id=self.instance.id).exists():
+                raise serializers.ValidationError("Esta URL de stream já está sendo usada por outra câmera.")
+        else:  # Create
+            if Camera.objects.filter(stream_url=value).exists():
+                raise serializers.ValidationError("Esta URL de stream já está sendo usada por outra câmera.")
+        return value
+
     def get_stream_url_frontend(self, obj):
         # Rota HLS/WebRTC via HAProxy
         return f"/ws/live/camera_{obj.id}"

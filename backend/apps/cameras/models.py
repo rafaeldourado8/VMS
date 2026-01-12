@@ -13,7 +13,7 @@ class Camera(models.Model):
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255, blank=True, null=True)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="online")
-    stream_url = models.CharField(max_length=1000)
+    stream_url = models.CharField(max_length=1000, unique=True)
     thumbnail_url = models.CharField(max_length=1000, blank=True, null=True)
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
@@ -27,6 +27,14 @@ class Camera(models.Model):
     recording_retention_days = models.IntegerField(default=30)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['owner', 'name'],
+                name='unique_camera_name_per_owner'
+            )
+        ]
 
     def __str__(self):
         return self.name

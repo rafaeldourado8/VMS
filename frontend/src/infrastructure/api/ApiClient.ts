@@ -45,14 +45,7 @@ export class ApiClient {
     await this.client.post(`http://localhost:8002/ai/toggle/${cameraId}`, { enabled });
   }
 
-  async updateROI(cameraId: number, points: [number, number][]): Promise<void> {
-    await this.client.post(`http://localhost:8002/ai/roi/${cameraId}`, {
-      polygon_points: points,
-      enabled: true,
-    });
-  }
-
-  async getAIStatus(cameraId: number): Promise<{ ai_enabled: boolean; has_roi: boolean }> {
+  async getAIStatus(cameraId: number): Promise<{ ai_enabled: boolean }> {
     const response = await this.client.get(`http://localhost:8002/ai/status/${cameraId}`);
     return response.data;
   }

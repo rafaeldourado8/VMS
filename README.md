@@ -1,110 +1,265 @@
-📹 VMS — Sistema de Monitoramento com IA
-(Versão MVP – Implantação Inicial)
-🏛️ Visão Geral
+# 📹 VMS - Sistema de Monitoramento com IA
 
-O VMS é uma plataforma de monitoramento de câmeras com transmissão de vídeo em alta qualidade e inteligência artificial integrada, desenvolvida para ambientes institucionais, como prefeituras e órgãos públicos.
+Sistema de monitoramento de vídeo com detecção de placas veiculares (LPR) e busca retroativa em gravações.
 
-O foco desta versão é:
+---
 
-Estabilidade
+## 🚀 Quick Start
 
-Baixa latência
+```bash
+# 1. Clone o repositório
+git clone <repo-url>
+cd VMS
 
-Operação simples
+# 2. Configure variáveis de ambiente
+cp .env.example .env
 
-Escalabilidade controlada
+# 3. Inicie os serviços
+docker-compose up -d
 
-IA funcionando sem comprometer o vídeo ao vivo
+# 4. Acesse
+Frontend: http://localhost:5173
+Backend: http://localhost:8000
+Prometheus: http://localhost:9090
+```
 
-🎯 Objetivo do MVP
+---
 
-Entregar uma solução funcional que permita:
+## 📋 Documentação
 
-Visualização ao vivo de câmeras
+### Principal
+- **[📚 Índice Completo](docs/INDEX.md)** - Toda documentação organizada
+- **[📋 Tasks](docs/TASKS.md)** - Tarefas por fase
+- **[📊 Resumo do Projeto](docs/PROJECT_SUMMARY.md)** - Visão geral completa
+- **[🏗️ Diagrama de Arquitetura](docs/ARCHITECTURE_DIAGRAM.excalidraw.json)** - Abrir no Excalidraw
 
-Organização em mosaicos
+### Por Serviço
+- **[LPR Detection](services/lpr_detection/)** - YOLO + OCR para placas
+- **[Streaming](services/streaming/)** - MediaMTX + HLS
+- **[Backend](backend/)** - Django API
 
-Detecção automática de eventos via IA
+---
 
-Uso simultâneo por múltiplos operadores
+## 🏗️ Arquitetura
 
-Tudo isso com baixo custo operacional e alta confiabilidade.
+### Componentes
 
-🎥 Funcionalidades Principais
-🔴 Monitoramento ao Vivo
+```
+📹 Câmeras
+  ├─ RTSP (LPR) → Alta definição → IA ativa
+  └─ RTMP (Bullets) → Padrão → Apenas gravação
+         ↓
+🎥 MediaMTX → Streaming + Gravação contínua
+         ↓
+💾 Recording Service → Gravação cíclica (7/15/30 dias)
+         ↓
+🤖 LPR Detection → YOLO + OCR (apenas RTSP)
+         ↓
+🔍 Sentinela → Busca retroativa em gravações
+         ↓
+🔧 Backend → API REST
+         ↓
+🎨 Frontend → React + Vite
+```
 
-Reprodução automática de vídeo
+---
 
-Visualização individual de câmeras
+## 📹 Tipos de Câmeras
 
-Mosaico fixo com até 4 câmeras simultâneas
+### RTSP (LPR) - Alta Definição
+- **Protocolo**: `rtsp://`
+- **Quantidade**: 10-20 por cidade
+- **IA**: ✅ Ativa (YOLO + OCR)
+- **Gravação**: ✅ Contínua
 
-Qualidade de vídeo preservada (sem perda por IA)
+### RTMP (Bullets) - Padrão
+- **Protocolo**: `rtmp://`
+- **Quantidade**: até 1000 por cidade
+- **IA**: ❌ Desativada
+- **Gravação**: ✅ Contínua
 
-📋 Gestão de Câmeras
+---
 
-Lista centralizada de câmeras
+## 💾 Sistema de Armazenamento
 
-Status online/offline
+### Gravação Cíclica
 
-Criação rápida de mosaicos
+| Plano | Dias | Usuários | Diferencial |
+|-------|------|----------|-------------|
+| Basic | 7    | 3        | -           |
+| Pro   | 15   | 5        | -           |
+| Premium | 30 | 10       | Relatórios  |
 
-Limite técnico para evitar sobrecarga do sistema
+### Clipes Permanentes
+- Usuário cria clipe de gravação
+- Clipe **não é deletado** no ciclo
+- Armazenamento permanente
 
-🤖 Inteligência Artificial Ativa
+---
 
-Processamento desacoplado do vídeo
+## 🔍 Sentinela (Busca Retroativa)
 
-Detecção de placas veiculares
+Busca em gravações (não tempo real):
+- 🚗 Veículos: cor, tipo, marca
+- 🔢 Placas: OCR
+- 📅 Por data e câmera
+- ⏱️ Resultados com timestamp
 
-Operação em modo econômico (1 frame por segundo)
+---
 
-Indicador visual de IA ativa
+## 🛠️ Stack Tecnológica
 
-📌 A IA não interfere no streaming e pode ser pausada automaticamente em caso de alta carga.
+### Backend
+- Django 4.2
+- PostgreSQL 15
+- Redis 7
+- RabbitMQ 3.13
 
-👥 Usuários
+### Frontend
+- React 18
+- Vite 5
+- TailwindCSS
+- TypeScript
 
-Acesso restrito
+### Streaming
+- MediaMTX (HLS/WebRTC)
+- FFmpeg
 
-Perfis administrativos
+### IA
+- YOLOv8n (detecção)
+- Fast-Plate-OCR (reconhecimento)
+- PyTorch (CPU-only)
 
-Controle de usuários simultâneos
+### Infraestrutura
+- Docker Compose
+- Prometheus
+- HAProxy
+- Kong Gateway
 
-📄 Registro de Eventos
+---
 
-Lista simples de ocorrências detectadas
+## 📊 Status do Projeto
 
-Registro de data, horário e câmera
+### ✅ Concluído
+- [x] Streaming (MediaMTX + HLS)
+- [x] Backend API (Django)
+- [x] Frontend (React)
+- [x] LPR Detection (YOLO + OCR)
+- [x] Monitoring (Prometheus)
 
-Preparado para auditoria e análise futura
+### 🔄 Em Andamento
+- [ ] Recording Service (gravação cíclica)
+- [ ] Playback & Timeline
+- [ ] UI Refactor
 
-⚙️ Limites Operacionais (MVP)
+### ❌ Pendente
+- [ ] Sentinela (busca retroativa)
+- [ ] Sistema de Planos
+- [ ] Gerenciamento de Usuários
 
-Até 4 câmeras por mosaico
+---
 
-Até 4 usuários simultâneos por unidade
+## 🧪 Testes
 
-Streaming sob demanda
+```bash
+# Testar LPR Detection
+cd tests
+python test_failover.py
 
-IA operando em baixa frequência para estabilidade
+# Testar auto-restart
+python test_auto_restart.py
 
-Esses limites garantem funcionamento contínuo e previsível.
+# Testar câmeras reais
+python test_real_cameras.py
+```
 
-🚫 Funcionalidades Planejadas (não inclusas nesta fase)
+Ver [docs/TEST_FAILOVER.md](docs/TEST_FAILOVER.md) para guia completo.
 
-Playback de vídeo
+---
 
-Recorte e exportação
+## 📦 Estrutura do Projeto
 
-Timeline de gravações
+```
+VMS/
+├── backend/              # Django API
+├── frontend/             # React + Vite
+├── services/
+│   ├── lpr_detection/   # YOLO + OCR
+│   ├── streaming/       # MediaMTX integration
+│   └── ai_detection/    # Rekognition (opcional)
+├── docs/                # Documentação
+├── tests/               # Scripts de teste
+├── config/              # Configurações
+├── legacy/              # Código legado
+└── docker-compose.yml   # Orquestração
+```
 
-Dashboards analíticos
+---
 
-Relatórios avançados
+## 🔧 Configuração
 
-Essas funcionalidades fazem parte da evolução do sistema e serão entregues em fases posteriores.
+### Variáveis de Ambiente
 
-🏁 Conclusão
+```bash
+# Backend
+POSTGRES_USER=vms_user
+POSTGRES_PASSWORD=secure_password
+POSTGRES_DB=vms_db
 
-Este MVP foi projetado para implantação rápida, uso real e evolução segura, atendendo às necessidades iniciais de monitoramento com IA sem comprometer a qualidade do serviço.
+# LPR Detection
+ADMIN_API_KEY=your_api_key
+
+# MediaMTX
+MEDIAMTX_API_USER=mediamtx_api_user
+MEDIAMTX_API_PASS=secure_password
+```
+
+Ver `.env.example` para lista completa.
+
+---
+
+## 📞 Suporte
+
+### Logs
+```bash
+docker-compose logs -f [service]
+```
+
+### Health Checks
+```bash
+curl http://localhost:8000/health  # Backend
+curl http://localhost:5000/health  # LPR Detection
+curl http://localhost:8001/health  # Streaming
+```
+
+### Restart
+```bash
+docker-compose restart [service]
+```
+
+---
+
+## 📝 Contribuindo
+
+1. Leia [docs/TASKS.md](docs/TASKS.md)
+2. Escolha uma task
+3. Crie branch: `git checkout -b feature/task-name`
+4. Commit: `git commit -m "feat: description"`
+5. Push: `git push origin feature/task-name`
+6. Abra Pull Request
+
+---
+
+## 📄 Licença
+
+[Definir licença]
+
+---
+
+## 🔗 Links Úteis
+
+- [Documentação Completa](docs/INDEX.md)
+- [Diagrama de Arquitetura](docs/ARCHITECTURE_DIAGRAM.excalidraw.json)
+- [Guia de Testes](docs/TEST_FAILOVER.md)
+- [MediaMTX Docs](https://github.com/bluenviron/mediamtx)
+- [YOLOv8 Docs](https://docs.ultralytics.com/)
