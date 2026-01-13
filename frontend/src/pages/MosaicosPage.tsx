@@ -339,10 +339,10 @@ function CreateMosaicoModal({
                 {Array.from({ length: 4 }).map((_, index) => {
                   const camera = selectedCameras[index]
                   return (
-                    <div key={index} className="aspect-video bg-gray-100 rounded border-2 border-dashed border-gray-300 flex items-center justify-center">
+                    <div key={index} className="aspect-video bg-gray-800 dark:bg-gray-900 rounded border-2 border-dashed border-gray-600 flex items-center justify-center">
                       {camera ? (
                         <div className="text-center p-2">
-                          <div className="text-sm font-medium truncate">{camera.camera.name}</div>
+                          <div className="text-sm font-medium truncate text-gray-100">{camera.camera.name}</div>
                           <Button 
                             type="button"
                             size="sm" 

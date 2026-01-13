@@ -13,6 +13,8 @@ from database import database, crud
 from sqlalchemy.orm import Session
 from api_client import APIClient
 from detection import PlateDetector
+from tracking import VehicleTracker
+from voting import PlateVoter
 
 # --- CONFIGURAÇÃO ---
 API_BASE_URL = os.getenv("BACKEND_URL", "http://backend:8000")
@@ -70,6 +72,9 @@ def process_camera_stream(camera_info: dict, detector: PlateDetector, api_client
         logging.error(f"Não foi possível abrir o stream de vídeo para a câmera {camera_name}.")
         return
 
+    tracker = VehicleTracker()
+    voter = PlateVoter()
+
     while camera_info.get('thread_active', True):
         ret, frame = cap.read()
         if not ret:
@@ -84,21 +89,27 @@ def process_camera_stream(camera_info: dict, detector: PlateDetector, api_client
 
         try:
             detections = detector.detect_and_recognize(frame, camera_id)
-            for detection in detections:
-                plate_text = detection.get("plate")
-                image_path = detection.get("image_path")
-
-                if plate_text and image_path:
-                    logging.info(f"Placa detectada (RTSP) pela câmera {camera_name}: {plate_text}")
-
+            tracker.update(detections)
+            
+            left_vehicles = tracker.get_vehicles_left_fov()
+            for vehicle_id in left_vehicles:
+                vehicle_detections = tracker.vehicles[vehicle_id]['detections']
+                best_plate = voter.vote(vehicle_detections)
+                
+                if best_plate:
+                    plate_text = best_plate['plate']
+                    confidence = best_plate['confidence']
+                    method = best_plate['method']
+                    
+                    logging.info(f"Veículo {vehicle_id} saiu - Placa: {plate_text} (conf: {confidence:.2f}, método: {method})")
+                    
                     api_client.send_sighting_to_api(
                         plate=plate_text,
-                        image_filename=image_path,
+                        image_filename=vehicle_detections[0].get('image_path'),
                         camera_id=camera_id
                     )
                     salvar_para_treinamento(frame, plate_text)
                     crud.get_or_create_vehicle(db=db_session, plate=plate_text)
-                    logging.info(f"Placa '{plate_text}' (RTSP) registrada no banco de dados local.")
 
         except Exception as e:
             logging.error(f"Erro durante o processamento do frame da câmera {camera_name}: {e}")
@@ -159,7 +170,7 @@ def main():
     logs.configurar_logging()
     database.init_db()
 
-    logging.info("Iniciando o serviço AI-Processor...")
+    logging.info("Iniciando o serviço AI-Processor com Tracking + Voting...")
 
     api_client = APIClient(base_url=API_BASE_URL)
     plate_detector = PlateDetector(model_path="yolov8n.pt")
@@ -178,6 +189,31 @@ def main():
         webhook_processor_thread.start()
 
         return jsonify({"status": "received"}), 200
+
+    @app.route('/camera/start', methods=['POST'])
+    def camera_start():
+        data = request.json
+        camera_id = data.get('camera_id')
+        rtsp_url = data.get('rtsp_url')
+        
+        if not camera_id or not rtsp_url:
+            return jsonify({"error": "camera_id and rtsp_url required"}), 400
+        
+        # Ativa processamento para esta câmera
+        camera_info = {
+            'id': camera_id,
+            'rtsp_url': rtsp_url,
+            'name': f'Camera {camera_id}',
+            'thread_active': True
+        }
+        
+        if camera_id not in active_threads:
+            thread = Thread(target=process_camera_stream, args=(camera_info, plate_detector, api_client, db_session))
+            thread.start()
+            active_threads[camera_id] = {'thread': thread, 'info': camera_info}
+            logging.info(f"Thread LPR iniciada para câmera {camera_id}")
+        
+        return jsonify({"status": "started", "camera_id": camera_id}), 200
 
     @app.route('/health', methods=['GET'])
     def health():

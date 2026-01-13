@@ -1,347 +1,317 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, Filter, Car, Calendar, Camera, ChevronLeft, ChevronRight, X } from 'lucide-react'
+import { Search, Download, Calendar } from 'lucide-react'
 import {
   Button,
   Input,
   Card,
   CardContent,
-  Badge,
   Skeleton,
 } from '@/components/ui'
-import { detectionService, cameraService } from '@/services/api'
-import { formatDate, getVehicleTypeLabel } from '@/lib/utils'
-import type { Detection } from '@/types'
+
+interface Detection {
+  id: number
+  plate: string
+  camera_name: string
+  detected_at: string
+  confidence: number
+  vehicle_brand?: string
+  vehicle_model?: string
+  vehicle_color?: string
+  vehicle_type?: string
+  vehicle_year?: number
+  city?: string
+  plate_image: string
+}
 
 export function DetectionsPage() {
-  const [search, setSearch] = useState('')
-  const [cameraFilter, setCameraFilter] = useState<number | undefined>()
-  const [page, setPage] = useState(1)
-  const [selectedDetection, setSelectedDetection] = useState<Detection | null>(null)
-
-  const { data: detectionsData, isLoading } = useQuery({
-    queryKey: ['detections', { plate: search, camera_id: cameraFilter, page }],
-    queryFn: () =>
-      detectionService.list({
-        plate: search || undefined,
-        camera_id: cameraFilter,
-        page,
-      }),
+  const [filters, setFilters] = useState({
+    camera: '',
+    plate: '',
+    dateFrom: '',
+    dateTo: '',
+    brand: '',
+    color: '',
+    blacklist: false,
+    autoOCR: false,
   })
 
-  const { data: cameras } = useQuery({
-    queryKey: ['cameras'],
-    queryFn: cameraService.list,
+  // Mock data - substituir por API real
+  const { data: detections, isLoading } = useQuery({
+    queryKey: ['detections', filters],
+    queryFn: async () => {
+      const params = new URLSearchParams()
+      if (filters.camera) params.append('camera_id', filters.camera)
+      if (filters.plate) params.append('plate', filters.plate)
+      
+      const response = await fetch(`http://localhost:8000/api/deteccoes/?${params}`)
+      if (!response.ok) throw new Error('Failed to fetch detections')
+      return response.json()
+    },
   })
 
-  const detections = detectionsData?.results ?? []
-  const totalPages = Math.ceil((detectionsData?.count ?? 0) / 20)
+  const stats = {
+    total: detections?.length || 0,
+    high: detections?.filter(d => d.confidence >= 90).length || 0,
+    medium: detections?.filter(d => d.confidence >= 75 && d.confidence < 90).length || 0,
+    low: detections?.filter(d => d.confidence < 75).length || 0,
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Detecções</h1>
-        <p className="text-muted-foreground">
-          Histórico de veículos e placas detectadas
-        </p>
-      </div>
-
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por placa..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            className="pl-10"
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <select
-            className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            value={cameraFilter ?? ''}
-            onChange={(e) => {
-              setCameraFilter(e.target.value ? Number(e.target.value) : undefined)
-              setPage(1)
-            }}
-          >
-            <option value="">Todas as câmeras</option>
-            {cameras?.map((cam) => (
-              <option key={cam.id} value={cam.id}>
-                {cam.name}
-              </option>
-            ))}
-          </select>
-
-          {(search || cameraFilter) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearch('')
-                setCameraFilter(undefined)
-                setPage(1)
-              }}
-            >
-              <X className="w-4 h-4 mr-1" />
-              Limpar
-            </Button>
-          )}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Leitura de placa</h1>
+          <p className="text-muted-foreground">Detecções de placas veiculares</p>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <span>{detectionsData?.count ?? 0} detecções encontradas</span>
-        {search && <span>• Filtro: "{search}"</span>}
-      </div>
-
-      {/* Table */}
+      {/* Filtros */}
       <Card>
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="divide-y divide-border">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="p-4">
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ))}
+        <CardContent className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            {/* Câmeras */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Câmeras</label>
+              <select
+                className="w-full px-3 py-2 border rounded-md bg-white text-gray-900"
+                value={filters.camera}
+                onChange={(e) => setFilters({ ...filters, camera: e.target.value })}
+              >
+                <option value="">Select</option>
+                <option value="1">Câmera 1</option>
+                <option value="2">Câmera 2</option>
+              </select>
             </div>
-          ) : detections.length > 0 ? (
-            <div className="divide-y divide-border">
-              {detections.map((detection) => (
-                <DetectionRow
-                  key={detection.id}
-                  detection={detection}
-                  onClick={() => setSelectedDetection(detection)}
+
+            {/* Placa */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Placa</label>
+              <Input
+                placeholder="ABC1234"
+                value={filters.plate}
+                onChange={(e) => setFilters({ ...filters, plate: e.target.value })}
+                className="bg-white text-gray-900"
+              />
+            </div>
+
+            {/* Marca/Modelo */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Marca/Modelo</label>
+              <Input
+                placeholder="Toyota Hilux"
+                value={filters.brand}
+                onChange={(e) => setFilters({ ...filters, brand: e.target.value })}
+                className="bg-white text-gray-900"
+              />
+            </div>
+
+            {/* Cor */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Cor</label>
+              <select
+                className="w-full px-3 py-2 border rounded-md bg-white text-gray-900"
+                value={filters.color}
+                onChange={(e) => setFilters({ ...filters, color: e.target.value })}
+              >
+                <option value="">Todas</option>
+                <option value="prata">Prata</option>
+                <option value="branca">Branca</option>
+                <option value="preta">Preta</option>
+                <option value="vermelha">Vermelha</option>
+              </select>
+            </div>
+
+            {/* Data Inicial */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Data inicial</label>
+              <Input
+                type="date"
+                value={filters.dateFrom}
+                onChange={(e) => setFilters({ ...filters, dateFrom: e.target.value })}
+                className="bg-white text-gray-900"
+              />
+            </div>
+
+            {/* Data Final */}
+            <div>
+              <label className="text-sm font-medium mb-2 block text-gray-700">Data final</label>
+              <Input
+                type="date"
+                value={filters.dateTo}
+                onChange={(e) => setFilters({ ...filters, dateTo: e.target.value })}
+                className="bg-white text-gray-900"
+              />
+            </div>
+
+            {/* Checkboxes */}
+            <div className="flex items-end gap-4">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.blacklist}
+                  onChange={(e) => setFilters({ ...filters, blacklist: e.target.checked })}
                 />
-              ))}
+                <span className="text-sm">Blacklist</span>
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={filters.autoOCR}
+                  onChange={(e) => setFilters({ ...filters, autoOCR: e.target.checked })}
+                />
+                <span className="text-sm">Auto OCR</span>
+              </label>
             </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center py-16">
-              <Car className="w-12 h-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium">Nenhuma detecção</h3>
-              <p className="text-sm text-muted-foreground">
-                {search
-                  ? 'Nenhum resultado para sua busca'
-                  : 'Aguardando detecções...'}
-              </p>
+
+            {/* Botões */}
+            <div className="flex items-end gap-2">
+              <Button className="flex-1">
+                <Search className="w-4 h-4 mr-2" />
+                Buscar
+              </Button>
             </div>
-          )}
+          </div>
         </CardContent>
       </Card>
 
-      {/* Pagination */}
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">
-            Página {page} de {totalPages}
-          </p>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === 1}
-              onClick={() => setPage((p) => p - 1)}
-            >
-              <ChevronLeft className="w-4 h-4 mr-1" />
-              Anterior
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              disabled={page === totalPages}
-              onClick={() => setPage((p) => p + 1)}
-            >
-              Próxima
-              <ChevronRight className="w-4 h-4 ml-1" />
-            </Button>
-          </div>
-        </div>
-      )}
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-gray-50 dark:bg-gray-800">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.total.toLocaleString()}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Registros</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">Mostrar todos</div>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Detection Detail Modal */}
-      {selectedDetection && (
-        <DetectionDetailModal
-          detection={selectedDetection}
-          onClose={() => setSelectedDetection(null)}
-        />
-      )}
-    </div>
-  )
-}
+        <Card className="bg-purple-50 dark:bg-purple-900/20">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-purple-700 dark:text-purple-400">{stats.high.toLocaleString()}</div>
+              <div className="text-sm text-purple-700 dark:text-purple-400">Acima de 90%</div>
+              <div className="text-xs text-purple-600 dark:text-purple-500 mt-1">7.9% do total</div>
+            </div>
+          </CardContent>
+        </Card>
 
-// Detection Row Component
-function DetectionRow({
-  detection,
-  onClick,
-}: {
-  detection: Detection
-  onClick: () => void
-}) {
-  const vehicleIcons: Record<string, string> = {
-    car: '🚗',
-    motorcycle: '🏍️',
-    truck: '🚚',
-    bus: '🚌',
-    unknown: '🚙',
-  }
+        <Card className="bg-gray-50 dark:bg-gray-800">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.medium.toLocaleString()}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Entre 75% e 90%</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">37.6% do total</div>
+            </div>
+          </CardContent>
+        </Card>
 
-  return (
-    <div
-      className="flex items-center gap-4 p-4 hover:bg-secondary/50 cursor-pointer transition-colors"
-      onClick={onClick}
-    >
-      {/* Thumbnail */}
-      <div className="w-24 h-16 rounded-lg bg-secondary flex items-center justify-center overflow-hidden flex-shrink-0">
-        {detection.image_url ? (
-          <img
-            src={detection.image_url}
-            alt="Captura"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <Car className="w-6 h-6 text-muted-foreground" />
-        )}
+        <Card className="bg-gray-50 dark:bg-gray-800">
+          <CardContent className="p-4">
+            <div className="text-center">
+              <div className="text-3xl font-bold text-gray-900 dark:text-gray-100">{stats.low.toLocaleString()}</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400">Abaixo de 75%</div>
+              <div className="text-xs text-gray-500 dark:text-gray-500 mt-1">54.4% do total</div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Info */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-lg">
-            {vehicleIcons[detection.vehicle_type] || vehicleIcons.unknown}
-          </span>
-          {detection.plate ? (
-            <span className="font-mono font-bold text-lg tracking-wider">
-              {detection.plate}
-            </span>
-          ) : (
-            <span className="text-muted-foreground">Sem placa</span>
-          )}
-          {detection.confidence && (
-            <Badge variant="secondary" className="text-xs">
-              {Math.round(detection.confidence * 100)}%
-            </Badge>
-          )}
+      {/* Ações */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-muted-foreground">
+          {detections?.length || 0} detecções
         </div>
-        <div className="flex items-center gap-4 text-sm text-muted-foreground">
-          <span className="flex items-center gap-1">
-            <Camera className="w-3.5 h-3.5" />
-            {detection.camera_name}
-          </span>
-          <span className="flex items-center gap-1">
-            <Calendar className="w-3.5 h-3.5" />
-            {formatDate(detection.timestamp)}
-          </span>
-        </div>
-      </div>
-
-      {/* Type Badge */}
-      <Badge variant="outline" className="flex-shrink-0">
-        {getVehicleTypeLabel(detection.vehicle_type)}
-      </Badge>
-    </div>
-  )
-}
-
-// Detection Detail Modal
-function DetectionDetailModal({
-  detection,
-  onClose,
-}: {
-  detection: Detection
-  onClose: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <Card className="relative w-full max-w-2xl animate-slide-in">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Detalhes da Detecção</h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
-            <X className="w-5 h-5" />
+        <div className="flex gap-2">
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Relatório em EXCEL
+          </Button>
+          <Button variant="outline">
+            <Download className="w-4 h-4 mr-2" />
+            Relatório em CSV
           </Button>
         </div>
+      </div>
 
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Image */}
-            <div className="aspect-video rounded-lg bg-secondary flex items-center justify-center overflow-hidden">
-              {detection.image_url ? (
-                <img
-                  src={detection.image_url}
-                  alt="Captura do veículo"
-                  className="w-full h-full object-contain"
-                />
-              ) : (
-                <div className="text-center">
-                  <Car className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">
-                    Imagem não disponível
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* Details */}
-            <div className="space-y-4">
-              {/* Plate */}
-              <div>
-                <p className="text-sm text-muted-foreground mb-1">Placa</p>
-                {detection.plate ? (
-                  <p className="text-3xl font-mono font-bold tracking-widest">
-                    {detection.plate}
-                  </p>
+      {/* Tabela */}
+      <Card>
+        <CardContent className="p-0">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b">
+                <tr>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Placa</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Nome da câmera</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Data</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Confiança</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Marca</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Modelo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Cor</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Tipo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Ano do modelo</th>
+                  <th className="px-4 py-3 text-left text-sm font-medium">Cidade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {isLoading ? (
+                  Array.from({ length: 10 }).map((_, i) => (
+                    <tr key={i} className="border-b">
+                      <td className="px-4 py-3" colSpan={10}>
+                        <Skeleton className="h-12 w-full" />
+                      </td>
+                    </tr>
+                  ))
+                ) : detections?.length === 0 ? (
+                  <tr>
+                    <td colSpan={10} className="px-4 py-12 text-center text-muted-foreground">
+                      Nenhuma detecção encontrada
+                    </td>
+                  </tr>
                 ) : (
-                  <p className="text-lg text-muted-foreground">Não identificada</p>
+                  detections?.map((detection) => (
+                    <tr key={detection.id} className="border-b hover:bg-gray-50">
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <img
+                            src={detection.plate_image}
+                            alt={detection.plate}
+                            className="w-16 h-10 object-cover rounded border"
+                          />
+                          <span className="font-mono font-semibold">{detection.plate}</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{detection.camera_name}</td>
+                      <td className="px-4 py-3 text-sm">
+                        {new Date(detection.detected_at).toLocaleString('pt-BR')}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <div
+                            className={`w-2 h-2 rounded-full ${
+                              detection.confidence >= 90
+                                ? 'bg-green-500'
+                                : detection.confidence >= 75
+                                ? 'bg-yellow-500'
+                                : 'bg-red-500'
+                            }`}
+                          />
+                          <span className="text-sm">{detection.confidence.toFixed(2)}%</span>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm">{detection.vehicle_brand || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{detection.vehicle_model || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{detection.vehicle_color || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{detection.vehicle_type || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{detection.vehicle_year || '-'}</td>
+                      <td className="px-4 py-3 text-sm">{detection.city || '-'}</td>
+                    </tr>
+                  ))
                 )}
-              </div>
-
-              {/* Other info */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Tipo</p>
-                  <p className="font-medium">
-                    {getVehicleTypeLabel(detection.vehicle_type)}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Confiança</p>
-                  <p className="font-medium">
-                    {detection.confidence
-                      ? `${Math.round(detection.confidence * 100)}%`
-                      : 'N/A'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Câmera</p>
-                  <p className="font-medium">{detection.camera_name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Data/Hora</p>
-                  <p className="font-medium">{formatDate(detection.timestamp)}</p>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="flex gap-2 pt-4">
-                <Button variant="outline" className="flex-1">
-                  <Filter className="w-4 h-4 mr-2" />
-                  Buscar placa
-                </Button>
-                {detection.video_url && (
-                  <Button variant="outline" className="flex-1">
-                    Ver vídeo
-                  </Button>
-                )}
-              </div>
-            </div>
+              </tbody>
+            </table>
           </div>
         </CardContent>
       </Card>

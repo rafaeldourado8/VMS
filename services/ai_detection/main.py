@@ -3,14 +3,12 @@ AI Detection Service API - DDD
 """
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import Response
 from pydantic import BaseModel
 from typing import List, Tuple
 import logging
 
 from application.detection.commands.toggle_ai_command import ToggleAICommand
-from application.detection.commands.update_roi_command import UpdateROICommand
-from application.detection.handlers.toggle_ai_handler import ToggleAIHandler
-from application.detection.handlers.update_roi_handler import UpdateROIHandler
 from infrastructure.repositories.camera_config_repository import InMemoryCameraConfigRepository
 
 try:
@@ -25,8 +23,6 @@ logger = logging.getLogger(__name__)
 
 # Inicialização
 config_repo = InMemoryCameraConfigRepository()
-toggle_handler = ToggleAIHandler(config_repo)
-update_roi_handler = UpdateROIHandler(config_repo)
 
 app = FastAPI(title="AI Detection Service - DDD")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -71,13 +67,21 @@ async def health():
     return {"status": "ok", "service": "ai_detection"}
 
 
+@app.get("/metrics")
+async def metrics():
+    """Prometheus metrics endpoint"""
+    return Response(
+        content="# HELP ai_detection_up Service is up\n# TYPE ai_detection_up gauge\nai_detection_up 1\n",
+        media_type="text/plain"
+    )
+
+
 @app.post("/ai/cameras/{camera_id}/start/")
 async def start_ai(camera_id: int):
     """Inicia IA para uma câmera"""
     try:
-        command = ToggleAICommand(camera_id=camera_id, enabled=True)
-        result = toggle_handler.handle(command)
-        return result
+        config_repo._configs[camera_id] = {'ai_enabled': True}
+        return {"success": True, "camera_id": camera_id, "ai_enabled": True}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -86,9 +90,8 @@ async def start_ai(camera_id: int):
 async def stop_ai(camera_id: int):
     """Para IA para uma câmera"""
     try:
-        command = ToggleAICommand(camera_id=camera_id, enabled=False)
-        result = toggle_handler.handle(command)
-        return result
+        config_repo._configs[camera_id] = {'ai_enabled': False}
+        return {"success": True, "camera_id": camera_id, "ai_enabled": False}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -97,79 +100,11 @@ async def stop_ai(camera_id: int):
 async def toggle_ai(camera_id: int, request: ToggleAIRequest):
     """Ativa ou desativa IA para uma câmera"""
     try:
-        command = ToggleAICommand(
-            camera_id=camera_id,
-            enabled=request.enabled
-        )
-        result = toggle_handler.handle(command)
-        return result
+        config_repo._configs[camera_id] = {'ai_enabled': request.enabled}
+        return {"success": True, "camera_id": camera_id, "ai_enabled": request.enabled}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-
-@app.post("/ai/roi/{camera_id}")
-async def update_roi(camera_id: int, request: UpdateROIRequest):
-    """Atualiza ROI de uma câmera"""
-    try:
-        command = UpdateROICommand(
-            camera_id=camera_id,
-            polygon_points=request.polygon_points,
-            enabled=request.enabled,
-            name=request.name
-        )
-        roi = update_roi_handler.handle(command)
-        
-        return {
-            "success": True,
-            "camera_id": camera_id,
-            "roi_name": roi.name,
-            "enabled": roi.enabled,
-            "points_count": len(roi.polygon.points)
-        }
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@app.post("/ai/cameras/{camera_id}/start/")
-async def start_ai(camera_id: int):
-    """Inicia IA para uma câmera"""
-    try:
-        command = ToggleAICommand(camera_id=camera_id, enabled=True)
-        result = toggle_handler.handle(command)
-        
-        # Inicia frame processor se disponível
-        if FRAME_PROCESSOR_AVAILABLE:
-            config = config_repo.get(camera_id)
-            frame_processor.start_camera(camera_id, config)
-            
-            # Adiciona câmera ao stream worker
-            stream_url = f"http://mediamtx:8889/cam_{camera_id}/index.m3u8"
-            await stream_worker.add_camera(camera_id, stream_url)
-            
-            logger.info(f"✅ IA iniciada para câmera {camera_id}")
-        
-        return {"success": True, "camera_id": camera_id, "ai_enabled": True}
-    except Exception as e:
-        logger.error(f"❌ Erro ao iniciar IA: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/ai/cameras/{camera_id}/stop/")
-async def stop_ai(camera_id: int):
-    """Para IA para uma câmera"""
-    try:
-        command = ToggleAICommand(camera_id=camera_id, enabled=False)
-        result = toggle_handler.handle(command)
-        
-        # Para frame processor se disponível
-        if FRAME_PROCESSOR_AVAILABLE:
-            await stream_worker.remove_camera(camera_id)
-            logger.info(f"🛑 IA parada para câmera {camera_id}")
-        
-        return {"success": True, "camera_id": camera_id, "ai_enabled": False}
-    except Exception as e:
-        logger.error(f"❌ Erro ao parar IA: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.post("/ai/cameras/{camera_id}/test/")

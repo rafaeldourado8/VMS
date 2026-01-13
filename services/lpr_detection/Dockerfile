@@ -27,6 +27,8 @@ COPY alert_system ./alert_system
 COPY database ./database
 COPY api_client.py .
 COPY detection.py .
+COPY tracking.py .
+COPY voting.py .
 COPY main.py .
 COPY yolov8n.pt . 
 

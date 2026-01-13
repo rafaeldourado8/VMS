@@ -20,21 +20,45 @@ export function StreamThumbnail({
   showStatus = true,
   cameraName 
 }: StreamThumbnailProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
   const videoRef = useRef<HTMLVideoElement>(null)
+  const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const hlsRef = useRef<Hls | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(false)
   const [useSnapshot, setUseSnapshot] = useState(false)
+  const [snapshot, setSnapshot] = useState<string | null>(null)
+  const [isVisible, setIsVisible] = useState(false)
+
+  // Intersection Observer para detectar quando está visível
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsVisible(entry.isIntersecting)
+      },
+      { threshold: 0.1 }
+    )
+
+    if (containerRef.current) {
+      observer.observe(containerRef.current)
+    }
+
+    return () => observer.disconnect()
+  }, [])
 
   useEffect(() => {
+    if (!isVisible) return
+
     const video = videoRef.current
-    if (!video || !src) return
+    const canvas = canvasRef.current
+    if (!video || !canvas || !src) return
 
     setIsLoading(true)
     setError(null)
     setUseSnapshot(false)
+    setSnapshot(null)
 
     if (src.includes('.m3u8')) {
       if (Hls.isSupported()) {
@@ -52,6 +76,19 @@ export function StreamThumbnail({
           setIsLoading(false)
           setIsOnline(true)
           video.play().catch(() => {})
+
+          // Após 10 segundos, captura screenshot e para o streaming
+          setTimeout(() => {
+            const ctx = canvas.getContext('2d')
+            if (ctx && video.videoWidth > 0) {
+              canvas.width = video.videoWidth
+              canvas.height = video.videoHeight
+              ctx.drawImage(video, 0, 0)
+              setSnapshot(canvas.toDataURL('image/jpeg', 0.8))
+              setUseSnapshot(true)
+              hls.destroy()
+            }
+          }, 10000)
         })
 
         hls.on(Hls.Events.ERROR, (_, data) => {
@@ -86,20 +123,21 @@ export function StreamThumbnail({
       }
     })
 
-  }, [src, fallbackSrc])
+  }, [src, fallbackSrc, isVisible])
 
   return (
-    <div 
+    <div
+      ref={containerRef}
       className={cn(
         "relative aspect-video bg-black rounded-lg overflow-hidden cursor-pointer group",
         className
       )}
       onClick={onClick}
     >
-      {useSnapshot && fallbackSrc ? (
+      {useSnapshot && (snapshot || fallbackSrc) ? (
         <img
           ref={imgRef}
-          src={fallbackSrc}
+          src={snapshot || fallbackSrc}
           alt={cameraName}
           className="w-full h-full object-cover"
           onError={() => {
@@ -116,6 +154,7 @@ export function StreamThumbnail({
           autoPlay
         />
       )}
+      <canvas ref={canvasRef} className="hidden" />
 
       {/* Loading */}
       {isLoading && (

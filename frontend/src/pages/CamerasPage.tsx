@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X, Loader2, Settings, Play, Eye, Grid, Trash2 } from 'lucide-react'
+import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
   Button,
   Input,
@@ -23,7 +23,8 @@ export function CamerasPage() {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showDetectionConfig, setShowDetectionConfig] = useState<Camera | null>(null)
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('list')
+  const [currentPage, setCurrentPage] = useState(1)
+  const CAMERAS_PER_PAGE = 10
 
   const { data: cameras, isLoading } = useQuery({
     queryKey: ['cameras'],
@@ -42,6 +43,16 @@ export function CamerasPage() {
     cam.location?.toLowerCase().includes(search.toLowerCase())
   ) ?? []
 
+  const totalPages = Math.ceil(filteredCameras.length / CAMERAS_PER_PAGE)
+  const startIndex = (currentPage - 1) * CAMERAS_PER_PAGE
+  const paginatedCameras = filteredCameras.slice(startIndex, startIndex + CAMERAS_PER_PAGE)
+
+  // Reset page when search changes
+  const handleSearch = (value: string) => {
+    setSearch(value)
+    setCurrentPage(1)
+  }
+
   const handleDelete = (camera: Camera) => {
     if (confirm(`Remover câmera "${camera.name}"?`)) {
       deleteMutation.mutate(camera.id)
@@ -56,27 +67,10 @@ export function CamerasPage() {
           <h1 className="text-2xl font-bold">Câmeras</h1>
           <p className="text-muted-foreground">Gerencie suas câmeras de vigilância</p>
         </div>
-        <div className="flex gap-2">
-          <Button
-            variant={viewMode === 'list' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('list')}
-          >
-            Lista
-          </Button>
-          <Button
-            variant={viewMode === 'grid' ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setViewMode('grid')}
-          >
-            <Grid className="w-4 h-4 mr-2" />
-            Grade
-          </Button>
-          <Button onClick={() => setShowAddModal(true)}>
-            <Plus className="w-4 h-4 mr-2" />
-            Adicionar Câmera
-          </Button>
-        </div>
+        <Button onClick={() => setShowAddModal(true)}>
+          <Plus className="w-4 h-4 mr-2" />
+          Adicionar Câmera
+        </Button>
       </div>
 
       {/* Search */}
@@ -85,9 +79,18 @@ export function CamerasPage() {
         <Input
           placeholder="Buscar câmeras..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => handleSearch(e.target.value)}
           className="pl-10"
         />
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-4 text-sm text-muted-foreground">
+        <span>Total: {filteredCameras.length} câmeras</span>
+        <span>•</span>
+        <span>Página {currentPage} de {totalPages || 1}</span>
+        <span>•</span>
+        <span>Exibindo {paginatedCameras.length} câmeras</span>
       </div>
 
       {/* Content */}
@@ -97,19 +100,54 @@ export function CamerasPage() {
             <Skeleton key={i} className="h-20 rounded-xl" />
           ))}
         </div>
-      ) : viewMode === 'list' ? (
-        <CameraList
-          cameras={filteredCameras}
-          onCameraView={setSelectedCamera}
-          onCameraConfig={setShowDetectionConfig}
-          onCameraDelete={handleDelete}
-        />
       ) : (
-        <CameraGrid
-          cameras={filteredCameras}
-          onCameraClick={setSelectedCamera}
-          onCameraDelete={handleDelete}
-        />
+        <>
+          <CameraList
+            cameras={paginatedCameras}
+            onCameraView={setSelectedCamera}
+            onCameraConfig={setShowDetectionConfig}
+            onCameraDelete={handleDelete}
+          />
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-center gap-2 pt-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" />
+                Anterior
+              </Button>
+              
+              <div className="flex gap-1">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <Button
+                    key={page}
+                    variant={currentPage === page ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setCurrentPage(page)}
+                    className="w-10"
+                  >
+                    {page}
+                  </Button>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+              >
+                Próxima
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Camera Detail Modal */}
@@ -157,7 +195,7 @@ function CameraList({
               <div className="flex items-center gap-4">
                 <StreamThumbnail
                   src={streamingService.getHlsUrl(camera.id)}
-                  fallbackSrc={camera.thumbnail_url || undefined}
+                  fallbackSrc={camera.thumbnail_url || `/api/placeholder-camera.jpg`}
                   className="w-20 h-12 flex-shrink-0"
                   onClick={() => onCameraView(camera)}
                   cameraName={camera.name}

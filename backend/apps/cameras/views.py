@@ -49,6 +49,23 @@ class CameraViewSet(viewsets.ModelViewSet):
         
         from apps.cameras.models import Camera
         camera_model = Camera.objects.get(id=camera.id)
+        
+        # Ativa IA automaticamente se for RTSP
+        if camera_model.stream_url and camera_model.stream_url.lower().startswith('rtsp://'):
+            camera_model.ai_enabled = True
+            camera_model.save()
+            
+            # Notifica LPR service
+            import requests
+            try:
+                requests.post(
+                    'http://lpr_detection:5000/camera/start',
+                    json={'camera_id': camera_model.id, 'rtsp_url': camera_model.stream_url},
+                    timeout=2
+                )
+            except:
+                pass
+        
         output = self.get_serializer(camera_model)
         return Response(output.data, status=status.HTTP_201_CREATED)
 
