@@ -59,7 +59,7 @@ from fastapi import APIRouter, WebSocket
 from fastapi.responses import StreamingResponse
 
 router = APIRouter(prefix="/api/v1/streaming")
-
+# d
 @router.post("/streams/{camera_id}/start")
 async def start_stream(camera_id: str):
     """Inicia stream HLS"""
