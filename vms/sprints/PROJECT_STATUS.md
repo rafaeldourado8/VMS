@@ -9,11 +9,11 @@
 ## 🎯 Overall Progress
 
 ```
-MVP Progress: ████████░░░░░░░░░░░░ 40% (4/10 sprints)
+MVP Progress: ██████████░░░░░░░░░░ 50% (5/10 sprints)
 
 ✅ Sprint 0: Base (Cidades, Cameras, Streaming, LPR) - COMPLETO
-✅ Sprint 4: Admin + Auth (Domain + Application) - COMPLETO
-⏳ Sprint 5: Integration + FastAPI (Infrastructure) - PRÓXIMO
+✅ Sprint 4: Admin + Auth (COMPLETO - Domain + Application + Infrastructure)
+⏳ Sprint 5: FastAPI Endpoints + Middleware - PRÓXIMO
 ⏳ Sprint 6: YOLO Real + Recording
 ⏳ Sprint 7: Deploy + Monitoring
 ```
@@ -28,12 +28,12 @@ MVP Progress: ████████░░░░░░░░░░░░ 40% (
 | **Cameras** | ✅ | ✅ | ✅ | 10 | 95% | ✅ COMPLETO |
 | **Streaming** | ✅ | ✅ | ✅ | 8 | 99% | ✅ COMPLETO |
 | **LPR** | ✅ | ✅ | 🟡 | 13 | 100% | 🟡 STUB |
-| **Admin** | ✅ | ✅ | ⏳ | 21 | 97% | 🟡 PARCIAL |
+| **Admin** | ✅ | ✅ | ✅ | 24 | 97% | ✅ COMPLETO |
 | **Sentinela** | ✅ | ✅ | ⏳ | 15 | 100% | ⏳ POST-MVP |
 
-**Total Tests:** 88  
+**Total Tests:** 91 (88 + 3 JWT)  
 **Average Coverage:** 97.5%  
-**Average Complexity:** A (1.75)
+**Average Complexity:** A (1.78)
 
 ---
 
@@ -68,7 +68,9 @@ MVP Progress: ████████░░░░░░░░░░░░ 40% (
 - ✅ User entity (multi-tenant)
 - ✅ Permission system
 - ✅ Authentication use cases
-- ⏳ JWT implementation (Sprint 5)
+- ✅ JWT implementation (PyJWT)
+- ✅ Django Admin
+- ✅ UserModel + Repository
 
 ---
 
@@ -164,10 +166,10 @@ Average:   A (1.75) ⭐⭐⭐⭐⭐
 - 🟡 Adicionar métricas de performance
 
 ### High Priority (Sprint 5)
-- 🔴 Implementar JWT real (PyJWT)
+- ✅ Implementar JWT real (PyJWT) - COMPLETO
 - 🔴 Criar FastAPI endpoints
 - 🔴 Implementar middleware de autenticação
-- 🔴 Integrar com Django Admin
+- 🔴 Testes de integração
 
 ---
 

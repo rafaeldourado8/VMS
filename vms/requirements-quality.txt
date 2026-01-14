@@ -1,0 +1,21 @@
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-mock==3.12.0
+
+# Code Quality
+radon==6.0.1              # Complexidade ciclomática
+pylint==3.0.3             # Linting + SOLID
+flake8==7.0.0             # Style guide
+mypy==1.7.1               # Type checking
+
+# DDD/Architecture Analysis
+mccabe==0.7.0             # Complexity
+bandit==1.7.5             # Security
+vulture==2.10             # Dead code
+
+# Coverage
+coverage==7.3.3
+
+# Reports
+pytest-html==4.1.1
