@@ -18,10 +18,16 @@ if DEBUG:
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173", "http://127.0.0.1:5173",
     "http://localhost:80", "http://localhost",
-    "http://localhost:3000", "http://localhost:8000"
+    "http://localhost:3000", "http://localhost:8000",
+    "http://localhost:8080",  # Django Admin
 ]
 CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
 CORS_ALLOW_CREDENTIALS = True
+
+# Django Admin customization
+ADMIN_SITE_HEADER = "VMS Platform Admin"
+ADMIN_SITE_TITLE = "VMS Admin"
+ADMIN_INDEX_TITLE = "Gerenciamento de Organizações e Planos"
 
 # --- APPLICAÇÕES ---
 INSTALLED_APPS = [
@@ -40,6 +46,7 @@ INSTALLED_APPS = [
     "django_celery_results",
     "django_celery_beat",
     # Módulos Internos
+    "apps.tenants",
     "apps.usuarios",
     "apps.cameras",
     "apps.deteccoes",
@@ -59,6 +66,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "apps.tenants.middleware.TenantMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]

@@ -27,15 +27,16 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     )
     
     PLAN_CHOICES = (
-        ("free", "Free"),
-        ("pro", "Pro"),
-        ("enterprise", "Enterprise"),
+        ("basic", "Basic - 7 dias"),
+        ("pro", "Pro - 15 dias"),
+        ("premium", "Premium - 30 dias"),
     )
 
+    organization = models.ForeignKey('tenants.Organization', on_delete=models.CASCADE, related_name='users', null=True)
     email = models.EmailField(unique=True)
     name = models.CharField(max_length=255)
     role = models.CharField(max_length=50, choices=ROLE_CHOICES, default="viewer")
-    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default="free")
+    plan = models.CharField(max_length=20, choices=PLAN_CHOICES, default="basic")
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     created_at = models.DateTimeField(default=timezone.now)
@@ -45,9 +46,32 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
     REQUIRED_FIELDS = ["name"]
 
     @property
+    def recording_days(self):
+        """Retorna dias de gravação baseado no plano da organização"""
+        if self.organization and hasattr(self.organization, 'subscription'):
+            return self.organization.subscription.recording_days
+        return {'basic': 7, 'pro': 15, 'premium': 30}.get(self.plan, 7)
+    
+    @property
+    def max_cameras(self):
+        """Retorna limite de câmeras por plano da organização"""
+        if self.organization and hasattr(self.organization, 'subscription'):
+            return self.organization.subscription.max_cameras
+        return {'basic': 10, 'pro': 50, 'premium': 200}.get(self.plan, 10)
+    
+    @property
+    def max_clips(self):
+        """Retorna limite de clipes por plano da organização"""
+        if self.organization and hasattr(self.organization, 'subscription'):
+            return self.organization.subscription.max_clips
+        return {'basic': 10, 'pro': 50, 'premium': 999999}.get(self.plan, 10)
+
+    @property
     def max_concurrent_streams(self):
-        limits = {"free": 4, "pro": 16, "enterprise": 64}
-        return limits.get(self.plan, 4)
+        """Retorna limite de streams simultâneos por plano da organização"""
+        if self.organization and hasattr(self.organization, 'subscription'):
+            return self.organization.subscription.max_concurrent_streams
+        return {"basic": 4, "pro": 16, "premium": 64}.get(self.plan, 4)
 
     def __str__(self):
         return self.email

@@ -29,12 +29,8 @@ class Camera(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        constraints = [
-            models.UniqueConstraint(
-                fields=['owner', 'name'],
-                name='unique_camera_name_per_owner'
-            )
-        ]
+        # Removido constraint de nome único para permitir reutilização
+        pass
 
     def __str__(self):
         return self.name

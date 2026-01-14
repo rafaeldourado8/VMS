@@ -14,7 +14,12 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):
     """Customiza a resposta do login para incluir dados do utilizador."""
+    username_field = 'email'
+    
     def validate(self, attrs):
+        # Converte email para username para compatibilidade
+        if 'email' in attrs:
+            attrs['username'] = attrs['email']
         data = super().validate(attrs)
         serializer = UsuarioSerializer(self.user)
         data['user'] = serializer.data

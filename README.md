@@ -201,18 +201,18 @@ Busca em gravações (não tempo real):
 - [x] Monitoring (Prometheus)
 - [x] Docker Compose completo
 
-### 🔄 Fase 1: Dashboard de Detecções (Em Andamento)
-- [ ] API de detecções completa
-- [ ] Interface de visualização com filtros
-- [ ] Exportação CSV/Excel
-- [ ] Integração LPR → Backend → Frontend
+### 🔄 Sprint 3: Recording & Playback (Em Andamento)
+- [ ] **Multi-Tenant + Planos** (BLOQUEANTE)
+- [ ] Recording Service
+- [ ] Playback API
+- [ ] Timeline Component
+- [ ] Clip System
 
 ### 📋 Próximas Fases
-- **Fase 2:** Sistema de Blacklist (1 semana)
-- **Fase 3:** Recording & Playback (2 semanas)
-- **Fase 4:** Sentinela - Busca Retroativa (2-3 semanas)
-- **Fase 5:** Multi-Tenant & Usuários (2 semanas)
-- **Fase 6:** Analytics & Relatórios (1-2 semanas)
+- **Fase 1:** Dashboard de Detecções
+- **Fase 2:** Sistema de Blacklist
+- **Fase 4:** Sentinela - Busca Retroativa
+- **Fase 6:** Analytics & Relatórios
 
 Ver [Roadmap Completo](docs/phases/README.md)
 

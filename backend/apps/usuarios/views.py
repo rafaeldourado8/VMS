@@ -1,5 +1,7 @@
 from .permissions import IsAdminOrReadOnly
 from .serializers import UsuarioSerializer, MyTokenObtainPairSerializer
+from .plan_serializers import PlanInfoSerializer
+from apps.tenants.permissions import CanManageUsers, IsOrganizationAdmin
 
 from infrastructure.persistence.django.repositories import DjangoUserRepository
 from infrastructure.auth.authentication_service import AuthenticationService
@@ -30,17 +32,42 @@ class UsuarioViewSet(viewsets.ModelViewSet):
         self.delete_handler = DeleteUserHandler(repo)
 
     def get_queryset(self):
+        # Admin vê apenas usuários da sua organização
+        if self.request.user.role == 'admin' and self.request.user.organization:
+            from apps.usuarios.models import Usuario
+            return Usuario.objects.filter(organization=self.request.user.organization)
+        
         query = ListUsersQuery(active_only=True)
         users = self.list_handler.handle(query)
         from apps.usuarios.models import Usuario
         return Usuario.objects.filter(id__in=[u.id for u in users])
+    
+    def get_permissions(self):
+        if self.action == 'create':
+            return [CanManageUsers()]
+        return super().get_permissions()
 
     def create(self, request, *args, **kwargs):
+        # Verificar limite de usuários
+        org = request.user.organization
+        if org and hasattr(org, 'subscription'):
+            current_users = org.users.count()
+            max_users = org.subscription.max_users
+            if current_users >= max_users:
+                return Response(
+                    {"detail": f"Limite de {max_users} usuários atingido para o plano {org.subscription.plan}"},
+                    status=status.HTTP_403_FORBIDDEN
+                )
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
         try:
-            command = CreateUserCommand(**serializer.validated_data)
+            # Forçar organização do admin
+            validated_data = serializer.validated_data
+            validated_data['organization'] = request.user.organization
+            
+            command = CreateUserCommand(**validated_data)
             user = self.create_handler.handle(command)
             
             from apps.usuarios.models import Usuario
@@ -95,31 +122,14 @@ class MeAPIView(APIView):
         return Response(serializer.data)
 
 class MyTokenObtainPairView(TokenObtainPairView):
-    """View de autenticação usando DDD"""
-    
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.auth_service = AuthenticationService(DjangoUserRepository())
+    """View de autenticação usando serializer customizado"""
+    serializer_class = MyTokenObtainPairSerializer
     
     def post(self, request, *args, **kwargs):
-        try:
-            email = request.data.get('email')
-            password = request.data.get('password')
-            
-            if not email or not password:
-                return Response(
-                    {"detail": "Email e senha são obrigatórios"}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            
-            result = self.auth_service.authenticate_user(email, password)
-            return Response(result, status=status.HTTP_200_OK)
-            
-        except UserDomainException as e:
-            return Response(
-                {"detail": str(e)}, 
-                status=status.HTTP_401_UNAUTHORIZED
-            )
+        # Converte 'email' para 'username' para compatibilidade com JWT
+        if 'email' in request.data:
+            request.data['username'] = request.data['email']
+        return super().post(request, *args, **kwargs)
 
 class LogoutAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -130,3 +140,26 @@ class LogoutAPIView(APIView):
             return Response(status=status.HTTP_205_RESET_CONTENT)
         except:
             return Response({"error": "Token inválido."}, status=status.HTTP_400_BAD_REQUEST)
+
+class PlanInfoAPIView(APIView):
+    """Retorna informações do plano do usuário"""
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        user = request.user
+        from apps.cameras.models import Camera
+        
+        current_cameras = Camera.objects.filter(owner=user).count()
+        
+        data = {
+            'plan': user.plan,
+            'recording_days': user.recording_days,
+            'max_cameras': user.max_cameras,
+            'max_clips': user.max_clips,
+            'max_concurrent_streams': user.max_concurrent_streams,
+            'current_cameras': current_cameras,
+            'can_add_camera': current_cameras < user.max_cameras,
+        }
+        
+        serializer = PlanInfoSerializer(data)
+        return Response(serializer.data)

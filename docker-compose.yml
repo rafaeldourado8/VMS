@@ -150,6 +150,8 @@ services:
         reservations:
           cpus: '0.1'
           memory: 256M
+    ports:
+      - "8000:8000"
     volumes:
       - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles

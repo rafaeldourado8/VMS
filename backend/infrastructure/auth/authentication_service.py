@@ -1,8 +1,11 @@
+import logging
 from django.contrib.auth import authenticate
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from domain.user import Email, UserRepository
 from domain.user.exceptions import InvalidCredentialsException
+
+logger = logging.getLogger(__name__)
 
 class AuthenticationService:
     """Serviço de autenticação usando DDD"""
@@ -13,18 +16,32 @@ class AuthenticationService:
     def authenticate_user(self, email: str, password: str) -> dict:
         """Autentica usuário e retorna tokens"""
         
+        logger.info(f"🔐 Tentando autenticar: {email}")
+        
         # Usar autenticação Django para validar senha
         django_user = authenticate(username=email, password=password)
         if not django_user:
+            logger.warning(f"❌ Autenticação Django falhou para: {email}")
             raise InvalidCredentialsException("Email ou senha inválidos")
+        
+        logger.info(f"✅ Autenticação Django OK para: {email}")
         
         # Buscar usuário no domínio
         domain_user = self.user_repository.find_by_email(Email(email))
-        if not domain_user or not domain_user.is_active:
-            raise InvalidCredentialsException("Usuário inativo ou não encontrado")
+        if not domain_user:
+            logger.warning(f"❌ Usuário não encontrado no domínio: {email}")
+            raise InvalidCredentialsException("Usuário não encontrado")
+        
+        if not domain_user.is_active:
+            logger.warning(f"❌ Usuário inativo: {email}")
+            raise InvalidCredentialsException("Usuário inativo")
+        
+        logger.info(f"✅ Usuário domínio OK: {email}")
         
         # Gerar tokens
         refresh = RefreshToken.for_user(django_user)
+        
+        logger.info(f"✅ Tokens gerados para: {email}")
         
         return {
             "access": str(refresh.access_token),

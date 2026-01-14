@@ -29,8 +29,9 @@
 - Notificações em tempo real
 - WebSocket
 
-### 🎬 [Fase 3: Recording & Playback](./PHASE_3_RECORDING.md)
+### 🔄 [Fase 3: Recording & Playback](./PHASE_3_RECORDING.md)
 **Tempo:** 2 semanas
+- ✅ Multi-Tenant + Planos (BLOQUEANTE)
 - Gravação cíclica por plano
 - Timeline de reprodução
 - Criação de clipes permanentes
@@ -91,17 +92,16 @@
 - [x] Lazy loading + Screenshot cache
 - [x] PostgreSQL, Redis, RabbitMQ
 - [x] Docker Compose
+- [x] **Multi-Tenant + Planos** (Sprint 3)
 
 ### 🔄 Em Progresso
+- [ ] Recording service (depende de Multi-Tenant)
 - [ ] Dashboard de detecções
 - [ ] Sistema de blacklist
-- [ ] Recording service
 
 ### ❌ Não Iniciado
 - [ ] Playback & Timeline
 - [ ] Sentinela (busca retroativa)
-- [ ] Multi-tenant
-- [ ] Sistema de planos
 - [ ] Analytics
 
 ---
@@ -117,7 +117,17 @@ Objetivo: Interface completa para visualizar detecções
 - Integração: LPR → Backend → Frontend
 ```
 
-### Sprint 3: Blacklist
+### Sprint 3: Multi-Tenant + Planos ✅
+```
+Objetivo: Base para gravação cíclica e monetização
+- Models: Organization, Subscription
+- Permissions: Platform Admin, Org Admin, User
+- Limites: Por plano (dias, câmeras, usuários)
+- Middleware: TenantMiddleware
+- Docs: DAU, RPS, RPD, custos
+```
+
+### Sprint 4: Blacklist
 ```
 Objetivo: Alertas automáticos para placas específicas
 - Backend: CRUD + Verificação

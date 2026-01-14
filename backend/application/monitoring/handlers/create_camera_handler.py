@@ -21,9 +21,6 @@ class CreateCameraHandler:
     def handle(self, command: CreateCameraCommand) -> Camera:
         """Executa o use case de criar câmera"""
         
-        if self.repository.exists_by_name(command.name):
-            raise ValueError(f"Câmera com nome '{command.name}' já existe")
-        
         camera = Camera(
             id=None,
             owner_id=command.owner_id,
@@ -35,6 +32,25 @@ class CreateCameraHandler:
         )
         
         saved_camera = self.repository.save(camera)
+        
+        # Ativa IA automaticamente se for RTSP
+        if command.stream_url.lower().startswith('rtsp://'):
+            from apps.cameras.models import Camera as CameraModel
+            camera_model = CameraModel.objects.get(id=saved_camera.id)
+            camera_model.ai_enabled = True
+            camera_model.save()
+            logger.info(f"🤖 IA ativada automaticamente para câmera RTSP {saved_camera.id}")
+            
+            # Notifica LPR service
+            try:
+                requests.post(
+                    'http://lpr_detection:5000/camera/start',
+                    json={'camera_id': saved_camera.id, 'rtsp_url': command.stream_url},
+                    timeout=2
+                )
+                logger.info(f"📡 LPR service notificado para câmera {saved_camera.id}")
+            except Exception as e:
+                logger.warning(f"⚠️ Falha ao notificar LPR: {e}")
         
         # Provisiona stream no MediaMTX via Streaming Service
         try:
