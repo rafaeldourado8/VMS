@@ -9,9 +9,6 @@ import { DetectionsPage } from '@/pages/DetectionsPage'
 import { ClipsPage } from '@/pages/ClipsPage'
 import { MosaicosPage } from '@/pages/MosaicosPage'
 import { SettingsPage } from '@/pages/SettingsPage'
-import PlatformLogin from '@/pages/platform/Login'
-import PlatformDashboard from '@/pages/platform/Dashboard'
-import Organizations from '@/pages/platform/Organizations'
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -44,11 +41,6 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Platform Admin routes */}
-        <Route path="/platform/login" element={<PlatformLogin />} />
-        <Route path="/platform/dashboard" element={<PlatformDashboard />} />
-        <Route path="/platform/organizations" element={<Organizations />} />
-
         {/* Public routes */}
         <Route
           path="/login"

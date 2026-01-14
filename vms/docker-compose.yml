@@ -1,0 +1,112 @@
+version: '3.8'
+
+services:
+  # PostgreSQL - Multi-tenant (1 DB por cidade)
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: vms_user
+      POSTGRES_PASSWORD: vms_pass
+      POSTGRES_DB: vms_default
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U vms_user"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis - Cache + Sessions
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # RabbitMQ - Async jobs
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: vms
+      RABBITMQ_DEFAULT_PASS: vms_pass
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MediaMTX - Streaming (WebRTC + HLS + LL-HLS)
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml
+      - recordings:/recordings
+      - snapshots:/snapshots
+    ports:
+      - "8554:8554"   # RTSP
+      - "1935:1935"   # RTMP
+      - "8888:8888"   # HLS + LL-HLS
+      - "8889:8889"   # WebRTC
+      - "9997:9997"   # API
+    environment:
+      MTX_PROTOCOLS: tcp
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://localhost:9997/v3/config/global/get"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend - FastAPI + Django
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ./src:/app/src
+      - snapshots:/snapshots
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://vms_user:vms_pass@postgres:5432/vms_default
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://vms:vms_pass@rabbitmq:5672/
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      MEDIAMTX_WEBRTC_URL: webrtc://mediamtx:8889
+      MEDIAMTX_HLS_URL: http://mediamtx:8888
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
+
+  # Frontend - React + Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8000
+      VITE_WEBRTC_URL: webrtc://localhost:8889
+      VITE_HLS_URL: http://localhost:8888
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  recordings:
+  snapshots:

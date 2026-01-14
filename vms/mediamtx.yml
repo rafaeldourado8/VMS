@@ -1,0 +1,81 @@
+###############################################
+# MediaMTX - VMS Configuration
+# WebRTC (baixa latência) + HLS (gravação) + LL-HLS (snapshots)
+###############################################
+
+logLevel: info
+logDestinations: [stdout]
+
+###############################################
+# API - Gerenciamento dinâmico de câmeras
+###############################################
+
+api: yes
+apiAddress: :9997
+apiAllowOrigin: '*'
+
+###############################################
+# WebRTC - Live view (< 500ms, 1080p 30fps)
+###############################################
+
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigin: '*'
+webrtcLocalUDPAddress: :8189
+webrtcIPsFromInterfaces: yes
+webrtcAdditionalHosts: ["127.0.0.1", "localhost"]
+webrtcICEServers2:
+  - urls: [stun:stun.l.google.com:19302]
+
+###############################################
+# HLS - Gravação + Fallback (1080p 30fps)
+###############################################
+
+hls: yes
+hlsAddress: :8888
+hlsAllowOrigin: '*'
+hlsVariant: fmp4
+hlsSegmentCount: 6
+hlsSegmentDuration: 2s
+hlsPartDuration: 200ms
+hlsMuxerCloseAfter: 30s
+
+###############################################
+# LL-HLS - Source para snapshots (720p 15fps)
+###############################################
+
+llhls: yes
+llhlsSegmentDuration: 500ms
+
+###############################################
+# RTSP - Recebe câmeras RTSP
+###############################################
+
+rtsp: yes
+protocols: [tcp]
+rtspAddress: :8554
+
+###############################################
+# RTMP - Recebe câmeras RTMP
+###############################################
+
+rtmp: yes
+rtmpAddress: :1935
+
+###############################################
+# Recording - Gravação 24/7
+###############################################
+
+pathDefaults:
+  record: yes
+  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S.mp4
+  recordFormat: mp4
+  recordPartDuration: 1h
+  recordSegmentDuration: 1h
+  recordDeleteAfter: 168h  # 7 dias (Basic plan)
+
+###############################################
+# Paths - Câmeras adicionadas via API
+###############################################
+
+paths: {}

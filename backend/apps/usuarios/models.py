@@ -1,12 +1,15 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
 from django.db import models
 from django.utils import timezone
+from django.core.exceptions import ValidationError
 
 class UsuarioManager(BaseUserManager):
     """Gestor customizado para criação de utilizadores e superusers."""
     def create_user(self, email, name, password=None, **extra_fields):
         if not email:
             raise ValueError("O email é obrigatório")
+        if not email.endswith('@gtvision.com.br'):
+            raise ValueError("Email deve ser @gtvision.com.br")
         email = self.normalize_email(email)
         user = self.model(email=email, name=name, **extra_fields)
         user.set_password(password)
@@ -73,5 +76,10 @@ class Usuario(AbstractBaseUser, PermissionsMixin):
             return self.organization.subscription.max_concurrent_streams
         return {"basic": 4, "pro": 16, "premium": 64}.get(self.plan, 4)
 
+    def clean(self):
+        super().clean()
+        if self.email and not self.email.endswith('@gtvision.com.br'):
+            raise ValidationError({'email': 'Email deve ser @gtvision.com.br'})
+    
     def __str__(self):
         return self.email

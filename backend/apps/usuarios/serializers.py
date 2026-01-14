@@ -9,7 +9,7 @@ class UsuarioSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Usuario
-        fields = ["id", "email", "name", "role", "is_active", "created_at", "password"]
+        fields = ["id", "email", "name", "role", "is_active", "is_superuser", "created_at", "password"]
         read_only_fields = ["id", "created_at"]
 
 class MyTokenObtainPairSerializer(TokenObtainPairSerializer):

@@ -158,6 +158,10 @@ hlsDirectory: ''
 hlsMuxerCloseAfter: 30s     # Mais tempo para estabilizar
 hlsPartDuration: 1s         # Partes maiores para performance
 
+# LL-HLS (Low Latency HLS) para snapshots
+llhls: yes                  # Habilita LL-HLS
+llhlsSegmentDuration: 500ms # Segmentos curtos para baixa latência
+
 ###############################################
 # WebRTC server
 
