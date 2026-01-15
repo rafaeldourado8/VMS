@@ -6,10 +6,16 @@ class DeteccaoSerializer(serializers.ModelSerializer):
     """Serializer para leitura (Frontend)."""
     camera_name = serializers.CharField(source="camera.name", read_only=True)
     camera_id = serializers.IntegerField(source="camera.id", read_only=True)
+    detected_at = serializers.DateTimeField(source="timestamp", read_only=True)
+    plate_image = serializers.CharField(source="image_url", read_only=True)
 
     class Meta:
         model = Deteccao
-        fields = ["id", "camera_id", "camera_name", "plate", "confidence", "timestamp", "vehicle_type", "image_url", "video_url"]
+        fields = [
+            "id", "camera_id", "camera_name", "plate", "confidence", 
+            "timestamp", "detected_at", "vehicle_type", "image_url", 
+            "plate_image", "video_url"
+        ]
 
 class IngestDeteccaoSerializer(serializers.Serializer):
     """Serializer para validação rigorosa dos dados de ingestão."""
