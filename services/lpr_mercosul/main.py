@@ -61,11 +61,12 @@ def get_active_cameras():
     """Fetch active RTSP cameras from backend"""
     try:
         response = requests.get(
-            f'{BACKEND_URL}/api/cameras/',
-            headers={'Authorization': f'Api-Key {ADMIN_API_KEY}'},
-            params={'protocol': 'rtsp', 'is_active': True},
+            f'{BACKEND_URL}/api/cameras/lpr/active/',
+            headers={'X-API-Key': ADMIN_API_KEY},
+            params={'protocol': 'rtsp', 'is_active': 'true'},
             timeout=10
         )
+        response.raise_for_status()
         return response.json().get('results', [])
     except Exception as e:
         print(f"❌ Error fetching cameras: {e}")
@@ -163,16 +164,13 @@ def send_to_backend(detection, detection_id, vehicle_path, plate_path):
             'camera_id': detection['camera_id'],
             'plate': detection['plate'],
             'confidence': 0.85,
-            'bbox': detection['bbox'],
             'timestamp': datetime.now().isoformat(),
-            'detection_id': detection_id,
-            'vehicle_image': vehicle_path,
-            'plate_image': plate_path
+            'image_url': vehicle_path
         }
         
         response = requests.post(
-            f'{BACKEND_URL}/api/detections/',
-            headers={'Authorization': f'Api-Key {ADMIN_API_KEY}'},
+            f'{BACKEND_URL}/api/deteccoes/ingest/',
+            headers={'X-API-Key': ADMIN_API_KEY},
             json=payload,
             timeout=10
         )
@@ -180,6 +178,7 @@ def send_to_backend(detection, detection_id, vehicle_path, plate_path):
         print(f"✅ Sent: {detection['plate']} (Camera {detection['camera_id']})")
     except Exception as e:
         print(f"❌ Error sending detection: {e}")
+        print(f"Response: {response.text if 'response' in locals() else 'No response'}")
 
 
 def process_camera(camera):

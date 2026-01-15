@@ -5,7 +5,7 @@ Endpoints REST delegando para handlers da camada de aplicação.
 """
 
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from .serializers import CameraSerializer
 from .permissions import CameraAccessPermission
@@ -17,6 +17,7 @@ from application.monitoring.handlers import (
 from application.monitoring.commands.create_camera_command import CreateCameraCommand
 from application.monitoring.commands.delete_camera_command import DeleteCameraCommand
 from application.monitoring.queries.list_cameras_query import ListCamerasQuery
+from apps.deteccoes.permissions import HasIngestAPIKey
 
 class CameraViewSet(viewsets.ModelViewSet):
     serializer_class = CameraSerializer
@@ -190,3 +191,30 @@ class CameraViewSet(viewsets.ModelViewSet):
             "current_streams": StreamLimiter.get_current_streams(user.id),
             "max_streams": max_streams
         })
+
+
+@api_view(['GET'])
+@permission_classes([HasIngestAPIKey])
+def list_active_cameras_for_lpr(request):
+    """Endpoint público para LPR service listar câmeras ativas (apenas API Key)"""
+    from apps.cameras.models import Camera
+    
+    protocol = request.query_params.get('protocol', 'rtsp')
+    is_active = request.query_params.get('is_active', 'true').lower() == 'true'
+    
+    cameras = Camera.objects.filter(
+        stream_url__istartswith=f'{protocol}://',
+        status='active' if is_active else None
+    )
+    
+    results = []
+    for cam in cameras:
+        results.append({
+            'id': cam.id,
+            'name': cam.name,
+            'rtsp_url': cam.stream_url,
+            'location': cam.location,
+            'is_active': cam.status == 'active'
+        })
+    
+    return Response({'results': results})

@@ -111,7 +111,7 @@ playbackTrustedProxies: []
 # RTSP server
 
 rtsp: yes
-rtspTransports: [tcp, udp]
+rtspTransports: [tcp]
 rtspEncryption: "no"
 rtspAddress: :8554
 rtspsAddress: :8322
@@ -127,7 +127,7 @@ multicastSRTCPPort: 8007
 rtspServerKey: server.key
 rtspServerCert: server.crt
 rtspAuthMethods: [basic]
-rtspUDPReadBufferSize: 2097152
+# rtspUDPReadBufferSize: 524288  # Disabled - Windows incompatible
 
 ###############################################
 # RTMP server
@@ -155,7 +155,7 @@ hlsSegmentCount: 10         # Mais segmentos para tolerar packet loss
 hlsSegmentDuration: 2s      # Segmentos menores = mais tolerância
 hlsSegmentMaxSize: 50M
 hlsDirectory: ''
-hlsMuxerCloseAfter: 60s     # Mais tempo antes de fechar
+hlsMuxerCloseAfter: 300s    # 5 minutos antes de fechar (era 60s)
 hlsPartDuration: 500ms      # Partes menores para melhor buffering
 
 ###############################################
@@ -191,7 +191,7 @@ pathDefaults:
   sourceFingerprint:
   sourceOnDemand: yes
   sourceOnDemandStartTimeout: 30s
-  sourceOnDemandCloseAfter: 60s
+  sourceOnDemandCloseAfter: 300s  # 5 minutos (era 60s)
   maxReaders: 8
   srtReadPassphrase:
   fallback:
@@ -211,11 +211,11 @@ pathDefaults:
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 2097152    # 2MB buffer para tolerar packet loss
+  # rtspUDPReadBufferSize: 524288    # Disabled - Windows incompatible
 
-  mpegtsUDPReadBufferSize: 2097152   # 2MB
+  # mpegtsUDPReadBufferSize: 524288   # Disabled - Windows incompatible
   rtpSDP:
-  rtpUDPReadBufferSize: 2097152      # 2MB buffer
+  # rtpUDPReadBufferSize: 524288      # Disabled - Windows incompatible
   sourceRedirect:
   
   rpiCameraCamID: 0

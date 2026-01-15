@@ -170,7 +170,8 @@ CACHES = {
 
 # --- INTEGRAÇÃO IA E STREAMING ---
 MEDIAMTX_API_URL = os.getenv("MEDIAMTX_API_URL", "http://mediamtx:9997")
-INGEST_API_KEY = os.environ.get("INGEST_API_KEY", "default_insecure_key_12345")
+INGEST_API_KEY = os.environ.get("INGEST_API_KEY", os.environ.get("ADMIN_API_KEY", "default_insecure_key_12345"))
+ADMIN_API_KEY = os.environ.get("ADMIN_API_KEY", "default_insecure_key_12345")
 
 # --- LOGGING ---
 LOGGING = {
