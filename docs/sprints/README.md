@@ -17,7 +17,8 @@ Planejamento de sprints para completar o VMS até deploy em produção.
 **Objetivo:** Interface completa de visualização de detecções LPR
 
 ### Tasks
-- [ ] API de detecções com filtros (câmera, placa, data, confiança)
+- [x] API de detecções com filtros (câmera, placa, data, confiança)
+- [ ] Mock data para testes (seed detecções)
 - [ ] Interface DetectionsPage funcional (remover mock)
 - [ ] Exportação CSV/Excel
 - [ ] Integração LPR → Backend → Frontend em tempo real
