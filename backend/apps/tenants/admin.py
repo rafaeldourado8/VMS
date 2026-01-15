@@ -2,12 +2,20 @@ from django.contrib import admin
 from .models import Organization, Subscription
 from apps.usuarios.models import Usuario
 
+class UsuarioInline(admin.TabularInline):
+    model = Usuario
+    extra = 0
+    fields = ['email', 'name', 'role', 'is_active']
+    readonly_fields = ['email', 'created_at']
+    can_delete = False
+
 @admin.register(Organization)
 class OrganizationAdmin(admin.ModelAdmin):
-    list_display = ['name', 'slug', 'database_name', 'is_active', 'user_count', 'created_at']
-    search_fields = ['name', 'slug']
+    list_display = ['name', 'slug', 'email', 'database_name', 'is_active', 'user_count', 'created_at']
+    search_fields = ['name', 'slug', 'email']
     list_filter = ['is_active', 'created_at']
     readonly_fields = ['created_at']
+    inlines = [UsuarioInline]
     
     def user_count(self, obj):
         return obj.users.count()

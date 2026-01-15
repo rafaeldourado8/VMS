@@ -6,6 +6,7 @@ class Organization(models.Model):
     name = models.CharField(max_length=255, unique=True)
     slug = models.SlugField(max_length=100, unique=True)
     database_name = models.CharField(max_length=100, unique=True)
+    email = models.EmailField(unique=True, help_text="Email principal da prefeitura")
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(default=timezone.now)
     
