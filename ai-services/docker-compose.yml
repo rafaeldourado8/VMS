@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  alpr-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: alpr_server
+    environment:
+      DEBUG: "False"
+      WS_PORT: 8765
+      RTSP_CAPTURE_CONFIG: "${RTSP_URL}"
+      PURE_YOLO_MODEL_PATH: "../ai/resources/yolov8n.pt"
+      LICENSE_PLATE_YOLO_MODEL_PATH: "../ai/resources/tdiblik_lp_finetuned_yolov8n.pt"
+      DB_ENABLED: "False"
+      SAVE_RESULTS_ENABLED: "True"
+      RESULTS_PATH: "./results"
+      SHOULD_SEND_SAME_RESULTS: "False"
+      SHOULD_TRY_LP_CROP: "False"
+      MINIMUM_NUMBER_OF_CHARS_FOR_MATCH: 4
+      NUMBER_OF_VALIDATION_ROUNDS: 3
+      NUMBER_OF_OCCURRENCES_TO_BE_VALID: 2
+      SKIP_BEFORE_Y_MAX: 100
+    volumes:
+      - ./server/results:/app/server/results
+      - ./ai/resources:/app/ai/resources:ro
+    ports:
+      - "8765:8765"
+    restart: unless-stopped
+
+volumes:
+  alpr_results:

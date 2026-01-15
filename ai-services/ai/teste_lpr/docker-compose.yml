@@ -1,0 +1,13 @@
+services:
+  test_lpr:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: test_lpr
+    volumes:
+      - .:/app/images:ro
+      - ./results:/app/results
+      - ./test_lpr.py:/app/test_lpr.py:ro
+      - ./utils_simple.py:/app/utils_simple.py:ro
+    working_dir: /app
+    command: tail -f /dev/null

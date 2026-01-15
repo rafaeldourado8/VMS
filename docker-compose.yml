@@ -4,90 +4,123 @@ services:
   # ============================================
   # LPR DETECTION SERVICE (YOLO + OCR)
   # ============================================
-  lpr_detection:
+  # lpr_detection:
+  #   build:
+  #     context: ./services/lpr_detection
+  #     dockerfile: Dockerfile
+  #   image: gtvision/lpr_detection:latest
+  #   container_name: gtvision_lpr_detection
+  #   command: python main.py
+  #   environment:
+  #     BACKEND_URL: http://backend:8000
+  #     ADMIN_API_KEY: ${ADMIN_API_KEY}
+  #     REDIS_URL: redis://redis_cache:6379/4
+  #     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - lpr_captures:/app/captures
+  #     - lpr_training:/app/pending_training
+  #     - lpr_webhooks:/app/received_webhooks
+  #   depends_on:
+  #     backend:
+  #       condition: service_healthy
+  #     redis_cache:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
+
+  # ============================================
+  # LPR MERCOSUL GATEWAY (YOLO + OCR)
+  # ============================================
+  lpr_mercosul:
     build:
-      context: ./services/lpr_detection
+      context: ./services/lpr_mercosul
       dockerfile: Dockerfile
-    image: gtvision/lpr_detection:latest
-    container_name: gtvision_lpr_detection
+    image: gtvision/lpr_mercosul:latest
+    container_name: gtvision_lpr_mercosul
     command: python main.py
+    cpus: 2.0
+    mem_limit: 2g
+    mem_reservation: 512m
     environment:
       BACKEND_URL: http://backend:8000
       ADMIN_API_KEY: ${ADMIN_API_KEY}
-      REDIS_URL: redis://redis_cache:6379/4
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "5000:5000"
+      MEDIA_PATH: /app/media/detections
+      VEHICLE_MODEL: yolov8n.pt
+      PLATE_MODEL: yolov8n.pt
+      FRAME_SKIP: ${FRAME_SKIP:-3}
+      SKIP_Y_THRESHOLD: ${SKIP_Y_THRESHOLD:-100.0}
+      VALIDATION_ROUNDS: ${VALIDATION_ROUNDS:-3}
+      MIN_OCCURRENCES: ${MIN_OCCURRENCES:-2}
+      MIN_CHARS: ${MIN_CHARS:-4}
     volumes:
-      - lpr_captures:/app/captures
-      - lpr_training:/app/pending_training
-      - lpr_webhooks:/app/received_webhooks
+      - lpr_media:/app/media
+      - ./ai-services/ai/resources:/app/models:ro
     depends_on:
-      backend:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
+      - backend
     networks:
       - gtvision_network
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
   # ============================================
   # AI DETECTION SERVICE (FastAPI)
-  # ============================================
-  ai_detection:
-    build:
-      context: ./services/ai_detection
-      dockerfile: Dockerfile
-      args:
-        BUILDKIT_INLINE_CACHE: 1
-    image: gtvision/ai_detection:latest
-    container_name: gtvision_ai_detection
-    command: uvicorn main:app --host 0.0.0.0 --port 8002 --workers 1 --timeout-keep-alive 5 --limit-concurrency 10
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 3G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PYTHONUNBUFFERED: 1
-    ports:
-      - "8002:8002"
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
+  # # ============================================
+  # ai_detection:
+  #   build:
+  #     context: ./services/ai_detection
+  #     dockerfile: Dockerfile
+  #     args:
+  #       BUILDKIT_INLINE_CACHE: 1
+  #   image: gtvision/ai_detection:latest
+  #   container_name: gtvision_ai_detection
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8002 --workers 1 --timeout-keep-alive 5 --limit-concurrency 10
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2.0'
+  #         memory: 3G
+  #       reservations:
+  #         cpus: '0.5'
+  #         memory: 512M
+  #     restart_policy:
+  #       condition: on-failure
+  #       delay: 5s
+  #       max_attempts: 3
+  #   environment:
+  #     RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
+  #     REDIS_URL: redis://redis_cache:6379/3
+  #     DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
+  #     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  #     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  #     AWS_REGION: ${AWS_REGION:-us-east-1}
+  #     LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  #     PYTHONUNBUFFERED: 1
+  #   ports:
+  #     - "8002:8002"
+  #   depends_on:
+  #     rabbitmq:
+  #       condition: service_healthy
+  #     redis_cache:
+  #       condition: service_healthy
+  #     postgres_db:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #     start_period: 40s
 
   # ============================================
   # STREAMING SERVICE (FastAPI)
@@ -410,6 +443,7 @@ volumes:
   mediamtx_recordings:
   rabbitmq_data:
   prometheus_data:
+  lpr_media:
   lpr_captures:
   lpr_training:
   lpr_webhooks:
