@@ -231,8 +231,11 @@ db.sqlite3
 __pycache__/
 *.pyc
 *.pyo
+.cache/
+.fast-plate-ocr/
 
 # Media files (se tiver uploads sensíveis)
 media/
 staticfiles/
 node_modules/
+archive/

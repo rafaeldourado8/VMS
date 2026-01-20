@@ -1,277 +1,246 @@
-# 📚 Documentação Técnica - VMS
+# 📚 Índice Completo da Documentação VMS
 
-> Sistema de Monitoramento de Vídeo com IA para detecção de placas veiculares
+Toda a documentação do sistema organizada por categoria.
 
 ---
 
 ## 🚀 Quick Start
 
-- **[Visão Geral do Sistema](./SYSTEM_OVERVIEW.md)** - Entenda o VMS em 5 minutos
-- **[Stack Tecnológica](./TECH_STACK.md)** - Todas as tecnologias usadas
-- **[Guia de Instalação](../README.md)** - Como rodar o projeto
+- **[README Principal](../README.md)** - Visão geral do projeto
+- **[Roadmap de Fases](./phases/README.md)** - Desenvolvimento por sprints
+- **[System Overview](./SYSTEM_OVERVIEW.md)** - Arquitetura completa
+- **[Tech Stack](./TECH_STACK.md)** - Tecnologias e justificativas
 
 ---
 
-## 📁 Documentação por Componente
+## 🤖 Sistema de Detecção de IA (NOVO)
 
-### 🎥 [Streaming](./streaming/)
-Sistema de distribuição de vídeo
+### Principal
+- **[Arquitetura Completa](./ai-detection/README.md)** - Sistema unificado de LPR
+- **[Componentes](./ai-detection/components/README.md)** - Lista de todos os componentes
 
-- **[Arquitetura de Streaming](./streaming/STREAMING.md)**
-  - MediaMTX configuration
-  - HLS protocol
-  - On-demand streams
-  - Performance metrics
+### Componentes Detalhados
 
-- **[Thumbnails Otimizados](./streaming/THUMBNAILS.md)**
-  - Lazy loading strategy
-  - Screenshot cache (10s)
-  - Intersection Observer
-  - Economia de 95% de banda
+#### Pipeline de Entrada
+- [Frame Extractor](./ai-detection/components/FRAME_EXTRACTOR.md) - WebRTC (1-3 FPS)
+- [Frame Buffer](./ai-detection/components/FRAME_BUFFER.md) - Queue assíncrona
+- [Motion Detection](./ai-detection/components/MOTION_DETECTION.md) - Filtro de movimento
 
-### 🤖 [Detection](./detection/)
-Sistema de IA para detecção de placas
+#### Detecção e Tracking
+- [Vehicle Detection](./ai-detection/components/VEHICLE_DETECTION.md) - YOLO veículos
+- [Multi-Object Tracker](./ai-detection/components/TRACKER.md) - Rastreamento
+- [Track Buffer](./ai-detection/components/TRACK_BUFFER.md) - Buffer por veículo
 
-- **[LPR (License Plate Recognition)](./detection/LPR.md)**
-  - YOLO + OCR pipeline
-  - Frame skipping
-  - ROI optimization
-  - CPU-only strategy
+#### Seleção de Qualidade
+- [Quality Scorer](./ai-detection/components/QUALITY_SCORER.md) - Avaliação de frames
+- [Best Frame Selection](./ai-detection/components/BEST_FRAME.md) - Seleção top 3
 
-### ⚡ [Performance](./performance/)
-Otimizações de desempenho
+#### Reconhecimento
+- [Plate Detection](./ai-detection/components/PLATE_DETECTION.md) - YOLO LPR
+- [OCR Engine](./ai-detection/components/OCR_ENGINE.md) - Fast-Plate-OCR
 
-- **[Performance Overview](./performance/PERFORMANCE.md)**
-  - Frontend optimizations
-  - Backend optimizations
-  - Streaming optimizations
-  - AI optimizations
-  - Métricas e benchmarks
-
-### 💰 [Cost Optimization](./cost-optimization/)
-Estratégias de redução de custos
-
-- **[Cost Optimization](./cost-optimization/COST_OPTIMIZATION.md)**
-  - Economia de banda (95%)
-  - CPU-only IA ($9,500/mês economizado)
-  - Armazenamento eficiente (92%)
-  - ROI de 31,811%
-
-### 🔧 [Backend](./backend/)
-API e serviços backend
-
-- Django REST API
-- Database models
-- Services architecture
-- Integration patterns
-
-### 🎨 [Frontend](./frontend/)
-Interface do usuário
-
-- React components
-- State management
-- Caching strategy
-- UI/UX patterns
-
-### 🏗️ [Infrastructure](./infrastructure/)
-DevOps e infraestrutura
-
-- Docker setup
-- Monitoring (Prometheus)
-- Deployment
-- Scaling strategies
+#### Validação e Envio
+- [Consensus Engine](./ai-detection/components/CONSENSUS_ENGINE.md) - Votação
+- [Dedup Cache](./ai-detection/components/DEDUP_CACHE.md) - Redis cache
+- [Event Producer](./ai-detection/components/EVENT_PRODUCER.md) - RabbitMQ
 
 ---
 
-## 📊 Documentos Principais
+## 🎥 Streaming
 
-### [📋 Visão Geral do Sistema](./SYSTEM_OVERVIEW.md)
-Entenda o VMS completo:
-- O que é e o que resolve
-- Funcionalidades principais
-- Arquitetura geral
-- Tipos de câmeras
-- Fluxo de dados
-- Casos de uso
-- Diferenciais vs concorrentes
-
-### [🛠️ Stack Tecnológica](./TECH_STACK.md)
-Todas as tecnologias usadas:
-- Backend (Django, PostgreSQL, Redis, RabbitMQ)
-- Frontend (React, Vite, TypeScript, TailwindCSS)
-- Streaming (MediaMTX, HLS.js, FFmpeg)
-- IA/ML (YOLO, OCR, PyTorch)
-- Infrastructure (Docker, Prometheus)
-- Justificativas de escolha
-
-### [⚡ Performance](./performance/PERFORMANCE.md)
-Otimizações implementadas:
-- Lazy loading (90% economia)
-- Screenshot cache (95% economia)
-- Frame skipping (66% economia)
-- Database indexing (10-100x mais rápido)
-- Métricas antes/depois
-
-### [💰 Cost Optimization](./cost-optimization/COST_OPTIMIZATION.md)
-Redução de custos:
-- Banda: $515,000/mês economizado
-- Computação: $9,500/mês economizado
-- Armazenamento: $5,750/mês economizado
-- Total: $531,850/mês economizado (99%)
+- **[Streaming Overview](./streaming/STREAMING.md)** - MediaMTX + HLS + Thumbnails
+- **[Thumbnail Optimization](./streaming/THUMBNAIL_OPTIMIZATION.md)** - Cache após 10s
 
 ---
 
-## 🎯 Por Funcionalidade
+## 🔍 Detecção (Legacy)
 
-### Streaming de Vídeo
-1. [Arquitetura de Streaming](./streaming/STREAMING.md)
-2. [Thumbnails Otimizados](./streaming/THUMBNAILS.md)
-3. [Performance](./performance/PERFORMANCE.md#streaming-performance)
-
-### Detecção de Placas
-1. [LPR System](./detection/LPR.md)
-2. [AI Optimization](./performance/PERFORMANCE.md#ia-performance)
-3. [Cost Optimization](./cost-optimization/COST_OPTIMIZATION.md#computação-cpugpu)
-
-### Gravação
-1. [Recording Service](./streaming/STREAMING.md#gravação)
-2. [Storage Optimization](./cost-optimization/COST_OPTIMIZATION.md#armazenamento)
-
-### Busca Retroativa
-1. [Sentinela Concept](./detection/LPR.md#sentinela-busca-retroativa)
-2. [Implementation Guide](./backend/) (em desenvolvimento)
+- **[LPR Detection](./detection/LPR.md)** - Sistema atual (YOLO + OCR)
 
 ---
 
-## 📈 Métricas e Benchmarks
+## ⚡ Performance
+
+- **[Performance Overview](./performance/PERFORMANCE.md)** - Todas as otimizações
+- **[Paginação](./performance/PAGINATION.md)** - 10 câmeras por página
+- **[Lazy Loading](./performance/LAZY_LOADING.md)** - Intersection Observer
+- **[Screenshot Cache](./performance/SCREENSHOT_CACHE.md)** - 10s → imagem estática
+
+---
+
+## 💰 Cost Optimization
+
+- **[Cost Overview](./cost-optimization/COST_OPTIMIZATION.md)** - Economia de $531k/mês
+- **[Bandwidth](./cost-optimization/BANDWIDTH.md)** - $5k vs $520k
+- **[CPU](./cost-optimization/CPU.md)** - $500 vs $10k (CPU-only)
+- **[Storage](./cost-optimization/STORAGE.md)** - $250 vs $6k
+
+---
+
+## 📋 Roadmap
+
+### Por Fase
+- **[Fase 0: Base](./phases/phase-0/)** - Streaming + Backend + Frontend ✅
+- **[Fase 1: Dashboard](./phases/phase-1/)** - Detecções em tempo real
+- **[Fase 2: Blacklist](./phases/phase-2/)** - Sistema de alertas
+- **[Fase 3: Recording](./phases/phase-3/)** - Gravação + Playback 🔄
+- **[Fase 4: Sentinela](./phases/phase-4/)** - Busca retroativa
+- **[Fase 5: Multi-Tenant](./phases/phase-5/)** - 1 DB por cidade
+- **[Fase 6: Analytics](./phases/phase-6/)** - Relatórios
+
+### Por Sprint
+- **[Sprint 1](./sprints/sprint-1/)** - Streaming básico ✅
+- **[Sprint 2](./sprints/sprint-2/)** - LPR Detection ✅
+- **[Sprint 3](./sprints/sprint-3/)** - Recording & Playback 🔄
+
+---
+
+## 📊 Diagramas
+
+### Arquitetura
+- [Sistema Completo](./system-architecture.excalidraw.json)
+- [Streaming](./streaming/streaming-architecture.excalidraw.json)
+- [Thumbnail Optimization](./streaming/thumbnail-optimization.excalidraw.json)
 
 ### Performance
-- **Frontend:** 1.2s first load, 60 FPS scroll
-- **Backend:** <50ms API response, 500+ concurrent users
-- **Streaming:** 2-4s latency, ilimitado concurrent
-- **IA:** 30 FPS per camera, >90% accuracy
+- [Otimizações](./performance/performance-optimizations.excalidraw.json)
+- [Cost Savings](./cost-optimization/cost-savings.excalidraw.json)
 
-### Custos
-- **Banda:** $5,000/mês (vs $520,000 sem otimização)
-- **Computação:** $500/mês (vs $10,000 com GPU)
-- **Storage:** $250/mês (vs $6,000 sem otimização)
-- **Total:** $6,150/mês (vs $538,000)
+### Detecção
+- [LPR Pipeline](./detection/lpr-pipeline.excalidraw.json)
+- [AI Detection Pipeline](./ai-detection/ai-pipeline.excalidraw.json) (TODO)
 
-### Escalabilidade
-- ✅ 100 câmeras testadas
-- ✅ 1000 usuários concurrent
-- ✅ 10TB de gravações
-- ⏳ 1000 câmeras (em teste)
+---
+
+## 🛠️ Desenvolvimento
+
+- **[Regras de Desenvolvimento](../.amazonq/prompts/development-rules.md)** - Workflow obrigatório
+- **[Template de Task](./TASK_TEMPLATE.md)** - Documentação estruturada
+- **[Functions List](./FUNCTIONS_LIST.md)** - Todas as funções do sistema
+
+---
+
+## 📐 Planejamento
+
+- **[Capacity Planning](./CAPACITY_PLANNING_FORMULAS.md)** - Fórmulas de dimensionamento
+- **[Roadmap Simple](./ROADMAP_SIMPLE.md)** - Visão simplificada
+- **[Roadmap V2 30 Days](./ROADMAP_V2_30_DAYS.md)** - Plano de 30 dias
+
+---
+
+## 🔗 Links Externos
+
+### Tecnologias
+- [MediaMTX](https://github.com/bluenviron/mediamtx)
+- [YOLOv8](https://docs.ultralytics.com/)
+- [Fast-Plate-OCR](https://github.com/ankandrew/fast-plate-ocr)
+- [Django](https://docs.djangoproject.com/)
+- [React](https://react.dev/)
+- [HLS.js](https://github.com/video-dev/hls.js/)
+
+### AWS
+- [Pricing Calculator](https://calculator.aws)
+- [Data Privacy FAQ](https://aws.amazon.com/compliance/data-privacy-faq/)
+
+---
+
+## 📝 Estrutura de Documentação
+
+### Por Task (Template)
+```
+docs/phases/[FASE]/[TASK_NAME]/
+├── WHAT.md           # O que foi feito
+├── WHY.md            # Por que (alternativas, trade-offs)
+├── IMPACT.md         # Impacto (benefícios, métricas)
+├── METRICS.md        # Cálculos (DAU, RPS, custos)
+├── IMPORTANCE.md     # Quando usar/não usar
+└── diagram.excalidraw.json  # Diagrama visual
+```
+
+### Por Componente (AI Detection)
+```
+docs/ai-detection/components/[COMPONENT]/
+├── README.md         # Documentação completa
+├── examples/         # Exemplos de uso
+├── tests/            # Casos de teste
+└── diagram.excalidraw.json  # Diagrama
+```
 
 ---
 
 ## 🔍 Busca Rápida
 
-### Por Problema
-- **Site lento?** → [Performance](./performance/PERFORMANCE.md)
-- **Custo alto?** → [Cost Optimization](./cost-optimization/COST_OPTIMIZATION.md)
-- **Streaming travando?** → [Streaming](./streaming/STREAMING.md)
-- **IA imprecisa?** → [LPR Detection](./detection/LPR.md)
+### Por Funcionalidade
+- **Streaming**: [STREAMING.md](./streaming/STREAMING.md)
+- **Detecção**: [ai-detection/README.md](./ai-detection/README.md)
+- **Gravação**: [phases/phase-3/](./phases/phase-3/)
+- **Busca**: [phases/phase-4/](./phases/phase-4/)
+- **Analytics**: [phases/phase-6/](./phases/phase-6/)
 
 ### Por Tecnologia
-- **Django** → [Tech Stack](./TECH_STACK.md#django-42)
-- **React** → [Tech Stack](./TECH_STACK.md#react-18)
-- **MediaMTX** → [Streaming](./streaming/STREAMING.md#mediamtx)
-- **YOLO** → [LPR Detection](./detection/LPR.md#yolo)
+- **MediaMTX**: [STREAMING.md](./streaming/STREAMING.md)
+- **YOLO**: [ai-detection/components/](./ai-detection/components/)
+- **OCR**: [OCR_ENGINE.md](./ai-detection/components/OCR_ENGINE.md)
+- **Redis**: [DEDUP_CACHE.md](./ai-detection/components/DEDUP_CACHE.md)
+- **RabbitMQ**: [EVENT_PRODUCER.md](./ai-detection/components/EVENT_PRODUCER.md)
 
-### Por Feature
-- **Thumbnails** → [Thumbnails](./streaming/THUMBNAILS.md)
-- **Lazy Loading** → [Performance](./performance/PERFORMANCE.md#lazy-loading)
-- **Cache** → [Performance](./performance/PERFORMANCE.md#cache)
-- **ROI** → [LPR Detection](./detection/LPR.md#roi)
-
----
-
-## 🛠️ Para Desenvolvedores
-
-### Setup
-```bash
-# Clone
-git clone <repo-url>
-cd VMS
-
-# Environment
-cp .env.example .env
-
-# Start
-docker-compose up -d
-```
-
-### Estrutura
-```
-VMS/
-├── backend/              # Django API
-├── frontend/             # React App
-├── services/
-│   ├── lpr_detection/   # YOLO + OCR
-│   ├── streaming/       # MediaMTX
-│   └── recording/       # FFmpeg
-├── docs/                # Esta documentação
-└── docker-compose.yml
-```
-
-### Comandos Úteis
-```bash
-# Logs
-docker-compose logs -f [service]
-
-# Restart
-docker-compose restart [service]
-
-# Shell
-docker-compose exec backend python manage.py shell
-
-# Tests
-docker-compose exec backend python manage.py test
-```
+### Por Otimização
+- **CPU**: [CPU.md](./cost-optimization/CPU.md)
+- **Banda**: [BANDWIDTH.md](./cost-optimization/BANDWIDTH.md)
+- **Storage**: [STORAGE.md](./cost-optimization/STORAGE.md)
+- **Performance**: [PERFORMANCE.md](./performance/PERFORMANCE.md)
 
 ---
 
-## 📝 Contribuindo
+## 📈 Status do Projeto
 
-1. Leia a documentação relevante
-2. Crie uma branch: `git checkout -b feature/nome`
-3. Commit: `git commit -m "feat: descrição"`
-4. Push: `git push origin feature/nome`
-5. Abra um Pull Request
+### ✅ Implementado
+- Streaming (MediaMTX + HLS)
+- Backend API (Django + PostgreSQL + Redis + RabbitMQ)
+- Frontend (React + Vite + TypeScript + TailwindCSS)
+- LPR Detection básico (YOLO + OCR)
+- Paginação (10 câmeras/página)
+- Lazy Loading
+- Screenshot Cache
+- Monitoring (Prometheus)
+
+### 🔄 Em Andamento
+- **AI Detection Pipeline** (Sistema unificado)
+- Recording & Playback
+- Multi-Tenant + Planos
+
+### 📋 Planejado
+- Dashboard de Detecções
+- Sistema de Blacklist
+- Sentinela (Busca Retroativa)
+- Analytics & Relatórios
+
+---
+
+## 🎯 Próximos Passos
+
+1. **Implementar AI Detection Pipeline** (2-3 semanas)
+   - Setup base + componentes core
+   - Pipeline completo
+   - Integração com Backend
+   - Testes e otimização
+
+2. **Recording & Playback** (1-2 semanas)
+   - Recording Service
+   - Playback API
+   - Timeline Component
+
+3. **Multi-Tenant** (1 semana)
+   - 1 DB por cidade
+   - Planos (Basic/Pro/Premium)
+   - Usuários transferíveis
 
 ---
 
 ## 📞 Suporte
 
-### Documentação
-- 📚 Docs completa nesta pasta
-- 🔗 [README principal](../README.md)
-- 📊 [Diagrama de arquitetura](./ARCHITECTURE_DIAGRAM.excalidraw.json)
-
-### Issues
-- 🐛 Bugs: GitHub Issues
-- 💡 Features: GitHub Discussions
-- ❓ Dúvidas: GitHub Discussions
-
----
-
-## 📄 Licença
-
-[Definir licença]
-
----
-
-## 🔗 Links Úteis
-
-- [MediaMTX Docs](https://github.com/bluenviron/mediamtx)
-- [YOLOv8 Docs](https://docs.ultralytics.com/)
-- [Django Docs](https://docs.djangoproject.com/)
-- [React Docs](https://react.dev/)
-- [HLS.js Docs](https://github.com/video-dev/hls.js/)
-
----
-
-**Última atualização:** 2026-01-13  
-**Versão da documentação:** 1.0.0  
-**Mantido por:** VMS Team
+Para dúvidas sobre a documentação:
+1. Verificar [INDEX.md](./INDEX.md) (este arquivo)
+2. Buscar na seção específica
+3. Verificar diagramas Excalidraw
+4. Consultar código-fonte com comentários

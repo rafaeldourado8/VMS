@@ -2,88 +2,46 @@
 
 services:
   # ============================================
-  # LPR DETECTION SERVICE (YOLO + OCR)
-  # ============================================
-  lpr_detection:
-    build:
-      context: ./services/lpr_detection
-      dockerfile: Dockerfile
-    image: gtvision/lpr_detection:latest
-    container_name: gtvision_lpr_detection
-    command: python main.py
-    environment:
-      BACKEND_URL: http://backend:8000
-      ADMIN_API_KEY: ${ADMIN_API_KEY}
-      REDIS_URL: redis://redis_cache:6379/4
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "5000:5000"
-    volumes:
-      - lpr_captures:/app/captures
-      - lpr_training:/app/pending_training
-      - lpr_webhooks:/app/received_webhooks
-    depends_on:
-      backend:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # ============================================
-  # AI DETECTION SERVICE (FastAPI)
+  # AI DETECTION SERVICE (WebRTC + Pipeline)
   # ============================================
   ai_detection:
     build:
       context: ./services/ai_detection
       dockerfile: Dockerfile
-      args:
-        BUILDKIT_INLINE_CACHE: 1
     image: gtvision/ai_detection:latest
     container_name: gtvision_ai_detection
-    command: uvicorn main:app --host 0.0.0.0 --port 8002 --workers 1 --timeout-keep-alive 5 --limit-concurrency 10
-    deploy:
-      resources:
-        limits:
-          cpus: '2.0'
-          memory: 3G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-      restart_policy:
-        condition: on-failure
-        delay: 5s
-        max_attempts: 3
+    command: python main.py
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-      AWS_REGION: ${AWS_REGION:-us-east-1}
+      MEDIAMTX_URL: http://mediamtx:9997
+      MEDIAMTX_WEBRTC_URL: http://mediamtx:8889
+      USE_WEBRTC: "true"
+      AI_FPS: 3
+      MOTION_THRESHOLD: 0.03
+      REDIS_HOST: redis_cache
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      BACKEND_URL: http://backend:8000
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      PYTHONUNBUFFERED: 1
     ports:
-      - "8002:8002"
+      - "5000:5000"
+    volumes:
+      - ./services/ai_detection/models:/app/models
+      - ./detections:/app/detections
     depends_on:
-      rabbitmq:
+      mediamtx:
         condition: service_healthy
       redis_cache:
         condition: service_healthy
-      postgres_db:
+      rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -141,7 +99,7 @@ services:
       context: .
       dockerfile: ./backend/deploy/Dockerfile
     container_name: gtvision_backend
-    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     deploy:
       resources:
         limits:
@@ -410,9 +368,7 @@ volumes:
   mediamtx_recordings:
   rabbitmq_data:
   prometheus_data:
-  lpr_captures:
-  lpr_training:
-  lpr_webhooks:
+
 
 # ============================================
 # NETWORK

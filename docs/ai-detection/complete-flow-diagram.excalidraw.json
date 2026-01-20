@@ -1,0 +1,343 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "camera",
+      "x": 100,
+      "y": 100,
+      "width": 150,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#e7f5ff",
+      "label": {
+        "text": "📹 Camera RTSP\nAlta Definição\n10-20 por cidade",
+        "fontSize": 16
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "mediamtx",
+      "x": 100,
+      "y": 250,
+      "width": 150,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#fff3bf",
+      "label": {
+        "text": "🎬 MediaMTX\nHub Central\nPorta 8889/8888",
+        "fontSize": 16
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "webrtc",
+      "x": 50,
+      "y": 420,
+      "width": 120,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#d3f9d8",
+      "label": {
+        "text": "WebRTC\nIA Detection\n<500ms",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "hls",
+      "x": 200,
+      "y": 420,
+      "width": 120,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#ffe3e3",
+      "label": {
+        "text": "HLS\nUsuários\n10-30s",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "ai_detection",
+      "x": 50,
+      "y": 570,
+      "width": 120,
+      "height": 400,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#f3f0ff",
+      "label": {
+        "text": "🤖 AI Detection\n\n1. Frame Extract (3 FPS)\n2. Motion (drop 70%)\n3. Vehicle YOLO\n4. Tracking (IoU)\n5. Quality Score\n6. Plate YOLO\n7. OCR (Fast-Plate)\n8. Consensus (≥60%)\n9. Dedup (Redis)\n10. RabbitMQ",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "frontend",
+      "x": 200,
+      "y": 570,
+      "width": 120,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#fff9db",
+      "label": {
+        "text": "🎨 Frontend\nReact\nHLS Player",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "rabbitmq",
+      "x": 400,
+      "y": 700,
+      "width": 120,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#ffd8a8",
+      "label": {
+        "text": "📨 RabbitMQ\nvms.detections\nExchange",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "backend",
+      "x": 400,
+      "y": 850,
+      "width": 120,
+      "height": 120,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#d0f4de",
+      "label": {
+        "text": "🔧 Backend\nDjango\nConsumer\nWebSocket",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "frontend_detections",
+      "x": 600,
+      "y": 850,
+      "width": 120,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "solid",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#fff9db",
+      "label": {
+        "text": "🎨 Frontend\nDetecções\nTempo Real",
+        "fontSize": 14
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow1",
+      "x": 175,
+      "y": 180,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "RTSP",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow2",
+      "x": 110,
+      "y": 350,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "WebRTC\n1-3 FPS",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow3",
+      "x": 260,
+      "y": 350,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "HLS\n30 FPS",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow4",
+      "x": 110,
+      "y": 500,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "Frames",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow5",
+      "x": 260,
+      "y": 500,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "Stream",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow6",
+      "x": 170,
+      "y": 800,
+      "width": 230,
+      "height": -100,
+      "strokeWidth": 2,
+      "label": {
+        "text": "Detecção\nJSON",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow7",
+      "x": 460,
+      "y": 780,
+      "width": 0,
+      "height": 70,
+      "strokeWidth": 2,
+      "label": {
+        "text": "Consume",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow8",
+      "x": 520,
+      "y": 890,
+      "width": 80,
+      "height": 0,
+      "strokeWidth": 2,
+      "label": {
+        "text": "WebSocket\nws://",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 100,
+      "y": 30,
+      "width": 600,
+      "height": 40,
+      "fontSize": 28,
+      "fontFamily": 1,
+      "text": "🎯 VMS - Fluxo Completo: Streaming + AI Detection",
+      "textAlign": "center"
+    },
+    {
+      "type": "rectangle",
+      "id": "legend",
+      "x": 750,
+      "y": 100,
+      "width": 250,
+      "height": 400,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#ffffff",
+      "label": {
+        "text": "📊 MÉTRICAS\n\n🎥 Streaming:\n• HLS: 10-30s latência\n• WebRTC: <500ms\n• Não interferem\n\n🤖 AI Detection:\n• Input: 30 FPS\n• Processado: 0.45 FPS\n• Drop: 98.5%\n• Precisão: >95%\n\n⚡ Performance:\n• CPU: ~60% por câmera\n• RAM: ~250MB\n• Latência: <1s\n\n💰 Economia:\n• Banda: 99%\n• CPU: 95%\n• Total: $531k/mês",
+        "fontSize": 12
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "models",
+      "x": 750,
+      "y": 550,
+      "width": 250,
+      "height": 200,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#e7f5ff",
+      "label": {
+        "text": "🤖 MODELOS IA\n\nVehicle Detection:\n• yolov8n (6MB)\n• COCO dataset\n• Classes: car/truck/bus\n\nPlate Detection:\n• plate_yolov8n (6MB)\n• FINE-TUNED ⭐\n• 10k+ placas\n• Precisão: 90-95%\n\nOCR:\n• Fast-Plate-OCR\n• ONNX runtime\n• CPU-optimized",
+        "fontSize": 11
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "flow_detail",
+      "x": 750,
+      "y": 800,
+      "width": 250,
+      "height": 170,
+      "fillStyle": "solid",
+      "strokeWidth": 2,
+      "strokeStyle": "dashed",
+      "roughness": 1,
+      "opacity": 100,
+      "backgroundColor": "#d3f9d8",
+      "label": {
+        "text": "🔄 FLUXO DETECÇÃO\n\n1. Câmera → MediaMTX\n2. WebRTC → AI (3 FPS)\n3. Motion → Drop 70%\n4. YOLO → Veículos\n5. Track → 10-30 frames\n6. Score → Melhor frame\n7. YOLO → Placa\n8. OCR → 3-5 leituras\n9. Consenso → ≥60%\n10. Redis → Dedup 5min\n11. RabbitMQ → Backend\n12. WebSocket → Frontend",
+        "fontSize": 10
+      }
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff",
+    "gridSize": 20
+  }
+}

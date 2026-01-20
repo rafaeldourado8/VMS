@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  ai_detection:
+    build: .
+    container_name: ai_detection
+    ports:
+      - "5000:5000"
+    environment:
+      - MEDIAMTX_URL=http://mediamtx:8889
+      - AI_FPS=3
+      - MOTION_THRESHOLD=0.03
+      - REDIS_HOST=redis
+      - RABBITMQ_HOST=rabbitmq
+    volumes:
+      - ./models:/app/models
+    depends_on:
+      - redis
+      - rabbitmq
+    restart: unless-stopped
+  
+  redis:
+    image: redis:7-alpine
+    container_name: ai_detection_redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+  
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: ai_detection_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    restart: unless-stopped
+
+networks:
+  default:
+    name: vms_network
+    external: true

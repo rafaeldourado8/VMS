@@ -109,6 +109,10 @@ class CameraViewSet(viewsets.ModelViewSet):
             return Response(status=status.HTTP_204_NO_CONTENT)
         except ValueError:
             return Response({"detail": "Não encontrado."}, status=status.HTTP_404_NOT_FOUND)
+        except PermissionError:
+            return Response({"detail": "Sem permissão."}, status=status.HTTP_403_FORBIDDEN)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=False, methods=['post'])
     def reprovision(self, request):

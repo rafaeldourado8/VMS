@@ -1,160 +1,294 @@
-"""
-AI Detection Service API - DDD
-"""
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import Response
-from pydantic import BaseModel
-from typing import List, Tuple
+import cv2
 import logging
+import time
+import os
+from datetime import datetime
+from threading import Thread
+from config.settings import settings
+from core.motion_detector import MotionDetector
+from core.vehicle_detector import VehicleDetector
+from core.tracker import VehicleTracker
+from core.quality_scorer import QualityScorer
+from core.plate_detector import PlateDetector
+from core.ocr_engine import OCREngine
+from pipeline.consensus_engine import ConsensusEngine
+from pipeline.dedup_cache import DedupCache
+from pipeline.frame_extractor import FrameExtractor
+from integration.rabbitmq_producer import RabbitMQProducer
+from integration.mediamtx_client import MediaMTXClient
+from api.control_api import ControlAPI
 
-from application.detection.commands.toggle_ai_command import ToggleAICommand
-from infrastructure.repositories.camera_config_repository import InMemoryCameraConfigRepository
-
-try:
-    from frame_processor import frame_processor
-    from stream_worker import stream_worker
-    FRAME_PROCESSOR_AVAILABLE = True
-except ImportError:
-    FRAME_PROCESSOR_AVAILABLE = False
-    logging.warning("Frame processor não disponível")
-
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
-# Inicialização
-config_repo = InMemoryCameraConfigRepository()
-
-app = FastAPI(title="AI Detection Service - DDD")
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
-
-
-# DTOs
-class ToggleAIRequest(BaseModel):
-    enabled: bool
-
-
-class UpdateROIRequest(BaseModel):
-    polygon_points: List[Tuple[float, float]]
-    enabled: bool = True
-    name: str = "ROI"
-
-
-class AIStatusResponse(BaseModel):
-    camera_id: int
-    ai_enabled: bool
-    has_roi: bool
-
-
-# Endpoints
-@app.on_event("startup")
-async def startup_event():
-    """Inicializa workers ao iniciar o serviço"""
-    if FRAME_PROCESSOR_AVAILABLE:
-        await stream_worker.start()
-        logger.info("✅ Stream worker iniciado")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Para workers ao desligar o serviço"""
-    if FRAME_PROCESSOR_AVAILABLE:
-        await stream_worker.stop()
-        logger.info("🛑 Stream worker parado")
-
-
-@app.get("/health")
-async def health():
-    return {"status": "ok", "service": "ai_detection"}
-
-
-@app.get("/metrics")
-async def metrics():
-    """Prometheus metrics endpoint"""
-    return Response(
-        content="# HELP ai_detection_up Service is up\n# TYPE ai_detection_up gauge\nai_detection_up 1\n",
-        media_type="text/plain"
-    )
-
-
-@app.post("/ai/cameras/{camera_id}/start/")
-async def start_ai(camera_id: int):
-    """Inicia IA para uma câmera"""
-    try:
-        config_repo._configs[camera_id] = {'ai_enabled': True}
-        return {"success": True, "camera_id": camera_id, "ai_enabled": True}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/ai/cameras/{camera_id}/stop/")
-async def stop_ai(camera_id: int):
-    """Para IA para uma câmera"""
-    try:
-        config_repo._configs[camera_id] = {'ai_enabled': False}
-        return {"success": True, "camera_id": camera_id, "ai_enabled": False}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.post("/ai/toggle/{camera_id}")
-async def toggle_ai(camera_id: int, request: ToggleAIRequest):
-    """Ativa ou desativa IA para uma câmera"""
-    try:
-        config_repo._configs[camera_id] = {'ai_enabled': request.enabled}
-        return {"success": True, "camera_id": camera_id, "ai_enabled": request.enabled}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
-@app.post("/ai/cameras/{camera_id}/test/")
-async def test_detection(camera_id: int):
-    """Testa detecção de IA para uma câmera"""
-    try:
-        config = config_repo.get(camera_id)
-        if not config.get('ai_enabled', False):
-            return {"success": False, "message": "IA não está ativa para esta câmera"}
+class AIDetectionService:
+    def __init__(self):
+        self.active_cameras = {}
+        self.mediamtx = MediaMTXClient(base_url=settings.MEDIAMTX_URL)
+        self.rabbitmq = RabbitMQProducer(
+            host=settings.RABBITMQ_HOST,
+            port=settings.RABBITMQ_PORT,
+            user=settings.RABBITMQ_USER,
+            password=settings.RABBITMQ_PASS
+        )
         
-        return {
-            "success": True, 
-            "message": "Teste de detecção executado com sucesso",
-            "camera_id": camera_id,
-            "has_roi": config.get('roi') is not None
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-@app.get("/ai/cameras/{camera_id}/status/", response_model=AIStatusResponse)
-async def get_camera_ai_status(camera_id: int):
-    """Obtém status da IA para uma câmera (rota compatível com frontend)"""
-    config = config_repo.get(camera_id)
+        self.api = ControlAPI(port=settings.API_PORT)
+        self.api.set_callbacks(self.start_camera, self.stop_camera)
+        
+        # Diretório para salvar recortes de teste
+        self.detections_dir = "/app/detections"
+        os.makedirs(self.detections_dir, exist_ok=True)
     
-    return AIStatusResponse(
-        camera_id=camera_id,
-        ai_enabled=config.get('ai_enabled', False),
-        has_roi=config.get('roi') is not None
-    )
-
-
-@app.get("/ai/status/{camera_id}", response_model=AIStatusResponse)
-async def get_ai_status(camera_id: int):
-    """Obtém status da IA para uma câmera"""
-    config = config_repo.get(camera_id)
+    def start_camera(self, camera_id: int, source_url: str = None) -> bool:
+        """
+        Inicia processamento de uma câmera
+        
+        Args:
+            camera_id: ID da câmera
+            source_url: URL RTSP (opcional, se não fornecido usa MediaMTX)
+        """
+        try:
+            # Se não forneceu URL, busca do MediaMTX
+            if not source_url:
+                if settings.USE_WEBRTC:
+                    source_url = self.mediamtx.get_webrtc_url(camera_id)
+                    logger.info(f"Using WebRTC for camera {camera_id}: {source_url}")
+                else:
+                    source_url = self.mediamtx.get_rtsp_url(camera_id)
+                    logger.info(f"Using RTSP for camera {camera_id}: {source_url}")
+            
+            extractor = FrameExtractor(
+                camera_id, 
+                source_url, 
+                fps=settings.AI_FPS,
+                use_webrtc=settings.USE_WEBRTC
+            )
+            extractor.start()
+            
+            thread = Thread(
+                target=self._process_camera,
+                args=(camera_id, extractor),
+                daemon=True
+            )
+            thread.start()
+            
+            self.active_cameras[camera_id] = {
+                'extractor': extractor,
+                'thread': thread,
+                'source_url': source_url
+            }
+            
+            logger.info(f"Started camera {camera_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to start camera {camera_id}: {e}")
+            return False
     
-    return AIStatusResponse(
-        camera_id=camera_id,
-        ai_enabled=config.get('ai_enabled', True),
-        has_roi=config.get('roi') is not None
-    )
+    def stop_camera(self, camera_id: int) -> bool:
+        if camera_id not in self.active_cameras:
+            return False
+        
+        try:
+            self.active_cameras[camera_id]['extractor'].stop()
+            del self.active_cameras[camera_id]
+            logger.info(f"Stopped camera {camera_id}")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to stop camera {camera_id}: {e}")
+            return False
+    
+    def _process_camera(self, camera_id: int, extractor: FrameExtractor):
+        # Inicializa componentes
+        motion_detector = MotionDetector(
+            threshold=settings.MOTION_THRESHOLD,
+            var_threshold=settings.MOG2_VAR_THRESHOLD,
+            history=settings.MOG2_HISTORY
+        )
+        
+        vehicle_detector = VehicleDetector(
+            model_path=settings.VEHICLE_MODEL,
+            confidence=settings.VEHICLE_CONFIDENCE
+        )
+        
+        tracker = VehicleTracker(
+            iou_threshold=settings.TRACKER_IOU_THRESHOLD,
+            timeout=settings.TRACKER_TIMEOUT
+        )
+        
+        quality_scorer = QualityScorer(
+            blur_w=settings.QUALITY_WEIGHT_BLUR,
+            angle_w=settings.QUALITY_WEIGHT_ANGLE,
+            contrast_w=settings.QUALITY_WEIGHT_CONTRAST,
+            size_w=settings.QUALITY_WEIGHT_SIZE
+        )
+        
+        plate_detector = PlateDetector(
+            model_path=settings.PLATE_MODEL,
+            confidence=settings.PLATE_CONFIDENCE
+        )
+        
+        ocr_engine = OCREngine(model=settings.OCR_MODEL)
+        
+        consensus_engine = ConsensusEngine(
+            min_readings=settings.MIN_READINGS,
+            consensus_threshold=settings.CONSENSUS_THRESHOLD,
+            similarity_threshold=settings.SIMILARITY_THRESHOLD
+        )
+        
+        dedup_cache = DedupCache(
+            host=settings.REDIS_HOST,
+            port=settings.REDIS_PORT,
+            ttl=settings.DEDUP_TTL
+        )
+        
+        logger.info(f"Processing camera {camera_id}")
+        
+        while camera_id in self.active_cameras:
+            try:
+                frame = extractor.get_frame()
+                if frame is None:
+                    time.sleep(0.1)
+                    continue
+                
+                # Motion detection
+                has_motion, motion_ratio = motion_detector.detect(frame)
+                if not has_motion:
+                    continue
+                
+                logger.info(f"Motion detected! Ratio: {motion_ratio:.4f}")
+                
+                # Vehicle detection
+                vehicles = vehicle_detector.detect(frame)
+                if not vehicles:
+                    logger.info("No vehicles detected in frame")
+                    continue
+                
+                logger.info(f"Detected {len(vehicles)} vehicles")
+                
+                # Tracking
+                completed_tracks = tracker.update(vehicles, frame)
+                
+                # Processa tracks completos
+                for track in completed_tracks:
+                    if len(track.frames) < settings.MIN_READINGS:
+                        continue
+                    
+                    # Score frames
+                    scored_frames = []
+                    for frame_data, bbox in track.frames:
+                        score = quality_scorer.score(frame_data, bbox)
+                        scored_frames.append((score['final'], frame_data, bbox))
+                    
+                    # Seleciona melhores
+                    scored_frames.sort(reverse=True, key=lambda x: x[0])
+                    best_frames = scored_frames[:settings.MAX_READINGS]
+                    
+                    # Detecta placas
+                    readings = []
+                    best_plate_crop = None
+                    for _, frame_data, bbox in best_frames:
+                        x1, y1, x2, y2 = bbox
+                        vehicle_crop = frame_data[y1:y2, x1:x2]
+                        
+                        plates = plate_detector.detect(vehicle_crop)
+                        if not plates:
+                            continue
+                        
+                        crops = [p['crop'] for p in plates]
+                        if crops and best_plate_crop is None:
+                            best_plate_crop = crops[0]
+                        ocr_results = ocr_engine.recognize(crops)
+                        readings.extend(ocr_results)
+                    
+                    if not readings:
+                        continue
+                    
+                    # Consenso
+                    result = consensus_engine.vote(readings)
+                    if not result or result['confidence'] < settings.MIN_CONFIDENCE:
+                        continue
+                    
+                    # Deduplicação
+                    if dedup_cache.is_duplicate(camera_id, result['plate']):
+                        logger.info(f"Duplicate plate: {result['plate']}")
+                        continue
+                    
+                    dedup_cache.add(camera_id, result['plate'])
+                    
+                    # Salva recorte da placa
+                    if best_plate_crop is not None:
+                        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                        filename = f"{result['plate']}_{timestamp}_cam{camera_id}.jpg"
+                        filepath = os.path.join(self.detections_dir, filename)
+                        cv2.imwrite(filepath, best_plate_crop)
+                        logger.info(f"Saved detection crop: {filename}")
+                    
+                    # Envia para Backend
+                    self.rabbitmq.send_detection(
+                        camera_id=camera_id,
+                        plate=result['plate'],
+                        confidence=result['confidence'],
+                        method=result['method'],
+                        metadata={
+                            'track_id': track.track_id,
+                            'frames_analyzed': len(track.frames),
+                            'votes': result['votes'],
+                            'total': result['total']
+                        }
+                    )
+                    
+                    logger.info(f"Detection sent: {result['plate']} "
+                               f"(conf: {result['confidence']:.2f}, "
+                               f"method: {result['method']})")
+                
+                time.sleep(0.01)
+                
+            except Exception as e:
+                logger.error(f"Error processing camera {camera_id}: {e}")
+                time.sleep(1)
+    
+    def run(self):
+        logger.info("Starting AI Detection Service")
+        logger.info(f"WebRTC enabled: {settings.USE_WEBRTC}")
+        logger.info(f"MediaMTX URL: {settings.MEDIAMTX_URL}")
+        
+        self.api.run()
+        
+        # Auto-start: busca câmeras ativas do backend
+        self._auto_start_cameras()
+        
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            logger.info("Shutting down...")
+            for camera_id in list(self.active_cameras.keys()):
+                self.stop_camera(camera_id)
+            self.rabbitmq.close()
+    
+    def _auto_start_cameras(self):
+        """Busca câmeras com AI habilitada no backend e inicia automaticamente"""
+        try:
+            import requests
+            response = requests.get(
+                f"{settings.BACKEND_URL}/api/cameras/",
+                timeout=5
+            )
+            
+            if response.status_code == 200:
+                cameras = response.json()
+                for camera in cameras:
+                    if camera.get('ai_enabled'):
+                        logger.info(f"Auto-starting camera {camera['id']}")
+                        self.start_camera(camera['id'], camera.get('stream_url'))
+            else:
+                logger.warning(f"Failed to fetch cameras from backend: {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Could not auto-start cameras: {e}")
 
-
-@app.get("/ai/cameras")
-async def list_cameras_with_ai():
-    """Lista câmeras com IA configurada"""
-    return {
-        "cameras": [
-            {"camera_id": cid, "ai_enabled": config.get('ai_enabled', True)}
-            for cid, config in config_repo._configs.items()
-        ]
-    }
+if __name__ == "__main__":
+    service = AIDetectionService()
+    service.run()

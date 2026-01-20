@@ -151,16 +151,12 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: [172.18.0.0/16]
 hlsAlwaysRemux: no
 hlsVariant: fmp4
-hlsSegmentCount: 6          # Mais segmentos para estabilidade
-hlsSegmentDuration: 4s      # Segmentos maiores = menos CPU
-hlsSegmentMaxSize: 50M      # Maior para múltiplos streams
+hlsSegmentCount: 6
+hlsSegmentDuration: 4s
+hlsSegmentMaxSize: 50M
 hlsDirectory: ''
-hlsMuxerCloseAfter: 30s     # Mais tempo para estabilizar
-hlsPartDuration: 1s         # Partes maiores para performance
-
-# LL-HLS (Low Latency HLS) para snapshots
-llhls: yes                  # Habilita LL-HLS
-llhlsSegmentDuration: 500ms # Segmentos curtos para baixa latência
+hlsMuxerCloseAfter: 30s
+hlsPartDuration: 1s
 
 ###############################################
 # WebRTC server
