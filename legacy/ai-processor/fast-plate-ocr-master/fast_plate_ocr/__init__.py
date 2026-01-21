@@ -1,1 +1,0 @@
-from .inference.plate_recognizer import LicensePlateRecognizer
