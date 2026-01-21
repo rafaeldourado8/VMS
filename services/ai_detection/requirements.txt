@@ -1,26 +1,24 @@
-# Core
-opencv-python-headless==4.8.1.78
-numpy==1.24.3
+# Torch já foi instalado no Dockerfile, não listar aqui para evitar conflito/download duplo
+# torch 
+# torchvision
+# ultralytics
 
-# YOLO
-ultralytics==8.0.196
-torch==2.0.1
-torchvision==0.15.2
+# Libs Leves
+opencv-python-headless
+numpy
+requests
+python-dotenv
+loguru
+
+# API
+fastapi
+uvicorn
 
 # OCR
-fast-plate-ocr[onnx]>=0.1.0
+onnxruntime
+rich
+pyyaml
+scipy
 
-# Backend Integration
-requests==2.31.0
-pika==1.3.2
-redis==5.0.1
-
-# Utils
-python-dotenv==1.0.0
-Flask==3.0.0
-
-# Logging
-loguru==0.7.2
-
-# Testing
-pytest==7.4.3
+# IMPORTANTE: Reinstalar ultralytics aqui é seguro pois ele detecta o torch existente
+ultralytics

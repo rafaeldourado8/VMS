@@ -5,7 +5,7 @@ Endpoints REST delegando para handlers da camada de aplicação.
 """
 
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes as perm_decorator
 from rest_framework.response import Response
 from .serializers import CameraSerializer
 from .permissions import CameraAccessPermission
@@ -194,3 +194,12 @@ class CameraViewSet(viewsets.ModelViewSet):
             "current_streams": StreamLimiter.get_current_streams(user.id),
             "max_streams": max_streams
         })
+
+
+@api_view(['GET'])
+@perm_decorator([permissions.AllowAny])
+def internal_cameras_list(request):
+    """Endpoint interno para serviços (sem autenticação)"""
+    from .models import Camera
+    cameras = Camera.objects.filter(ai_enabled=True).values('id', 'name', 'stream_url', 'ai_enabled')
+    return Response(list(cameras))

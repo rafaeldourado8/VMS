@@ -1,0 +1,22 @@
+# --- Processamento de Imagem ---
+opencv-python-headless
+numpy
+
+# --- YOLO (Core) ---
+# O ultralytics vai tentar puxar o torch grande, vamos impedir isso no Dockerfile
+ultralytics==8.0.196
+
+# --- OCR (Seu OCR local) ---
+# Como você copiou a pasta, instalamos as dependências dele
+onnxruntime
+rich
+pyyaml
+
+# --- API ---
+fastapi
+uvicorn
+
+# --- Utils ---
+python-dotenv
+loguru
+requests

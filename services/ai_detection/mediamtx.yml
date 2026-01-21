@@ -1,0 +1,25 @@
+###############################################
+# MediaMTX Configuration - MODO TESTE PROXY
+###############################################
+
+paths:
+  cam:
+    # URL da câmera externa
+    source: rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0
+    
+    # Garante que o stream fique sempre ligado, não só quando alguém pede
+    sourceOnDemand: no
+
+###############################################
+# Configurações Gerais
+###############################################
+logLevel: info
+logDestinations: [stdout]
+
+# Portas
+rtspAddress: :8554
+rtpAddress: :8000
+rtcpAddress: :8001
+hlsAddress: :8888
+webrtcAddress: :8889
+api: yes

@@ -1,43 +1,32 @@
 version: '3.8'
 
 services:
-  ai_detection:
-    build: .
-    container_name: ai_detection
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: sandbox_mediamtx
     ports:
-      - "5000:5000"
-    environment:
-      - MEDIAMTX_URL=http://mediamtx:8889
-      - AI_FPS=3
-      - MOTION_THRESHOLD=0.03
-      - REDIS_HOST=redis
-      - RABBITMQ_HOST=rabbitmq
+      - "8554:8554"
+      - "8889:8889"
+      - "8888:8888"
     volumes:
-      - ./models:/app/models
+      # Aponta para o mediamtx.yml que está NESTA pasta (ai_detection)
+      - ./mediamtx.yml:/mediamtx.yml 
+    networks:
+      - sandbox_net
+
+  ai_sandbox:
+    build: .
+    container_name: sandbox_ai
     depends_on:
-      - redis
-      - rabbitmq
-    restart: unless-stopped
-  
-  redis:
-    image: redis:7-alpine
-    container_name: ai_detection_redis
-    ports:
-      - "6379:6379"
-    restart: unless-stopped
-  
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: ai_detection_rabbitmq
-    ports:
-      - "5672:5672"
-      - "15672:15672"
+      - mediamtx
+    volumes:
+      - .:/app                       # Mapeia código atual
+      - ./detections:/app/detections_sandbox # Mapeia as imagens salvas
     environment:
-      - RABBITMQ_DEFAULT_USER=guest
-      - RABBITMQ_DEFAULT_PASS=guest
-    restart: unless-stopped
+      - MEDIAMTX_URL=rtsp://mediamtx:8554/cam
+    networks:
+      - sandbox_net
 
 networks:
-  default:
-    name: vms_network
-    external: true
+  sandbox_net:
+    driver: bridge

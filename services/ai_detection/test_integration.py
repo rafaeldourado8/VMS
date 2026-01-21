@@ -16,10 +16,10 @@ def test_health():
         data = response.json()
         assert 'status' in data
         assert data['status'] == 'ok'
-        print("✅ Health check passed")
+        print("Health check passed")
         return True
     except Exception as e:
-        print(f"❌ Health check failed: {e}")
+        print(f"Health check failed: {e}")
         return False
 
 def test_start_camera():
@@ -35,13 +35,13 @@ def test_start_camera():
             data = response.json()
             assert data['status'] == 'started'
             assert data['camera_id'] == 999
-            print("✅ Camera start passed")
+            print("Camera start passed")
             return True
         else:
-            print(f"⚠️  Camera start returned {response.status_code}: {response.text}")
+            print(f" Camera start returned {response.status_code}: {response.text}")
             return False
     except Exception as e:
-        print(f"❌ Camera start failed: {e}")
+        print(f"Camera start failed: {e}")
         return False
 
 def test_list_cameras():
@@ -51,10 +51,10 @@ def test_list_cameras():
         assert response.status_code == 200
         data = response.json()
         assert 'cameras' in data
-        print(f"✅ List cameras passed (found {len(data['cameras'])} cameras)")
+        print(f"List cameras passed (found {len(data['cameras'])} cameras)")
         return True
     except Exception as e:
-        print(f"❌ List cameras failed: {e}")
+        print(f"List cameras failed: {e}")
         return False
 
 def test_stop_camera():
@@ -66,16 +66,16 @@ def test_stop_camera():
         if response.status_code == 200:
             data = response.json()
             assert data['status'] == 'stopped'
-            print("✅ Camera stop passed")
+            print("Camera stop passed")
             return True
         elif response.status_code == 404:
-            print("⚠️  Camera not found (expected if not started)")
+            print("Camera not found (expected if not started)")
             return True
         else:
-            print(f"❌ Camera stop failed: {response.status_code}")
+            print(f"Camera stop failed: {response.status_code}")
             return False
     except Exception as e:
-        print(f"❌ Camera stop failed: {e}")
+        print(f"Camera stop failed: {e}")
         return False
 
 def main():
@@ -110,10 +110,10 @@ def main():
     print("=" * 60)
     
     if all(results):
-        print("✅ All tests passed!")
+        print("All tests passed!")
         sys.exit(0)
     else:
-        print("❌ Some tests failed")
+        print(" Some tests failed")
         sys.exit(1)
 
 if __name__ == "__main__":
