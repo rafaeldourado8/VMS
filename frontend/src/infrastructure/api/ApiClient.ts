@@ -4,7 +4,7 @@ import { Camera } from '../../domain/entities/Camera';
 import { Detection } from '../../domain/entities/Detection';
 
 export class ApiClient {
-  private client: AxiosInstance;
+  public client: AxiosInstance;
 
   constructor(baseURL: string = 'http://localhost:8000/api') {
     this.client = axios.create({
@@ -12,6 +12,15 @@ export class ApiClient {
       headers: {
         'Content-Type': 'application/json',
       },
+    });
+    
+    // Interceptor para adicionar token em todas as requisições
+    this.client.interceptors.request.use((config) => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+      return config;
     });
   }
 

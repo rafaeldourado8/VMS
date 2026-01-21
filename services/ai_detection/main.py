@@ -5,71 +5,81 @@ import uvicorn
 import threading
 from ultralytics import YOLO
 
-# Ajuste de path para encontrar a lib de OCR local
 sys.path.append(os.path.join(os.getcwd(), 'fast-plate-ocr-master'))
 from fast_plate_ocr.inference.plate_recognizer import LicensePlateRecognizer
 
 from agent_manager import AgentManager
 from api_server import app, set_agent_manager
+from integration.rabbitmq_producer import RabbitMQProducer
+from config.settings import settings
 
-# Configuração de Logs
 logging.basicConfig(level=logging.INFO, format='%(asctime)s [%(levelname)s] %(message)s')
-logger = logging.getLogger("AI_Manager")
-
-# Variáveis de Ambiente
-BACKEND_URL = os.getenv("BACKEND_URL", "http://backend:8000")
-MEDIAMTX_HOST = os.getenv("MEDIAMTX_HOST", "mediamtx")
-API_PORT = int(os.getenv("API_PORT", "5000"))
+logger = logging.getLogger("AI_Main")
 
 def main():
-    logger.info(">>> INICIANDO SERVIÇO DE IA (MULTI-THREAD) <<<")
+    logger.info(">>> INICIANDO SISTEMA TRIPLE-CORE + MOTION <<<")
     
-    # 1. Carregar Modelos
-    logger.info("1. Carregando Modelos YOLO e OCR...")
     try:
-        yolo_model = YOLO("models/plate_yolov8n.pt")
+        # ``
+        logger.info("1. Carregando Vehicle Model...")
+        vehicle_model = YOLO("models/vehicle_yolov8n.pt")
+        
+        # 2. Carrega Custom Model (Seu)
+        logger.info("2. Carregando Custom Model...")
+        custom_model = YOLO("models/yolov8n.pt") 
+        
+        # 3. Carrega Plate Model (Especialista)
+        logger.info("3. Carregando Plate Model...")
+        plate_model = YOLO("models/plate_yolov8n.pt")
+
+        # 4. Carrega OCR
+        logger.info("4. Carregando OCR...")
         ocr_model = LicensePlateRecognizer(hub_ocr_model="cct-xs-v1-global-model")
-        logger.info(" Modelos carregados com sucesso!")
+        
+        logger.info(" Todos os modelos carregados!")
     except Exception as e:
         logger.error(f"Erro fatal ao carregar modelos: {e}")
         sys.exit(1)
 
-    # 2. Inicializar Agent Manager
+    # RabbitMQ
+    rabbitmq_producer = None
+    try:
+        rabbitmq_producer = RabbitMQProducer(
+            host=settings.RABBITMQ_HOST,
+            port=settings.RABBITMQ_PORT,
+            user=settings.RABBITMQ_USER,
+            password=settings.RABBITMQ_PASS
+        )
+    except Exception as e:
+        logger.error(f" Falha RabbitMQ: {e}")
+
+    # Inicializa Manager
     agent_manager = AgentManager(
-        yolo_model=yolo_model,
+        vehicle_model=vehicle_model,
+        custom_model=custom_model,
+        plate_model=plate_model,
         ocr_model=ocr_model,
-        backend_url=BACKEND_URL,
-        mediamtx_host=MEDIAMTX_HOST
+        backend_url=settings.BACKEND_URL,
+        mediamtx_host=settings.MEDIAMTX_URL.split("://")[-1].split(":")[0],
+        rabbitmq_producer=rabbitmq_producer
     )
     
-    # Injetar no módulo API
     set_agent_manager(agent_manager)
-    
-    # 3. Carregar câmeras iniciais do backend
-    logger.info("2. Carregando câmeras do backend...")
     agent_manager.load_cameras_from_backend()
     
-    # 4. Iniciar API em thread separada
-    logger.info(f"3. Iniciando API na porta {API_PORT}...")
+    # API Server
     api_thread = threading.Thread(
         target=uvicorn.run,
-        kwargs={
-            "app": app,
-            "host": "0.0.0.0",
-            "port": API_PORT,
-            "log_level": "info"
-        },
+        kwargs={"app": app, "host": "0.0.0.0", "port": settings.API_PORT, "log_level": "error"},
         daemon=True
     )
     api_thread.start()
     
-    # 5. Manter serviço rodando
-    logger.info("✅ Serviço iniciado com sucesso!")
     try:
         api_thread.join()
     except KeyboardInterrupt:
-        logger.info("Parando serviços...")
         agent_manager.stop_all()
+        if rabbitmq_producer: rabbitmq_producer.close()
 
 if __name__ == "__main__":
     main()

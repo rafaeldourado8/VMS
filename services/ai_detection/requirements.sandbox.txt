@@ -15,6 +15,7 @@ pyyaml
 # --- API ---
 fastapi
 uvicorn
+pika
 
 # --- Utils ---
 python-dotenv

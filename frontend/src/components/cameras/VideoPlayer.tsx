@@ -128,10 +128,13 @@ export function VideoPlayer({
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 30,
-          maxLoadingDelay: 4,
-          maxBufferLength: 30,
-          maxBufferSize: 60 * 1000 * 1000,
+          backBufferLength: 10,
+          maxLoadingDelay: 1,
+          maxBufferLength: 10,
+          maxBufferSize: 10 * 1000 * 1000,
+          maxMaxBufferLength: 20,
+          startLevel: -1,
+          testBandwidth: false,
         })
 
         hls.loadSource(src)

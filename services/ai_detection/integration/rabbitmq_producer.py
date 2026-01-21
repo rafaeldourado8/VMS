@@ -42,7 +42,7 @@ class RabbitMQProducer:
             self.channel = None
     
     def send_detection(self, camera_id: int, plate: str, confidence: float, 
-                      method: str, metadata: dict = None):
+                      method: str, image_base64: str = None, metadata: dict = None):
         if not self.channel:
             self._connect()
         
@@ -57,6 +57,7 @@ class RabbitMQProducer:
                 'confidence': confidence,
                 'method': method,
                 'timestamp': datetime.now().isoformat(),
+                'image_url': image_base64,
                 'metadata': metadata or {}
             }
             

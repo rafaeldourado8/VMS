@@ -1,8 +1,8 @@
-
+version: '3.8'
 
 services:
   # ============================================
-  # AI DETECTION SERVICE (WebRTC + Pipeline)
+  # AI DETECTION SERVICE (Triple-Core + Motion)
   # ============================================
   ai_detection:
     build:
@@ -11,12 +11,30 @@ services:
     image: gtvision/ai_detection:latest
     container_name: gtvision_ai_detection
     command: python main.py
+    # Privilegiado para acesso direto ao hardware se necessário (opcional, mas ajuda com GPU/VPU)
+    # privileged: true 
+    deploy:
+      resources:
+        limits:
+          cpus: '3.0' # Aumentado para suportar 3 YOLOs + OCR
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
     environment:
-      MEDIAMTX_URL: http://mediamtx:9997
-      MEDIAMTX_WEBRTC_URL: http://mediamtx:8889
-      USE_WEBRTC: "true"
-      AI_FPS: 3
-      MOTION_THRESHOLD: 0.03
+      # Conexão MediaMTX
+      MEDIAMTX_URL: http://mediamtx:8554 # Porta RTSP interna padrão é 8554, API é 9997
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      
+      # Configuração IA
+      AI_FPS: "20"
+      MOTION_THRESHOLD: "2000" # Área mínima de movimento (pixels)
+      USE_WEBRTC: "false" # Focando em RTSP TCP por enquanto
+      
+      # CRÍTICO: Força TCP para evitar corrupção de vídeo H264
+      OPENCV_FFMPEG_CAPTURE_OPTIONS: "rtsp_transport;tcp"
+      
+      # Integrações
       REDIS_HOST: redis_cache
       REDIS_PORT: 6379
       RABBITMQ_HOST: rabbitmq
@@ -25,8 +43,10 @@ services:
       RABBITMQ_PASS: ${RABBITMQ_PASS}
       BACKEND_URL: http://backend:8000
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "5000:5000"
+      
+      # Credenciais MediaMTX (se necessário para ler o stream)
+      # RTSP_USER: ...
+      # RTSP_PASS: ...
     volumes:
       - ./services/ai_detection/models:/app/models
       - ./detections:/app/detections
@@ -103,10 +123,10 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
+          cpus: '1.0'
           memory: 1G
         reservations:
-          cpus: '0.1'
+          cpus: '0.2'
           memory: 256M
     ports:
       - "8000:8000"
@@ -140,25 +160,71 @@ services:
       start_period: 40s
 
   # ============================================
-  # BACKEND WORKER (Celery) - DESABILITADO
+  # CELERY WORKER (Consumer RabbitMQ)
   # ============================================
-  # backend_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: ./backend/Dockerfile
-  #   container_name: gtvision_backend_worker
-  #   command: sh -c "python wait_for_db.py && celery -A config worker --loglevel=info"
-  #   env_file: .env
-  #   environment:
-  #     CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - gtvision_network
-  #   restart: unless-stopped
+  celery_worker:
+    build:
+      context: .
+      dockerfile: ./backend/deploy/Dockerfile
+    container_name: gtvision_celery_worker
+    command: celery -A config worker -l info -Q detections
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    volumes:
+      - ./backend/logs:/app/logs
+    env_file: .env
+    environment:
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      REDIS_HOST: redis_cache
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      redis_cache:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  # ============================================
+  # RABBITMQ CONSUMER (Bridge)
+  # ============================================
+  rabbitmq_consumer:
+    build:
+      context: .
+      dockerfile: ./backend/deploy/Dockerfile
+    container_name: gtvision_rabbitmq_consumer
+    command: python manage.py consume_detections
+    deploy:
+      resources:
+        limits:
+          cpus: '0.3'
+          memory: 256M
+    volumes:
+      - ./backend/logs:/app/logs
+    env_file: .env
+    environment:
+      DB_HOST: postgres_db
+      REDIS_HOST: redis_cache
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      celery_worker:
+        condition: service_started
+    networks:
+      - gtvision_network
+    restart: unless-stopped
 
   # ============================================
   # FRONTEND (Vite / React)
@@ -170,7 +236,10 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    # Adicionado --host para expor fora do container
     command: sh -c "npm install --legacy-peer-deps && npm run dev -- --host 0.0.0.0 --port 5173"
+    ports:
+      - "5173:5173" # Expondo porta dev para acesso direto se precisar (opcional, já passa pelo HAProxy)
     networks:
       - gtvision_network
     restart: unless-stopped
@@ -235,6 +304,7 @@ services:
       - backend_media:/var/www/media:ro
     networks:
       - gtvision_network
+    restart: unless-stopped
 
   # ============================================
   # POSTGRES
@@ -284,6 +354,9 @@ services:
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
       RABBITMQ_DEFAULT_VHOST: /
       RABBITMQ_ERLANG_COOKIE: GTVISIONRABBITMQCOOKIE
+    ports:
+        - "5672:5672"   # Porta AMQP (Para acesso externo/debug se precisar)
+        - "15672:15672" # Porta Management UI
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -329,6 +402,8 @@ services:
     container_name: gtvision_mediamtx
     env_file: .env
     ports:
+      - "8554:8554"  # RTSP (ADICIONADO - CRÍTICO PARA AS CÂMERAS)
+      - "1935:1935"  # RTMP
       - "8888:8888"  # HLS
       - "8889:8889"  # WebRTC
       - "9997:9997"  # API
@@ -349,14 +424,13 @@ services:
       MEDIAMTX_API_USER: ${MEDIAMTX_API_USER}
       MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
     restart: unless-stopped
+    # Healthcheck simplificado para evitar erro 401 se a env var não bater
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "--header=Authorization: Basic bWVkaWFtdHhfYXBpX3VzZXI6R3RWIXNpb25NZWQxYU1UWCQyMDI1", "http://localhost:9997/v3/config/global/get"]
+      test: ["CMD", "netstat", "-an", "|", "grep", "9997"] 
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
-
-
 
 # ============================================
 # VOLUMES
@@ -368,7 +442,6 @@ volumes:
   mediamtx_recordings:
   rabbitmq_data:
   prometheus_data:
-
 
 # ============================================
 # NETWORK

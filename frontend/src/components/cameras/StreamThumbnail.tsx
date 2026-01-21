@@ -12,6 +12,9 @@ interface StreamThumbnailProps {
   cameraName?: string
 }
 
+// Cache global de snapshots por src
+const snapshotCache = new Map<string, string>()
+
 export function StreamThumbnail({ 
   src, 
   fallbackSrc,
@@ -25,11 +28,11 @@ export function StreamThumbnail({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const imgRef = useRef<HTMLImageElement>(null)
   const hlsRef = useRef<Hls | null>(null)
+  const snapshotTimerRef = useRef<NodeJS.Timeout | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isOnline, setIsOnline] = useState(false)
-  const [useSnapshot, setUseSnapshot] = useState(false)
-  const [snapshot, setSnapshot] = useState<string | null>(null)
+  const [snapshot, setSnapshot] = useState<string | null>(() => snapshotCache.get(src) || null)
   const [isVisible, setIsVisible] = useState(false)
 
   // Intersection Observer para detectar quando está visível
@@ -49,6 +52,14 @@ export function StreamThumbnail({
   }, [])
 
   useEffect(() => {
+    // Se já tem snapshot em cache, usa ele
+    if (snapshotCache.has(src)) {
+      setSnapshot(snapshotCache.get(src)!)
+      setIsLoading(false)
+      setIsOnline(true)
+      return
+    }
+
     if (!isVisible) return
 
     const video = videoRef.current
@@ -57,8 +68,6 @@ export function StreamThumbnail({
 
     setIsLoading(true)
     setError(null)
-    setUseSnapshot(false)
-    setSnapshot(null)
 
     if (src.includes('.m3u8')) {
       if (Hls.isSupported()) {
@@ -78,14 +87,15 @@ export function StreamThumbnail({
           video.play().catch(() => {})
 
           // Após 10 segundos, captura screenshot e para o streaming
-          setTimeout(() => {
+          snapshotTimerRef.current = setTimeout(() => {
             const ctx = canvas.getContext('2d')
             if (ctx && video.videoWidth > 0) {
               canvas.width = video.videoWidth
               canvas.height = video.videoHeight
               ctx.drawImage(video, 0, 0)
-              setSnapshot(canvas.toDataURL('image/jpeg', 0.8))
-              setUseSnapshot(true)
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
+              setSnapshot(dataUrl)
+              snapshotCache.set(src, dataUrl)
               hls.destroy()
             }
           }, 10000)
@@ -94,8 +104,8 @@ export function StreamThumbnail({
         hls.on(Hls.Events.ERROR, (_, data) => {
           if (data.fatal) {
             setIsOnline(false)
+            snapshotCache.delete(src)
             if (fallbackSrc) {
-              setUseSnapshot(true)
               setIsLoading(false)
             } else {
               setError('Offline')
@@ -107,6 +117,7 @@ export function StreamThumbnail({
         hlsRef.current = hls
 
         return () => {
+          if (snapshotTimerRef.current) clearTimeout(snapshotTimerRef.current)
           hls.destroy()
         }
       }
@@ -114,8 +125,8 @@ export function StreamThumbnail({
 
     video.addEventListener('error', () => {
       setIsOnline(false)
+      snapshotCache.delete(src)
       if (fallbackSrc) {
-        setUseSnapshot(true)
         setIsLoading(false)
       } else {
         setError('Offline')
@@ -134,16 +145,23 @@ export function StreamThumbnail({
       )}
       onClick={onClick}
     >
-      {useSnapshot && (snapshot || fallbackSrc) ? (
+      {snapshot ? (
         <img
           ref={imgRef}
-          src={snapshot || fallbackSrc}
+          src={snapshot}
           alt={cameraName}
           className="w-full h-full object-cover"
           onError={() => {
+            snapshotCache.delete(src)
+            setSnapshot(null)
             setError('Offline')
-            setUseSnapshot(false)
           }}
+        />
+      ) : fallbackSrc && !isLoading ? (
+        <img
+          src={fallbackSrc}
+          alt={cameraName}
+          className="w-full h-full object-cover"
         />
       ) : (
         <video
@@ -181,7 +199,7 @@ export function StreamThumbnail({
         <div className="absolute top-2 right-2">
           <div className={cn(
             "w-2 h-2 rounded-full",
-            isOnline ? "bg-green-500" : "bg-red-500"
+            isOnline || snapshot ? "bg-green-500" : "bg-red-500"
           )} />
         </div>
       )}
