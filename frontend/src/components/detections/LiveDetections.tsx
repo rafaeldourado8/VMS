@@ -30,7 +30,9 @@ export function LiveDetections() {
       const response = await api.get('/detections/', {
         params: { limit: 10, ordering: '-timestamp' }
       });
-      setDetections(response.data.results || response.data);
+      const data = response.data.results || response.data;
+      // Filtra apenas detecções com confiança >= 70%
+      setDetections(data.filter((d: Detection) => d.confidence >= 0.7));
       setIsLoading(false);
     } catch (error) {
       console.error('Erro ao buscar detecções:', error);

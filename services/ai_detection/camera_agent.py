@@ -76,7 +76,7 @@ class CameraAgent:
 
             try:
                 # 1. Detecção YOLO (Carros/Placas)
-                results = self.yolo(frame, verbose=False, conf=0.5)
+                results = self.yolo(frame, verbose=False, conf=0.7)  # Mínimo 70%
                 
                 for result in results:
                     for box in result.boxes:

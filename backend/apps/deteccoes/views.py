@@ -126,6 +126,10 @@ class FastIngestDeteccaoView(APIView):
 
             if not all([camera_id, plate_number, image_b64]):
                 return Response({"error": "Dados incompletos"}, status=status.HTTP_400_BAD_REQUEST)
+            
+            # Filtro de confiança mínima
+            if confidence < 0.7:
+                return Response({"status": "rejected", "reason": "confidence_too_low"}, status=status.HTTP_200_OK)
 
             # 1. Decodificar e Salvar Imagem
             try:
