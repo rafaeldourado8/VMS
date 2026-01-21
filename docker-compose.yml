@@ -1,4 +1,4 @@
-
+version: '3.8'
 
 services:
   # ============================================
@@ -99,6 +99,7 @@ services:
       context: .
       dockerfile: ./backend/deploy/Dockerfile
     container_name: gtvision_backend
+    # Roda migrações, coleta estáticos e inicia o servidor Daphne
     command: sh -c "python manage.py migrate --noinput && python manage.py collectstatic --noinput && daphne -b 0.0.0.0 -p 8000 config.asgi:application"
     deploy:
       resources:
@@ -140,25 +141,34 @@ services:
       start_period: 40s
 
   # ============================================
-  # BACKEND WORKER (Celery) - DESABILITADO
+  # DETECTION CONSUMER (Lê fila do RabbitMQ)
   # ============================================
-  # backend_worker:
-  #   build:
-  #     context: .
-  #     dockerfile: ./backend/Dockerfile
-  #   container_name: gtvision_backend_worker
-  #   command: sh -c "python wait_for_db.py && celery -A config worker --loglevel=info"
-  #   env_file: .env
-  #   environment:
-  #     CELERY_BROKER_URL: amqp://${RABBITMQ_USER}:${RABBITMQ_PASS}@rabbitmq:5672//
-  #   depends_on:
-  #     backend:
-  #       condition: service_healthy
-  #     rabbitmq:
-  #       condition: service_healthy
-  #   networks:
-  #     - gtvision_network
-  #   restart: unless-stopped
+  detection_consumer:
+    build:
+      context: .
+      # Usa o mesmo Dockerfile do backend pois precisa do Django ORM
+      dockerfile: ./backend/deploy/Dockerfile
+    container_name: gtvision_detection_consumer
+    # Comando específico para rodar o script consumidor
+    command: python backend/start_consumer.py
+    env_file: .env
+    environment:
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RABBITMQ_USER: ${RABBITMQ_USER}
+      RABBITMQ_PASS: ${RABBITMQ_PASS}
+      # Precisa das configurações do Django para salvar no banco
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      backend:
+        condition: service_started
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
 
   # ============================================
   # FRONTEND (Vite / React)
@@ -356,8 +366,6 @@ services:
       retries: 3
       start_period: 40s
 
-
-
 # ============================================
 # VOLUMES
 # ============================================
@@ -368,7 +376,6 @@ volumes:
   mediamtx_recordings:
   rabbitmq_data:
   prometheus_data:
-
 
 # ============================================
 # NETWORK

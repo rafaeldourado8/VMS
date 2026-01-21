@@ -1,126 +1,129 @@
 import cv2
 import logging
 import time
-from threading import Thread, Lock
+import asyncio
+import threading
+import aiohttp
 import numpy as np
-import subprocess
-import os
+from threading import Lock
+from aiortc import RTCPeerConnection, RTCSessionDescription
 
 class FrameExtractor:
-    def __init__(self, camera_id: int, source_url: str, fps: int = 3, use_webrtc: bool = True):
+    def __init__(self, camera_id: int, source_url: str, fps: int = 5):
         self.camera_id = camera_id
-        self.source_url = source_url
+        self.source_url = source_url  # Ex: http://mediamtx:8889/cam1/whep
         self.fps = fps
-        self.frame_interval = 1.0 / fps
-        self.use_webrtc = use_webrtc
+        self.target_interval = 1.0 / fps
         
         self.current_frame = None
         self.frame_lock = Lock()
         self.running = False
         self.thread = None
+        self.loop = None
+        self.pc = None
         
         self.logger = logging.getLogger(__name__)
-    
+
     def start(self):
         if self.running:
             return
         
         self.running = True
-        self.thread = Thread(target=self._capture_loop, daemon=True)
+        # Inicia o loop asyncio em uma thread separada para não travar o main
+        self.thread = threading.Thread(target=self._start_async_loop, daemon=True)
         self.thread.start()
-        self.logger.info(f"Frame extractor started for camera {self.camera_id} (WebRTC: {self.use_webrtc})")
-    
+        self.logger.info(f"WHEP Frame extractor started for camera {self.camera_id}")
+
     def stop(self):
         self.running = False
+        if self.loop:
+            asyncio.run_coroutine_threadsafe(self._cleanup(), self.loop)
         if self.thread:
-            self.thread.join(timeout=5)
+            self.thread.join(timeout=2)
         self.logger.info(f"Frame extractor stopped for camera {self.camera_id}")
-    
+
     def get_frame(self) -> np.ndarray:
         with self.frame_lock:
-            return self.current_frame.copy() if self.current_frame is not None else None
-    
-    def _capture_loop(self):
-        cap = None
-        last_frame_time = 0
+            if self.current_frame is not None:
+                return self.current_frame.copy()
+            return None
+
+    def _start_async_loop(self):
+        """Cria e roda o loop de eventos asyncio nesta thread."""
+        self.loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self._consume_webrtc())
+
+    async def _consume_webrtc(self):
+        """Gerencia a conexão WHEP e o consumo do stream."""
+        self.pc = RTCPeerConnection()
+        
+        # Prepara para receber vídeo (recvonly)
+        self.pc.addTransceiver("video", direction="recvonly")
+
+        @self.pc.on("track")
+        def on_track(track):
+            self.logger.info(f"Track received for camera {self.camera_id}: {track.kind}")
+            if track.kind == "video":
+                asyncio.ensure_future(self._read_track(track))
+
+        # 1. Cria oferta SDP (Offer)
+        offer = await self.pc.createOffer()
+        await self.pc.setLocalDescription(offer)
+
+        # 2. Envia oferta para o MediaMTX (WHEP Handshake)
+        try:
+            async with aiohttp.ClientSession() as session:
+                # O MediaMTX espera o SDP no corpo do POST
+                headers = {"Content-Type": "application/sdp"}
+                async with session.post(self.source_url, data=self.pc.localDescription.sdp, headers=headers) as resp:
+                    if resp.status != 201: # 201 Created é o sucesso do WHEP
+                        self.logger.error(f"WHEP Handshake failed: {resp.status} - {await resp.text()}")
+                        return
+                    
+                    # 3. Recebe a resposta SDP (Answer)
+                    answer_sdp = await resp.text()
+            
+            # 4. Configura a resposta remota
+            answer = RTCSessionDescription(sdp=answer_sdp, type="answer")
+            await self.pc.setRemoteDescription(answer)
+            self.logger.info(f"WebRTC connection established for camera {self.camera_id}")
+
+            # Mantém o loop vivo enquanto estiver rodando
+            while self.running:
+                await asyncio.sleep(1)
+
+        except Exception as e:
+            self.logger.error(f"Error in WebRTC connection: {e}")
+            self.running = False
+
+    async def _read_track(self, track):
+        """Lê frames do track WebRTC continuamente."""
+        last_time = time.time()
         
         while self.running:
             try:
-                if cap is None or not cap.isOpened():
-                    self.logger.info(f"Connecting to camera {self.camera_id}: {self.source_url}")
-                    
-                    if self.use_webrtc and self.source_url.startswith('http'):
-                        # Tenta WebRTC via GStreamer pipeline
-                        cap = self._create_webrtc_capture()
-                    else:
-                        # Fallback para RTSP com timeouts
-                        cap = cv2.VideoCapture(self.source_url)
-                        cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000)
-                        cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 5000)
-                        cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-                    
-                    if cap is None or not cap.isOpened():
-                        self.logger.error(f"Failed to connect to camera {self.camera_id}")
-                        time.sleep(5)
-                        continue
+                # Recebe o frame (aiortc retorna um objeto VideoFrame)
+                frame = await track.recv()
                 
-                ret, frame = cap.read()
-                
-                if not ret:
-                    self.logger.warning(f"Failed to read frame from camera {self.camera_id}")
-                    if cap:
-                        cap.release()
-                    cap = None
-                    time.sleep(5)
+                # Controle de FPS simples (descarta frames se estiver muito rápido)
+                now = time.time()
+                if (now - last_time) < self.target_interval:
                     continue
+                last_time = now
+
+                # Converte para array numpy (formato OpenCV BGR)
+                # O aiortc usa pyav por baixo dos panos
+                img = frame.to_ndarray(format="bgr24")
                 
-                # FPS throttling
-                current_time = time.time()
-                if current_time - last_frame_time >= self.frame_interval:
-                    with self.frame_lock:
-                        self.current_frame = frame
-                    last_frame_time = current_time
-                
-                time.sleep(0.01)
-                
+                with self.frame_lock:
+                    self.current_frame = img
+                    
             except Exception as e:
-                self.logger.error(f"Error in capture loop for camera {self.camera_id}: {e}")
-                if cap:
-                    cap.release()
-                    cap = None
-                time.sleep(5)
-        
-        if cap:
-            cap.release()
-    
-    def _create_webrtc_capture(self):
-        """
-        Cria captura WebRTC usando GStreamer
-        MediaMTX suporta WHEP (WebRTC-HTTP Egress Protocol)
-        """
-        try:
-            # Pipeline GStreamer para WebRTC
-            # Usa souphttpsrc para fazer request WHEP ao MediaMTX
-            gst_pipeline = (
-                f"souphttpsrc location={self.source_url} ! "
-                "application/x-rtp-stream,encoding-name=H264 ! "
-                "rtph264depay ! h264parse ! avdec_h264 ! "
-                "videoconvert ! appsink"
-            )
-            
-            cap = cv2.VideoCapture(gst_pipeline, cv2.CAP_GSTREAMER)
-            
-            if cap.isOpened():
-                self.logger.info(f"WebRTC connection established for camera {self.camera_id}")
-                return cap
-            else:
-                self.logger.warning(f"WebRTC failed for camera {self.camera_id}, falling back to RTSP")
-                # Fallback para RTSP
-                rtsp_url = self.source_url.replace('/whep', '').replace('8889', '8554').replace('http://', 'rtsp://')
-                return cv2.VideoCapture(rtsp_url)
-                
-        except Exception as e:
-            self.logger.error(f"Failed to create WebRTC capture: {e}")
-            # Fallback para RTSP
-            rtsp_url = self.source_url.replace('/whep', '').replace('8889', '8554').replace('http://', 'rtsp://')
-            return cv2.VideoCapture(rtsp_url)
+                self.logger.warning(f"Error reading frame: {e}")
+                break
+
+    async def _cleanup(self):
+        """Fecha conexões WebRTC."""
+        if self.pc:
+            await self.pc.close()

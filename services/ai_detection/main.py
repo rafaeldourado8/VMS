@@ -45,29 +45,33 @@ class AIDetectionService:
     def start_camera(self, camera_id: int, source_url: str = None) -> bool:
         """
         Inicia processamento de uma câmera
-        
-        Args:
-            camera_id: ID da câmera
-            source_url: URL RTSP (opcional, se não fornecido usa MediaMTX)
         """
         try:
-            # Se não forneceu URL, busca do MediaMTX
+            # 1. Resolve a URL de origem (WHEP ou RTSP)
             if not source_url:
                 if settings.USE_WEBRTC:
+                    # Pega a URL WHEP (http://mediamtx:8889/cam/whep)
                     source_url = self.mediamtx.get_webrtc_url(camera_id)
-                    logger.info(f"Using WebRTC for camera {camera_id}: {source_url}")
+                    logger.info(f"Selected Protocol: WHEP/WebRTC for camera {camera_id}")
                 else:
+                    # Pega a URL RTSP (rtsp://mediamtx:8554/cam)
                     source_url = self.mediamtx.get_rtsp_url(camera_id)
-                    logger.info(f"Using RTSP for camera {camera_id}: {source_url}")
+                    logger.info(f"Selected Protocol: RTSP for camera {camera_id}")
+
+            logger.info(f"Connecting to source: {source_url}")
             
+            # 2. Instancia o Extrator (Atualizado para o novo FrameExtractor)
+            # Nota: Removemos 'use_webrtc' pois a classe agora gerencia isso internamente ou via URL
             extractor = FrameExtractor(
-                camera_id, 
-                source_url, 
-                fps=settings.AI_FPS,
-                use_webrtc=settings.USE_WEBRTC
+                camera_id=camera_id, 
+                source_url=source_url, 
+                fps=settings.AI_FPS
             )
+            
+            # 3. Inicia a thread de captura (Asyncio loop interno se for WebRTC)
             extractor.start()
             
+            # 4. Inicia a thread de processamento de IA
             thread = Thread(
                 target=self._process_camera,
                 args=(camera_id, extractor),
@@ -81,10 +85,11 @@ class AIDetectionService:
                 'source_url': source_url
             }
             
-            logger.info(f"Started camera {camera_id}")
+            logger.info(f"Successfully started pipeline for camera {camera_id}")
             return True
+
         except Exception as e:
-            logger.error(f"Failed to start camera {camera_id}: {e}")
+            logger.error(f"Failed to start camera {camera_id}: {e}", exc_info=True)
             return False
     
     def stop_camera(self, camera_id: int) -> bool:
@@ -92,16 +97,21 @@ class AIDetectionService:
             return False
         
         try:
+            # O stop() do FrameExtractor agora limpa o loop asyncio corretamente
             self.active_cameras[camera_id]['extractor'].stop()
+            
+            # Removemos da lista para que o loop _process_camera encerre
             del self.active_cameras[camera_id]
-            logger.info(f"Stopped camera {camera_id}")
+            logger.info(f"Stopped pipeline for camera {camera_id}")
             return True
         except Exception as e:
             logger.error(f"Failed to stop camera {camera_id}: {e}")
             return False
     
     def _process_camera(self, camera_id: int, extractor: FrameExtractor):
-        # Inicializa componentes
+        """Loop principal de processamento de IA"""
+        
+        # Inicializa modelos (Carregados apenas uma vez por thread)
         motion_detector = MotionDetector(
             threshold=settings.MOTION_THRESHOLD,
             var_threshold=settings.MOG2_VAR_THRESHOLD,
@@ -144,51 +154,50 @@ class AIDetectionService:
             ttl=settings.DEDUP_TTL
         )
         
-        logger.info(f"Processing camera {camera_id}")
+        logger.info(f"AI Models loaded for camera {camera_id}. Starting detection loop.")
         
         while camera_id in self.active_cameras:
             try:
+                # 1. Obtém frame do extrator (Non-blocking)
                 frame = extractor.get_frame()
                 if frame is None:
-                    time.sleep(0.1)
+                    time.sleep(0.01) # Pequena pausa para não fritar a CPU
                     continue
                 
-                # Motion detection
+                # 2. Detecção de Movimento (Filtro Rápido)
                 has_motion, motion_ratio = motion_detector.detect(frame)
                 if not has_motion:
                     continue
                 
-                logger.info(f"Motion detected! Ratio: {motion_ratio:.4f}")
+                # logger.debug(f"Motion detected: {motion_ratio:.4f}")
                 
-                # Vehicle detection
+                # 3. Detecção de Veículos
                 vehicles = vehicle_detector.detect(frame)
                 if not vehicles:
-                    logger.info("No vehicles detected in frame")
                     continue
                 
-                logger.info(f"Detected {len(vehicles)} vehicles")
-                
-                # Tracking
+                # 4. Rastreamento (Tracking)
                 completed_tracks = tracker.update(vehicles, frame)
                 
-                # Processa tracks completos
+                # 5. Processa Tracks Completos (Veículo saiu de cena ou track estável)
                 for track in completed_tracks:
                     if len(track.frames) < settings.MIN_READINGS:
                         continue
                     
-                    # Score frames
+                    # 6. Seleção dos Melhores Frames (Quality Score)
                     scored_frames = []
                     for frame_data, bbox in track.frames:
                         score = quality_scorer.score(frame_data, bbox)
                         scored_frames.append((score['final'], frame_data, bbox))
                     
-                    # Seleciona melhores
+                    # Ordena e pega os TOP X frames
                     scored_frames.sort(reverse=True, key=lambda x: x[0])
                     best_frames = scored_frames[:settings.MAX_READINGS]
                     
-                    # Detecta placas
+                    # 7. Detecção de Placa e OCR nos melhores frames
                     readings = []
                     best_plate_crop = None
+                    
                     for _, frame_data, bbox in best_frames:
                         x1, y1, x2, y2 = bbox
                         vehicle_crop = frame_data[y1:y2, x1:x2]
@@ -197,36 +206,38 @@ class AIDetectionService:
                         if not plates:
                             continue
                         
+                        # Guarda o melhor recorte para salvar depois
                         crops = [p['crop'] for p in plates]
                         if crops and best_plate_crop is None:
                             best_plate_crop = crops[0]
+                        
+                        # OCR
                         ocr_results = ocr_engine.recognize(crops)
                         readings.extend(ocr_results)
                     
                     if not readings:
                         continue
                     
-                    # Consenso
+                    # 8. Consenso (Votação)
                     result = consensus_engine.vote(readings)
                     if not result or result['confidence'] < settings.MIN_CONFIDENCE:
                         continue
                     
-                    # Deduplicação
+                    # 9. Deduplicação (Redis)
                     if dedup_cache.is_duplicate(camera_id, result['plate']):
-                        logger.info(f"Duplicate plate: {result['plate']}")
+                        logger.info(f"Ignored duplicate plate: {result['plate']}")
                         continue
                     
                     dedup_cache.add(camera_id, result['plate'])
                     
-                    # Salva recorte da placa
+                    # 10. Salva Evidência (Crop)
                     if best_plate_crop is not None:
                         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                         filename = f"{result['plate']}_{timestamp}_cam{camera_id}.jpg"
                         filepath = os.path.join(self.detections_dir, filename)
                         cv2.imwrite(filepath, best_plate_crop)
-                        logger.info(f"Saved detection crop: {filename}")
                     
-                    # Envia para Backend
+                    # 11. Envia Evento (RabbitMQ)
                     self.rabbitmq.send_detection(
                         camera_id=camera_id,
                         plate=result['plate'],
@@ -236,56 +247,59 @@ class AIDetectionService:
                             'track_id': track.track_id,
                             'frames_analyzed': len(track.frames),
                             'votes': result['votes'],
-                            'total': result['total']
+                            'total_reads': result['total']
                         }
                     )
                     
-                    logger.info(f"Detection sent: {result['plate']} "
-                               f"(conf: {result['confidence']:.2f}, "
-                               f"method: {result['method']})")
+                    logger.info(f"CONFIRMED DETECTION: {result['plate']} ({result['confidence']:.2f})")
                 
-                time.sleep(0.01)
+                # Controle de loop
+                time.sleep(0.005)
                 
             except Exception as e:
-                logger.error(f"Error processing camera {camera_id}: {e}")
+                logger.error(f"Error in processing loop camera {camera_id}: {e}")
                 time.sleep(1)
     
     def run(self):
-        logger.info("Starting AI Detection Service")
-        logger.info(f"WebRTC enabled: {settings.USE_WEBRTC}")
-        logger.info(f"MediaMTX URL: {settings.MEDIAMTX_URL}")
+        logger.info("Starting AI Detection Service v2.0 (WebRTC Enabled)")
+        logger.info(f"Config: WebRTC={settings.USE_WEBRTC}, FPS={settings.AI_FPS}")
         
+        # Inicia API de controle
         self.api.run()
         
-        # Auto-start: busca câmeras ativas do backend
+        # Auto-start câmeras existentes
         self._auto_start_cameras()
         
         try:
             while True:
                 time.sleep(1)
         except KeyboardInterrupt:
-            logger.info("Shutting down...")
+            logger.info("Service shutting down...")
             for camera_id in list(self.active_cameras.keys()):
                 self.stop_camera(camera_id)
             self.rabbitmq.close()
     
     def _auto_start_cameras(self):
-        """Busca câmeras com AI habilitada no backend e inicia automaticamente"""
+        """Busca câmeras no backend e inicia"""
         try:
             import requests
-            response = requests.get(
-                f"{settings.BACKEND_URL}/api/cameras/",
-                timeout=5
-            )
+            url = f"{settings.BACKEND_URL}/api/cameras/"
+            logger.info(f"Fetching cameras from: {url}")
+            
+            response = requests.get(url, timeout=5)
             
             if response.status_code == 200:
                 cameras = response.json()
+                count = 0
                 for camera in cameras:
                     if camera.get('ai_enabled'):
                         logger.info(f"Auto-starting camera {camera['id']}")
-                        self.start_camera(camera['id'], camera.get('stream_url'))
+                        # Passa None no source_url para forçar a lógica WHEP/RTSP do start_camera
+                        self.start_camera(camera['id'], None) 
+                        count += 1
+                logger.info(f"Auto-started {count} cameras")
             else:
-                logger.warning(f"Failed to fetch cameras from backend: {response.status_code}")
+                logger.warning(f"Backend returned {response.status_code}")
         except Exception as e:
             logger.warning(f"Could not auto-start cameras: {e}")
 
