@@ -167,7 +167,7 @@ class CameraAgent:
             
             # Validação: Padrão brasileiro
             if self._is_valid_brazilian_plate(clean_text):
-                self._handle_detection(clean_text, original_frame, confidence)
+                self._handle_detection(clean_text, plate_img, confidence)
     
     def _is_valid_brazilian_plate(self, plate):
         """Valida se placa segue padrão brasileiro"""

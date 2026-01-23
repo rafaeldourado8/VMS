@@ -86,7 +86,7 @@ export function StreamThumbnail({
           setIsOnline(true)
           video.play().catch(() => {})
 
-          // Após 10 segundos, captura screenshot e para o streaming
+          // Após 5 segundos, captura screenshot e para o streaming
           snapshotTimerRef.current = setTimeout(() => {
             const ctx = canvas.getContext('2d')
             if (ctx && video.videoWidth > 0) {
@@ -98,7 +98,7 @@ export function StreamThumbnail({
               snapshotCache.set(src, dataUrl)
               hls.destroy()
             }
-          }, 10000)
+          }, 5000)
         })
 
         hls.on(Hls.Events.ERROR, (_, data) => {

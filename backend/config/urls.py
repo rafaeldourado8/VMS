@@ -34,7 +34,7 @@ urlpatterns = [
     path("api/", include("apps.cameras.urls")),
     path("api/", include("apps.deteccoes.urls")),
     path("api/", include("apps.clips.urls")),
-    path("api/", include("apps.dashboard.urls")),
+    path("api/dashboard/", include("apps.dashboard.urls")),
     # path("api/", include("apps.analytics.urls")),  # TODO: Verificar implementação
     # path("api/", include("apps.configuracoes.urls")),  # TODO: Verificar implementação
     # path("api/", include("apps.suporte.urls")),  # TODO: Verificar implementação

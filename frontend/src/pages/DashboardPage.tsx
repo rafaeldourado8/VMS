@@ -6,6 +6,9 @@ import {
   AlertTriangle,
   Activity,
   Clock,
+  MapPin,
+  Wifi,
+  WifiOff,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -19,9 +22,10 @@ import {
   Cell,
 } from 'recharts'
 import { Card, CardHeader, CardTitle, CardContent, Badge, Skeleton } from '@/components/ui'
-import { dashboardService, cameraService } from '@/services/api'
+import { cameraService } from '@/services/api'
 import { formatRelativeTime, getVehicleTypeLabel } from '@/lib/utils'
-import { CameraCard } from '@/components/cameras/CameraCard'
+import { CameraMap } from '@/components/map/CameraMap'
+import { useDashboardSSE } from '@/hooks/useDashboardSSE'
 
 // Cores para o gráfico de pizza
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
@@ -33,11 +37,7 @@ const mockHourlyData = Array.from({ length: 24 }, (_, i) => ({
 }))
 
 export function DashboardPage() {
-  const { data: stats, isLoading: statsLoading } = useQuery({
-    queryKey: ['dashboard-stats'],
-    queryFn: dashboardService.getStats,
-    refetchInterval: 30000, // Atualiza a cada 30s
-  })
+  const { stats, isConnected } = useDashboardSSE()
 
   const { data: cameras, isLoading: camerasLoading } = useQuery({
     queryKey: ['cameras'],
@@ -55,9 +55,24 @@ export function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Visão geral do sistema</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Visão geral do sistema</p>
+        </div>
+        <div className="flex items-center gap-2">
+          {isConnected ? (
+            <>
+              <Wifi className="w-4 h-4 text-emerald-500" />
+              <span className="text-xs text-emerald-500">Tempo Real</span>
+            </>
+          ) : (
+            <>
+              <WifiOff className="w-4 h-4 text-red-500" />
+              <span className="text-xs text-red-500">Desconectado</span>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -67,14 +82,14 @@ export function DashboardPage() {
           value={stats?.total_cameras ?? 0}
           subtitle={`${stats?.cameras_status?.online ?? 0} online`}
           icon={Camera}
-          loading={statsLoading}
+          loading={!stats}
         />
         <StatCard
           title="Detecções (24h)"
           value={stats?.detections_24h ?? 0}
           subtitle="Veículos detectados"
           icon={Car}
-          loading={statsLoading}
+          loading={!stats}
           trend={12}
         />
         <StatCard
@@ -82,17 +97,46 @@ export function DashboardPage() {
           value={stats?.cameras_status?.online ?? 0}
           subtitle={`${stats?.cameras_status?.offline ?? 0} offline`}
           icon={Activity}
-          loading={statsLoading}
+          loading={!stats}
           variant={stats?.cameras_status?.offline ? 'warning' : 'success'}
         />
         <StatCard
           title="Alertas"
-          value={0}
-          subtitle="Nenhum alerta ativo"
+          value={stats?.alerts ?? 0}
+          subtitle={stats?.alerts ? 'Alertas ativos' : 'Nenhum alerta ativo'}
           icon={AlertTriangle}
-          loading={statsLoading}
+          loading={!stats}
+          variant={stats?.alerts ? 'warning' : 'default'}
         />
       </div>
+
+      {/* Map Row */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-medium flex items-center gap-2">
+            <MapPin className="w-4 h-4" />
+            Mapa de Câmeras
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="h-[500px]">
+            {camerasLoading ? (
+              <Skeleton className="w-full h-full" />
+            ) : cameras?.length ? (
+              <CameraMap
+                cameras={cameras}
+                apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}
+                center={{ lat: -15.7942, lng: -47.8822 }}
+                zoom={12}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Nenhuma câmera com localização
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -206,9 +250,9 @@ export function DashboardPage() {
       </div>
 
       {/* Bottom Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Recent Activity */}
-        <Card>
+        <Card className="lg:col-span-2">
           <CardHeader>
             <CardTitle className="text-base font-medium flex items-center gap-2">
               <Clock className="w-4 h-4" />
@@ -216,7 +260,7 @@ export function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {statsLoading ? (
+            {!stats ? (
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <Skeleton key={i} className="h-12 w-full" />
@@ -256,32 +300,38 @@ export function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Camera Preview */}
-        <Card className="lg:col-span-2">
+        {/* Stats Summary */}
+        <Card>
           <CardHeader>
             <CardTitle className="text-base font-medium flex items-center gap-2">
-              <Camera className="w-4 h-4" />
-              Câmeras em Destaque
+              <Activity className="w-4 h-4" />
+              Resumo do Sistema
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {camerasLoading ? (
-              <div className="grid grid-cols-2 gap-3">
-                {[1, 2].map((i) => (
-                  <Skeleton key={i} className="aspect-video rounded-lg" />
-                ))}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Total de Câmeras</span>
+                <span className="text-lg font-semibold">{stats?.total_cameras || 0}</span>
               </div>
-            ) : cameras?.length ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {cameras.slice(0, 2).map((camera) => (
-                  <CameraCard key={camera.id} camera={camera} compact />
-                ))}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Online</span>
+                <span className="text-lg font-semibold text-emerald-500">
+                  {stats?.cameras_status?.online || 0}
+                </span>
               </div>
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-8">
-                Nenhuma câmera configurada
-              </p>
-            )}
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Offline</span>
+                <span className="text-lg font-semibold text-red-500">
+                  {stats?.cameras_status?.offline || 0}
+                </span>
+              </div>
+              <div className="h-px bg-border my-3" />
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">Detecções (24h)</span>
+                <span className="text-lg font-semibold">{stats?.detections_24h || 0}</span>
+              </div>
+            </div>
           </CardContent>
         </Card>
       </div>
