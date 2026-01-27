@@ -17,6 +17,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'shared.admin.cidades',
+    'shared.admin.cameras',
 ]
 
 MIDDLEWARE = [

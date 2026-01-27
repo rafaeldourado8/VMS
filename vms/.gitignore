@@ -1,0 +1,44 @@
+# Python
+# Byte-code files
+*.pyc
+__pycache__/
+
+# Environments
+.env
+venv/
+env/
+ENV/
+venv.bak/
+env.bak/
+
+# Distribution / Packaging
+.Python
+build/
+develop-eggs/
+dist/
+wheels/
+*.egg-info/
+*.eggs
+sdist/
+var/
+parts/
+bin/
+lib/
+include/
+share/
+
+# Editors and IDEs
+.idea/          # JetBrains IDEs (PyCharm, etc)
+.vscode/        # Visual Studio Code
+*.swp           # Vim swap files
+
+# OS-specific files
+.DS_Store       # macOS
+Thumbs.db       # Windows
+
+# Misc
+logs/
+*.log
+tmp/
+.coverage
+.tox/
