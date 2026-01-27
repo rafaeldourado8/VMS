@@ -42,6 +42,41 @@ services:
       - vms_network
     restart: unless-stopped
 
+  postgres:
+    image: postgres:16-alpine
+    container_name: vms_postgres
+    environment:
+      POSTGRES_DB: vms_db
+      POSTGRES_USER: vms_user
+      POSTGRES_PASSWORD: vms_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/infrastructure/database/init.sh:/docker-entrypoint-initdb.d/init.sh
+    networks:
+      - vms_network
+
+  django:
+    build:
+      context: ./src
+      dockerfile: docker/admin/Dockerfile
+    container_name: vms_django
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./src:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./src/.env
+    depends_on:
+      - postgres
+    networks:
+      - vms_network
+
 networks:
   vms_network:
     driver: bridge
+
+volumes:
+  postgres_data:
