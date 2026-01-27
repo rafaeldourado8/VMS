@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VMS - HLS Player</title>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #0a0a0a;
+            color: #fff;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            font-size: 24px;
+            margin-bottom: 20px;
+            font-weight: 600;
+        }
+
+        .player-wrapper {
+            background: #1a1a1a;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .video-container {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 10px 15px;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #0066ff;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #0066ff;
+            border: none;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #0052cc;
+        }
+
+        button:active {
+            background: #003d99;
+        }
+
+        .info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .info-item {
+            background: #2a2a2a;
+            padding: 12px 15px;
+            border-radius: 4px;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .info-value {
+            font-size: 14px;
+            font-weight: 500;
+            color: #fff;
+        }
+
+        .status {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+
+        .status.connected {
+            background: #00ff00;
+            box-shadow: 0 0 8px #00ff00;
+        }
+
+        .status.disconnected {
+            background: #ff0000;
+            box-shadow: 0 0 8px #ff0000;
+        }
+
+        .status.loading {
+            background: #ffaa00;
+            box-shadow: 0 0 8px #ffaa00;
+        }
+
+        .error {
+            background: #ff3333;
+            padding: 12px 15px;
+            border-radius: 4px;
+            margin-top: 15px;
+            display: none;
+        }
+
+        .presets {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .preset-btn {
+            padding: 8px 15px;
+            background: #2a2a2a;
+            border: 1px solid #3a3a3a;
+            border-radius: 4px;
+            color: #fff;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .preset-btn:hover {
+            background: #3a3a3a;
+            border-color: #0066ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 VMS - HLS Low-Latency Player</h1>
+        
+        <div class="player-wrapper">
+            <div class="video-container">
+                <video id="video" controls autoplay muted></video>
+            </div>
+
+            <div class="controls">
+                <input type="text" id="streamUrl" placeholder="http://localhost/hls/stream_name/index.m3u8" value="http://localhost/hls/stream_d7ebdaac-9d09-470f-a208-34ce2e4f9689/index.m3u8">
+                <button onclick="loadStream()">▶ Carregar Stream</button>
+            </div>
+
+            <div class="presets">
+                <button class="preset-btn" onclick="setPreset('stream1')">Stream 1 (RTMP)</button>
+                <button class="preset-btn" onclick="setPreset('stream2')">Stream 2 (RTMP)</button>
+                <button class="preset-btn" onclick="setPreset('stream3')">Stream 3 (RTMP)</button>
+            </div>
+
+            <div class="info">
+                <div class="info-item">
+                    <div class="info-label">Status</div>
+                    <div class="info-value">
+                        <span class="status disconnected" id="status"></span>
+                        <span id="statusText">Desconectado</span>
+                    </div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Qualidade</div>
+                    <div class="info-value" id="quality">-</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Buffer</div>
+                    <div class="info-value" id="buffer">0s</div>
+                </div>
+                <div class="info-item">
+                    <div class="info-label">Latência</div>
+                    <div class="info-value" id="latency">-</div>
+                </div>
+            </div>
+
+            <div class="error" id="error"></div>
+        </div>
+    </div>
+
+    <script>
+        let hls = null;
+        const video = document.getElementById('video');
+        const statusEl = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const qualityEl = document.getElementById('quality');
+        const bufferEl = document.getElementById('buffer');
+        const latencyEl = document.getElementById('latency');
+        const errorEl = document.getElementById('error');
+
+        function setPreset(name) {
+            const presets = {
+                'stream1': 'http://localhost/hls/stream_d7ebdaac-9d09-470f-a208-34ce2e4f9689/index.m3u8',
+                'stream2': 'http://localhost/hls/stream_7cca767f-c25d-478a-9534-2a04f976b2a8/index.m3u8',
+                'stream3': 'http://localhost/hls/stream_59227f16-4e81-4348-9916-9e2a96329acb/index.m3u8'
+            };
+            document.getElementById('streamUrl').value = presets[name] || '';
+        }
+
+        function updateStatus(status, text) {
+            statusEl.className = 'status ' + status;
+            statusText.textContent = text;
+        }
+
+        function showError(message) {
+            errorEl.textContent = '❌ ' + message;
+            errorEl.style.display = 'block';
+            setTimeout(() => {
+                errorEl.style.display = 'none';
+            }, 5000);
+        }
+
+        function updateStats() {
+            if (!hls) return;
+
+            // Buffer
+            const buffered = video.buffered;
+            if (buffered.length > 0) {
+                const bufferEnd = buffered.end(buffered.length - 1);
+                const bufferLength = bufferEnd - video.currentTime;
+                bufferEl.textContent = bufferLength.toFixed(2) + 's';
+            }
+
+            // Quality
+            if (hls.levels && hls.currentLevel >= 0) {
+                const level = hls.levels[hls.currentLevel];
+                qualityEl.textContent = `${level.width}x${level.height} @ ${(level.bitrate / 1000000).toFixed(2)}Mbps`;
+            }
+
+            // Latency (estimativa baseada no buffer)
+            if (buffered.length > 0) {
+                const latency = video.currentTime - buffered.start(0);
+                latencyEl.textContent = latency.toFixed(2) + 's';
+            }
+        }
+
+        function loadStream() {
+            const url = document.getElementById('streamUrl').value.trim();
+            
+            if (!url) {
+                showError('Digite uma URL válida');
+                return;
+            }
+
+            // Cleanup
+            if (hls) {
+                hls.destroy();
+                hls = null;
+            }
+
+            updateStatus('loading', 'Conectando...');
+            errorEl.style.display = 'none';
+
+            if (Hls.isSupported()) {
+                hls = new Hls({
+                    enableWorker: true,
+                    lowLatencyMode: true,
+                    backBufferLength: 90,
+                    maxBufferLength: 10,
+                    maxMaxBufferLength: 20,
+                    maxBufferSize: 60 * 1000 * 1000,
+                    maxBufferHole: 0.5,
+                    highBufferWatchdogPeriod: 2,
+                    nudgeOffset: 0.1,
+                    nudgeMaxRetry: 3,
+                    maxFragLookUpTolerance: 0.25,
+                    liveSyncDurationCount: 3,
+                    liveMaxLatencyDurationCount: 10,
+                    liveDurationInfinity: true,
+                    manifestLoadingTimeOut: 10000,
+                    manifestLoadingMaxRetry: 3,
+                    manifestLoadingRetryDelay: 1000,
+                    levelLoadingTimeOut: 10000,
+                    levelLoadingMaxRetry: 4,
+                    levelLoadingRetryDelay: 1000,
+                    fragLoadingTimeOut: 20000,
+                    fragLoadingMaxRetry: 6,
+                    fragLoadingRetryDelay: 1000
+                });
+
+                hls.loadSource(url);
+                hls.attachMedia(video);
+
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    updateStatus('connected', 'Conectado');
+                    video.play().catch(e => {
+                        console.warn('Autoplay bloqueado:', e);
+                    });
+                });
+
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    console.error('HLS Error:', data);
+                    
+                    if (data.fatal) {
+                        updateStatus('disconnected', 'Erro Fatal');
+                        
+                        switch(data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR:
+                                showError('Erro de rede: ' + (data.details || 'Falha ao carregar stream'));
+                                hls.startLoad();
+                                break;
+                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                showError('Erro de mídia: ' + (data.details || 'Falha ao decodificar'));
+                                hls.recoverMediaError();
+                                break;
+                            default:
+                                showError('Erro fatal: ' + data.type);
+                                hls.destroy();
+                                hls = null;
+                                break;
+                        }
+                    }
+                });
+
+                hls.on(Hls.Events.LEVEL_SWITCHED, (event, data) => {
+                    console.log('Level switched to:', data.level);
+                });
+
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                // Safari native HLS
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => {
+                    updateStatus('connected', 'Conectado');
+                    video.play();
+                });
+                video.addEventListener('error', (e) => {
+                    updateStatus('disconnected', 'Erro');
+                    showError('Erro ao carregar stream');
+                });
+            } else {
+                showError('HLS não suportado neste navegador');
+                updateStatus('disconnected', 'Não Suportado');
+            }
+        }
+
+        // Update stats every second
+        setInterval(updateStats, 1000);
+
+        // Video events
+        video.addEventListener('playing', () => {
+            updateStatus('connected', 'Reproduzindo');
+        });
+
+        video.addEventListener('waiting', () => {
+            updateStatus('loading', 'Buffering...');
+        });
+
+        video.addEventListener('pause', () => {
+            updateStatus('disconnected', 'Pausado');
+        });
+    </script>
+</body>
+</html>

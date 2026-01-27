@@ -28,3 +28,10 @@ class DjangoCameraRepository(CameraRepository):
     
     def count_by_city(self, city_id: UUID) -> int:
         return Camera.objects.filter(city_id=city_id).count()
+    
+    def update_recording_status(self, camera_id: UUID, city_id: UUID, enabled: bool) -> bool:
+        try:
+            updated = Camera.objects.filter(id=camera_id, city_id=city_id).update(recording_enabled=enabled)
+            return updated > 0
+        except Exception:
+            return False

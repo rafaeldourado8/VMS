@@ -198,7 +198,7 @@ pathDefaults:
   fallback:
   useAbsoluteTimestamp: no
 
-  record: no  # DESABILITA GRAVAÇÃO PARA ECONOMIZAR CPU
+  record: yes  # HABILITA GRAVAÇÃO GLOBAL
   recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
   recordFormat: fmp4
   recordPartDuration: 4s

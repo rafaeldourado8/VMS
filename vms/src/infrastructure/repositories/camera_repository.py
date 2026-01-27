@@ -28,3 +28,8 @@ class CameraRepository(ABC):
     def count_by_city(self, city_id: UUID) -> int:
         """Conta câmeras de uma cidade."""
         pass
+    
+    @abstractmethod
+    def update_recording_status(self, camera_id: UUID, city_id: UUID, enabled: bool) -> bool:
+        """Atualiza status de gravação da câmera."""
+        pass
