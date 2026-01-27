@@ -1,0 +1,47 @@
+services:
+  nginx:
+    image: nginx:alpine
+    container_name: vms_nginx_mvp
+    ports:
+      - "80:80"
+    volumes:
+      - ./src/infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./src/frontend:/usr/share/nginx/html:ro
+    depends_on:
+      - mediamtx
+    networks:
+      - vms_network
+
+  mediamtx:
+    image: bluenviron/mediamtx:latest
+    container_name: vms_mediamtx_mvp
+    ports:
+      - "8554:8554"
+      - "8888:8888"
+      - "9997:9997"
+    volumes:
+      - ./src/infrastructure/servers/mediamtx.yml:/mediamtx.yml:ro
+    networks:
+      - vms_network
+
+  ffmpeg_test:
+    image: linuxserver/ffmpeg:latest
+    container_name: vms_ffmpeg_test
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        sleep 5
+        curl -X POST http://mediamtx:9997/v3/config/paths/add/camera_rtsp -H "Content-Type: application/json" -d '{"source":"rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0","sourceOnDemand":false}'
+        curl -X POST http://mediamtx:9997/v3/config/paths/add/camera_rtmp -H "Content-Type: application/json" -d '{"source":"rtmp://inst-t4ntf-srs-rtmp-intelbras.camerite.services:1935/record/7KOM2715717FV.stream","sourceOnDemand":false}'
+        curl -X POST http://mediamtx:9997/v3/config/paths/add/camera_ip -H "Content-Type: application/json" -d '{"source":"rtsp://138.255.75.231:503","sourceOnDemand":false}'
+        tail -f /dev/null
+    depends_on:
+      - mediamtx
+    networks:
+      - vms_network
+    restart: unless-stopped
+
+networks:
+  vms_network:
+    driver: bridge
