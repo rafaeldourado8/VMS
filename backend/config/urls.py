@@ -32,18 +32,8 @@ urlpatterns = [
     path("api/", include("apps.tenants.urls")),
     path("api/", include("apps.usuarios.urls")),
     path("api/", include("apps.cameras.urls")),
-    path("api/", include("apps.deteccoes.urls")),
     path("api/", include("apps.clips.urls")),
     path("api/", include("apps.dashboard.urls")),
-    # path("api/", include("apps.analytics.urls")),  # TODO: Verificar implementação
-    # path("api/", include("apps.configuracoes.urls")),  # TODO: Verificar implementação
-    # path("api/", include("apps.suporte.urls")),  # TODO: Verificar implementação
-    # path("api/", include("apps.thumbnails.urls")),  # TODO: Verificar implementação
-
-    # Rotas temporárias de AI (até o serviço AI estar pronto)
-    path("api/ai/cameras/<int:pk>/start/", CameraViewSet.as_view({'post': 'start_ai'}), name="ai_start"),
-    path("api/ai/cameras/<int:pk>/stop/", CameraViewSet.as_view({'post': 'stop_ai'}), name="ai_stop"),
-    path("api/ai/cameras/<int:pk>/status/", CameraViewSet.as_view({'get': 'ai_status'}), name="ai_status"),
 ]
 
 # Servir arquivos de media em desenvolvimento

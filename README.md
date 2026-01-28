@@ -37,6 +37,11 @@ Prometheus: http://localhost:9090
 - **[⚡ Performance](docs/performance/PERFORMANCE.md)** - Otimizações implementadas
 - **[💰 Cost Optimization](docs/cost-optimization/COST_OPTIMIZATION.md)** - Economia de $531k/mês
 
+### DVR-Lite (Branch Alternativa)
+- **[📹 DVR-Lite Documentation](docs/dvr-lite/README.md)** - Versão sem IA, focada em gravação
+- **[✅ DVR-Lite Checklist](docs/dvr-lite/CHECKLIST.md)** - Roadmap completo (4-6 semanas)
+- **[📊 DVR-Lite Overview](docs/dvr-lite/OVERVIEW.md)** - Visão geral do projeto
+
 ### Por Componente
 - **[🎥 Streaming](docs/streaming/STREAMING.md)** - MediaMTX + HLS + Thumbnails
 - **[🤖 LPR Detection](docs/detection/LPR.md)** - YOLO + OCR

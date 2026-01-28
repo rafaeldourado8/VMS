@@ -50,22 +50,6 @@ class CameraViewSet(viewsets.ModelViewSet):
         from apps.cameras.models import Camera
         camera_model = Camera.objects.get(id=camera.id)
         
-        # Ativa IA automaticamente se for RTSP
-        if camera_model.stream_url and camera_model.stream_url.lower().startswith('rtsp://'):
-            camera_model.ai_enabled = True
-            camera_model.save()
-            
-            # Notifica LPR service
-            import requests
-            try:
-                requests.post(
-                    'http://lpr_detection:5000/camera/start',
-                    json={'camera_id': camera_model.id, 'rtsp_url': camera_model.stream_url},
-                    timeout=2
-                )
-            except:
-                pass
-        
         output = self.get_serializer(camera_model)
         return Response(output.data, status=status.HTTP_201_CREATED)
 
@@ -137,36 +121,6 @@ class CameraViewSet(viewsets.ModelViewSet):
                 setattr(camera, key, request.data[key])
         camera.save()
         return Response({"success": True, "message": "Configurações atualizadas"})
-
-    @action(detail=True, methods=['post'], url_path='toggle_ai')
-    def toggle_ai(self, request, pk=None):
-        camera = self.get_object()
-        camera.ai_enabled = not getattr(camera, 'ai_enabled', False)
-        camera.save()
-        return Response({"success": True, "ai_enabled": camera.ai_enabled, "camera_id": camera.id})
-
-    @action(detail=True, methods=['post'], url_path='start')
-    def start_ai(self, request, pk=None):
-        camera = self.get_object()
-        camera.ai_enabled = True
-        camera.save()
-        return Response({"success": True, "ai_enabled": True, "camera_id": camera.id})
-
-    @action(detail=True, methods=['post'], url_path='stop')
-    def stop_ai(self, request, pk=None):
-        camera = self.get_object()
-        camera.ai_enabled = False
-        camera.save()
-        return Response({"success": True, "ai_enabled": False, "camera_id": camera.id})
-
-    @action(detail=True, methods=['get'], url_path='status')
-    def ai_status(self, request, pk=None):
-        camera = self.get_object()
-        return Response({
-            "camera_id": camera.id,
-            "ai_enabled": getattr(camera, 'ai_enabled', False),
-            "has_roi": bool(camera.roi_areas)
-        })
 
     @action(detail=True, methods=['get'], url_path='stream')
     def get_stream(self, request, pk=None):

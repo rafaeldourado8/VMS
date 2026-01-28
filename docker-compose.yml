@@ -2,52 +2,6 @@ version: '3.8'
 
 services:
   # ============================================
-  # AI DETECTION SERVICE (WebRTC + Pipeline)
-  # ============================================
-  ai_detection:
-    build:
-      context: ./services/ai_detection
-      dockerfile: Dockerfile
-    image: gtvision/ai_detection:latest
-    container_name: gtvision_ai_detection
-    command: python main.py
-    environment:
-      MEDIAMTX_URL: http://mediamtx:9997
-      MEDIAMTX_WEBRTC_URL: http://mediamtx:8889
-      USE_WEBRTC: "true"
-      AI_FPS: 3
-      MOTION_THRESHOLD: 0.03
-      REDIS_HOST: redis_cache
-      REDIS_PORT: 6379
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-      BACKEND_URL: http://backend:8000
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-    ports:
-      - "5000:5000"
-    volumes:
-      - ./services/ai_detection/models:/app/models
-      - ./detections:/app/detections
-    depends_on:
-      mediamtx:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
-
-  # ============================================
   # STREAMING SERVICE (FastAPI)
   # ============================================
   streaming:
@@ -139,36 +93,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-  # ============================================
-  # DETECTION CONSUMER (Lê fila do RabbitMQ)
-  # ============================================
-  detection_consumer:
-    build:
-      context: .
-      # Usa o mesmo Dockerfile do backend pois precisa do Django ORM
-      dockerfile: ./backend/deploy/Dockerfile
-    container_name: gtvision_detection_consumer
-    # Comando específico para rodar o script consumidor
-    command: python backend/start_consumer.py
-    env_file: .env
-    environment:
-      DB_HOST: postgres_db
-      DB_PORT: 5432
-      RABBITMQ_HOST: rabbitmq
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: ${RABBITMQ_USER}
-      RABBITMQ_PASS: ${RABBITMQ_PASS}
-      # Precisa das configurações do Django para salvar no banco
-      DJANGO_SETTINGS_MODULE: config.settings
-    depends_on:
-      backend:
-        condition: service_started
-      rabbitmq:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
 
   # ============================================
   # FRONTEND (Vite / React)
