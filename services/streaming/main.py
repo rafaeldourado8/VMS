@@ -1,10 +1,3 @@
-"""
-GT-Vision Streaming Service - VERSÃO CORRIGIDA
-=====================================================
-Serviço de alta performance para streaming de vídeo via HLS e WebSocket.
-CORREÇÃO: recordPath deve conter %path literal (não interpolado)
-"""
-
 import asyncio
 import logging
 import time
@@ -13,7 +6,7 @@ from datetime import datetime
 from typing import Optional, List, Dict, Any
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, HTTPException, Path, Response
+from fastapi import FastAPI, WebSocket, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -24,12 +17,10 @@ import redis.asyncio as aioredis
 # ============================================
 
 class Settings(BaseSettings):
-    
     # MediaMTX
     mediamtx_api_url: str = "http://mediamtx:9997"
     mediamtx_hls_url: str = "http://mediamtx:8888"
     mediamtx_webrtc_url: str = "http://mediamtx:8889"
-    mediamtx_rtsp_url: str = "rtsp://mediamtx:8554"
     mediamtx_api_user: str = "mediamtx_api_user"
     mediamtx_api_pass: str = "GtV!sionMed1aMTX$2025"
     
@@ -39,7 +30,6 @@ class Settings(BaseSettings):
     # Performance
     max_connections_per_stream: int = 100
     health_check_interval: int = 15
-    hls_segment_cache_ttl: int = 5
     
     # Logging
     log_level: str = "INFO"
@@ -61,7 +51,6 @@ logger = logging.getLogger("streaming")
 # ============================================
 
 class StreamInfo(BaseModel):
-    """Informações de um stream mapeadas da API v3."""
     path: str
     source: Optional[Dict[str, Any]] = None
     ready: bool = False
@@ -69,22 +58,9 @@ class StreamInfo(BaseModel):
     bytes_received: int = 0
     bytes_sent: int = 0
 
-class CameraStream(BaseModel):
-    """Representação de uma câmera para o frontend."""
-    camera_id: int
-    name: str
-    stream_path: str
-    rtsp_url: str
-    hls_url: Optional[str] = None
-    webrtc_url: Optional[str] = None
-    status: str = "unknown"
-    last_check: Optional[datetime] = None
-
 class StreamStats(BaseModel):
-    """Estatísticas globais."""
     active_streams: int = 0
     total_viewers: int = 0
-    total_bytes_sent: int = 0
     uptime_seconds: float = 0
     streams: List[StreamInfo] = Field(default_factory=list)
 
@@ -92,6 +68,8 @@ class ProvisionRequest(BaseModel):
     camera_id: int
     rtsp_url: str
     name: str
+    # CORREÇÃO CRÍTICA 1: Adicionado campo 'enabled' para compatibilidade com Django
+    enabled: bool = True 
     on_demand: bool = True
 
 class ProvisionResponse(BaseModel):
@@ -99,7 +77,6 @@ class ProvisionResponse(BaseModel):
     camera_id: int
     stream_path: str
     hls_url: str
-    webrtc_url: str
     message: str = ""
 
 # ============================================
@@ -107,7 +84,6 @@ class ProvisionResponse(BaseModel):
 # ============================================
 
 class ConnectionManager:
-    """Gerencia WebSockets para o dashboard e eventos."""
     def __init__(self):
         self.active_connections: Dict[str, set[WebSocket]] = {}
         self._lock = asyncio.Lock()
@@ -142,8 +118,7 @@ class StreamingService:
         self.connections = ConnectionManager()
         self.redis: Optional[aioredis.Redis] = None
         self.start_time = time.time()
-        self._client = httpx.AsyncClient(timeout=10.0, auth=self.auth)
-        self.drift_monitor = None
+        self._client = httpx.AsyncClient(timeout=10.0)
 
     async def initialize(self):
         try:
@@ -152,18 +127,6 @@ class StreamingService:
             logger.info("Conectado ao Redis")
         except Exception as e:
             logger.warning(f"Redis indisponível: {e}")
-        
-        # Inicia monitor de drift (opcional)
-        try:
-            from .drift_monitor import start_drift_monitor
-            self.drift_monitor = await start_drift_monitor(
-                settings.mediamtx_api_url, 
-                self.auth
-            )
-            logger.info("🔍 Monitor de drift iniciado")
-        except ImportError:
-            logger.warning("Monitor de drift não disponível")
-        
         asyncio.create_task(self._periodic_health_check())
 
     async def _periodic_health_check(self):
@@ -177,103 +140,93 @@ class StreamingService:
                 logger.error(f"Erro no loop de stats: {e}")
 
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
-        """Adiciona câmara ao MediaMTX com configurações otimizadas para estabilidade."""
         stream_path = f"cam_{request.camera_id}"
         
-        # Configurações otimizadas para evitar drift
-        record_path = "/recordings/%path/%Y-%m-%d_%H-%M-%S-%f"
-        
+        # CORREÇÃO CRÍTICA 2: Configuração Básica para MediaMTX
         config = {
             "source": request.rtsp_url,
-            "sourceOnDemand": True,
+            "sourceOnDemand": False,  # LPR precisa de stream sempre ativo
             "sourceOnDemandStartTimeout": "10s",
-            "sourceOnDemandCloseAfter": "15s",
-            "rtspTransport": "tcp",
-            "rtspUDPReadBufferSize": 4194304,  # 4MB
-            "useAbsoluteTimestamp": False,
-            "record": False,
-            "maxReaders": 4
+            "sourceOnDemandCloseAfter": "30s",
+            "rtspTransport": "tcp"
         }
         
-        logger.info(f"Provisionando {stream_path} com config: {config}")
+        logger.info(f"Provisionando {stream_path}")
         
         try:
-            # Adiciona ou atualiza via API v3
+            # Tenta criar (POST)
             resp = await self._client.post(
                 f"{settings.mediamtx_api_url}/v3/config/paths/add/{stream_path}", 
-                json=config
+                json=config,
+                auth=self.auth
             )
             
+            # Se conflito (409 - já existe), atualiza (PATCH)
             if resp.status_code == 409:
-                # Path já existe, atualiza
-                logger.info(f"Path {stream_path} já existe, atualizando...")
                 resp = await self._client.patch(
                     f"{settings.mediamtx_api_url}/v3/config/paths/patch/{stream_path}", 
-                    json=config
+                    json=config,
+                    auth=self.auth
                 )
             
             if resp.status_code in [200, 201, 204]:
-                logger.info(f"✅ Path {stream_path} provisionado com sucesso")
+                # Notifica LPR via RabbitMQ (apenas RTSP)
+                if request.rtsp_url.startswith('rtsp://'):
+                    try:
+                        import aio_pika
+                        import json
+                        
+                        connection = await aio_pika.connect_robust(
+                            "amqp://gtvision_user:your-rabbitmq-password-here@rabbitmq:5672/"
+                        )
+                        async with connection:
+                            channel = await connection.channel()
+                            await channel.default_exchange.publish(
+                                aio_pika.Message(body=json.dumps({
+                                    "camera_id": request.camera_id,
+                                    "stream_path": stream_path
+                                }).encode()),
+                                routing_key="lpr_queue"
+                            )
+                        logger.info(f"🤖 LPR notificado via RabbitMQ para câmera {request.camera_id}")
+                    except Exception as e:
+                        logger.error(f"Erro ao publicar no RabbitMQ: {e}")
+                
                 return ProvisionResponse(
                     success=True, 
                     camera_id=request.camera_id, 
                     stream_path=stream_path,
                     hls_url=f"/hls/{stream_path}/index.m3u8",
-                    webrtc_url=f"{settings.mediamtx_webrtc_url}/{stream_path}",
                     message="Provisionamento OK"
                 )
             else:
-                error_msg = f"HTTP {resp.status_code}: {resp.text}"
-                logger.error(f"❌ Falha no provisionamento: {error_msg}")
-                return ProvisionResponse(
-                    success=False, 
-                    camera_id=request.camera_id, 
-                    stream_path="", 
-                    hls_url="", 
-                    webrtc_url="", 
-                    message=error_msg
-                )
+                raise Exception(f"MediaMTX Error {resp.status_code}: {resp.text}")
                 
         except Exception as e:
-            logger.error(f"❌ Erro ao provisionar {stream_path}: {str(e)}")
+            logger.error(f"Erro ao provisionar {stream_path}: {str(e)}")
             return ProvisionResponse(
                 success=False, 
                 camera_id=request.camera_id, 
                 stream_path="", 
                 hls_url="", 
-                webrtc_url="", 
                 message=str(e)
             )
 
-    async def remove_camera(self, camera_id: int) -> bool:
-        """Remove câmera do MediaMTX."""
-        stream_path = f"cam_{camera_id}"
-        try:
-            resp = await self._client.delete(
-                f"{settings.mediamtx_api_url}/v3/config/paths/delete/{stream_path}"
-            )
-            if resp.status_code in [200, 404]:
-                logger.info(f"🗑️ Path {stream_path} removido")
-                return True
-            return False
-        except Exception as e:
-            logger.error(f"Erro ao remover {stream_path}: {e}")
-            return False
-
     async def list_streams(self) -> List[StreamInfo]:
-        """Mapeia os campos da API v3 para o modelo interno."""
         try:
-            resp = await self._client.get(f"{settings.mediamtx_api_url}/v3/paths/list")
+            resp = await self._client.get(
+                f"{settings.mediamtx_api_url}/v3/paths/list", 
+                auth=self.auth
+            )
             items = resp.json().get("items", [])
             return [
                 StreamInfo(
                     path=item.get("name", ""),
-                    source=item.get("source"),
                     ready=item.get("ready", False),
                     readers=len(item.get("readers", [])),
                     bytes_received=item.get("bytesReceived", 0),
                     bytes_sent=item.get("bytesSent", 0)
-                ) for item in items
+                ) for item in items if item.get("name", "").startswith("cam_")
             ]
         except Exception as e:
             logger.error(f"Erro ao listar: {e}")
@@ -284,17 +237,16 @@ class StreamingService:
         return StreamStats(
             active_streams=sum(1 for s in streams if s.ready),
             total_viewers=self.connections.get_total_viewers(),
-            total_bytes_sent=sum(s.bytes_sent for s in streams),
-            uptime_seconds=time.time() - self.start_time,
-            streams=streams
+            streams=streams,
+            uptime_seconds=time.time() - self.start_time
         )
-
+    
     async def get_camera_status(self, camera_id: int) -> dict:
-        """Retorna status de uma câmera específica."""
         stream_path = f"cam_{camera_id}"
         try:
             resp = await self._client.get(
-                f"{settings.mediamtx_api_url}/v3/paths/get/{stream_path}"
+                f"{settings.mediamtx_api_url}/v3/paths/get/{stream_path}",
+                auth=self.auth
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -308,11 +260,10 @@ class StreamingService:
         except Exception as e:
             return {"status": "error", "error": str(e)}
 
-
 streaming_service = StreamingService()
 
 # ============================================
-# FASTAPI APP
+# APP
 # ============================================
 
 @asynccontextmanager
@@ -328,38 +279,41 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 async def health():
     return {"status": "ok", "timestamp": datetime.utcnow()}
 
-@app.get("/stats", response_model=StreamStats)
-async def get_stats():
-    return await streaming_service.get_stats()
-
 @app.post("/cameras/provision", response_model=ProvisionResponse)
 async def provision(request: ProvisionRequest):
     return await streaming_service.provision_camera(request)
 
 @app.delete("/cameras/{camera_id}")
 async def remove_camera(camera_id: int):
-    success = await streaming_service.remove_camera(camera_id)
-    return {"success": success}
+    # Lógica de remoção simplificada
+    stream_path = f"cam_{camera_id}"
+    try:
+        await streaming_service._client.delete(
+            f"{settings.mediamtx_api_url}/v3/config/paths/delete/{stream_path}",
+            auth=streaming_service.auth
+        )
+        return {"success": True}
+    except:
+        return {"success": False}
 
 @app.get("/cameras/{camera_id}/status")
 async def camera_status(camera_id: int):
     return await streaming_service.get_camera_status(camera_id)
 
-@app.get("/hls/{stream_path}/index.m3u8")
-async def get_hls(stream_path: str):
-    """Proxy para playlist HLS."""
+@app.get("/stats", response_model=StreamStats)
+async def get_stats():
+    return await streaming_service.get_stats()
+
+# CORREÇÃO CRÍTICA 3: Proxy HLS Genérico (arquivos .ts e .m3u8)
+@app.get("/hls/{stream_path}/{file_name}")
+async def proxy_hls(stream_path: str, file_name: str):
+    """Proxy HLS para evitar problemas de CORS e expor porta interna 8888."""
+    url = f"{settings.mediamtx_hls_url}/{stream_path}/{file_name}"
     try:
-        resp = await streaming_service._client.get(
-            f"{settings.mediamtx_hls_url}/{stream_path}/index.m3u8"
-        )
+        resp = await streaming_service._client.get(url)
         if resp.status_code == 200:
-            return Response(content=resp.content, media_type="application/vnd.apple.mpegurl")
-    except Exception as e:
-        logger.error(f"Erro ao obter HLS: {e}")
-    raise HTTPException(status_code=404, detail="Stream não encontrado")
-
-@app.get("/streams")
-async def list_streams():
-    """Lista todos os streams ativos."""
-    return await streaming_service.list_streams()
-
+            media_type = "application/vnd.apple.mpegurl" if file_name.endswith(".m3u8") else "video/MP2T"
+            return Response(content=resp.content, media_type=media_type)
+        raise HTTPException(status_code=404, detail="File not found")
+    except Exception:
+        raise HTTPException(status_code=502, detail="MediaMTX indisponível")

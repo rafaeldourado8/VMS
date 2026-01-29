@@ -19,9 +19,9 @@ class CameraService:
     """Lógica de negócio e integração HTTP com o Streaming Service."""
     
     def __init__(self):
-        # URL do serviço FastAPI de streaming definida no config/settings.py
         self.streaming_url = getattr(settings, 'STREAMING_SERVICE_URL', 'http://streaming:8001')
-        self.timeout = 15.0  # Timeout aumentado para provisionamento
+        self.timeout = 15.0
+        self.rabbitmq_url = getattr(settings, 'CELERY_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672/')
 
     def create_camera(self, data: CameraDTO) -> Camera:
         """
@@ -116,7 +116,7 @@ class CameraService:
             "camera_id": camera.id,
             "rtsp_url": camera.stream_url,
             "name": camera.name,
-            "on_demand": True  # Só conecta quando há viewers
+            "on_demand": True
         }
         
         try:
@@ -132,6 +132,11 @@ class CameraService:
                 data = response.json()
                 if data.get("success"):
                     logger.info(f"📹 Stream provisionado: {data.get('stream_path')} -> {data.get('hls_url')}")
+                    
+                    # Se for RTSP, inicia LPR automaticamente
+                    if camera.stream_url.startswith('rtsp://'):
+                        self._start_lpr_processing(camera)
+                    
                     return True
                 else:
                     logger.error(f"Falha no provisionamento: {data.get('message')}")
@@ -198,3 +203,23 @@ class CameraService:
                 
         except Exception as e:
             return {"status": "error", "error": str(e)}
+
+    def _start_ai_processing(self, camera: Camera) -> bool:
+        """Inicia processamento LPR via Redis."""
+        try:
+            import redis
+            import json
+            
+            r = redis.Redis.from_url('redis://redis_cache:6379/2', socket_connect_timeout=2)
+            payload = {
+                "camera_id": camera.id,
+                "input_stream": f"rtsp://mediamtx:8554/cam_{camera.id}"
+            }
+            
+            r.publish('camera:provisioned', json.dumps(payload))
+            logger.info(f"🤖 LPR iniciado para câmera {camera.id}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Erro ao iniciar LPR: {str(e)}")
+            return False

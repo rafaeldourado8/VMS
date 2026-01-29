@@ -23,7 +23,7 @@ class DashboardService:
         # 2. Métricas de Detecções (Últimas 24h)
         detections_qs = Deteccao.objects.filter(
             camera__owner=user, 
-            timestamp__gte=last_24h
+            data_hora__gte=last_24h
         )
         total_det_24h = detections_qs.count()
 
@@ -36,13 +36,13 @@ class DashboardService:
         detections_by_type = {item["vehicle_type"]: item["total"] for item in type_stats}
 
         # 4. Atividade Recente (Últimas 5 detecções)
-        recent = detections_qs.select_related("camera").order_by("-timestamp")[:5]
+        recent = detections_qs.select_related("camera").order_by("-data_hora")[:5]
         recent_activity = [
             {
                 "id": d.id,
                 "camera": d.camera.name,
-                "plate": d.plate,
-                "time": d.timestamp,
+                "plate": d.placa,
+                "time": d.data_hora,
                 "type": d.vehicle_type
             }
             for d in recent

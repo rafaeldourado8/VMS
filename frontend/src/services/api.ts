@@ -138,12 +138,12 @@ export const detectionService = {
     plate?: string
     page?: number
   }): Promise<PaginatedResponse<Detection>> {
-    const { data } = await api.get<PaginatedResponse<Detection>>('/detections/', { params })
+    const { data } = await api.get<PaginatedResponse<Detection>>('/deteccoes/list/', { params })
     return data
   },
 
   async get(id: number): Promise<Detection> {
-    const { data } = await api.get<Detection>(`/detections/${id}/`)
+    const { data } = await api.get<Detection>(`/deteccoes/${id}/`)
     return data
   },
 }

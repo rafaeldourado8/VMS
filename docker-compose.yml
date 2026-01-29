@@ -226,6 +226,8 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
       RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
     networks:
       - gtvision_network
     healthcheck:
@@ -265,62 +267,74 @@ services:
       start_period: 10s
 
   # ============================================
-  # SERVIÇO DE IA - WORKER 1
+  # SERVIÇO LPR (COM GPU)
   # ============================================
-  ai_worker_1:
+  lpr_service:
     build:
-      context: ./services/ai_detection
+      context: ./services/lpr
       dockerfile: Dockerfile
-    container_name: vms_ai_worker_1
+    container_name: vms_lpr_service
+    command: sh -c "pip install pika && python lpr_manager.py"
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./services/lpr:/app
+      - ./snapshots:/app/snapshots
+      - ./services/lpr/weights:/app/weights:ro
+      - ./services/lpr/configs:/app/configs:ro
+      - ./1280_720_60fps.mp4:/app/test_video.mp4:ro
     deploy:
       resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      WORKER_ID: 1
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      REDIS_URL: redis://redis_cache:6379/2
     depends_on:
-      rabbitmq:
+      mediamtx:
         condition: service_healthy
       redis_cache:
         condition: service_healthy
-      postgres_db:
+      streaming:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
 
+
   # ============================================
-  # SERVIÇO DE IA - WORKER 2
+  # SERVIÇO DE IA - WORKER 2 (DESABILITADO)
   # ============================================
-  ai_worker_2:
-    build:
-      context: ./services/ai_detection
-      dockerfile: Dockerfile
-    container_name: vms_ai_worker_2
-    deploy:
-      resources:
-        limits:
-          cpus: '1.0'
-          memory: 2G
-    environment:
-      RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
-      REDIS_URL: redis://redis_cache:6379/3
-      DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
-      WORKER_ID: 2
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
+  # ai_worker_2:
+  #   build:
+  #     context: ./services/ai_detection
+  #     dockerfile: Dockerfile
+  #   container_name: vms_ai_worker_2
+  #   command: uvicorn main:app --host 0.0.0.0 --port 8080
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '1.0'
+  #         memory: 2G
+  #   environment:
+  #     RABBITMQ_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672/
+  #     REDIS_URL: redis://redis_cache:6379/3
+  #     DB_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres_db/${POSTGRES_DB}
+  #     WORKER_ID: 2
+  #   depends_on:
+  #     rabbitmq:
+  #       condition: service_healthy
+  #     redis_cache:
+  #       condition: service_healthy
+  #     postgres_db:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
 
 # ============================================
 # VOLUMES
@@ -330,6 +344,7 @@ volumes:
   backend_static:
   backend_media:
   mediamtx_recordings:
+  rabbitmq_data:
 
 # ============================================
 # NETWORK

@@ -192,8 +192,8 @@ pathDefaults:
   sourceFingerprint:
   sourceOnDemand: yes
   sourceOnDemandStartTimeout: 10s
-  sourceOnDemandCloseAfter: 15s
-  maxReaders: 8
+  sourceOnDemandCloseAfter: 30s
+  maxReaders: 12
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: no
@@ -252,9 +252,7 @@ pathDefaults:
   rpiCameraMJPEGQuality: 60
 
 ###############################################
-# Paths - VAZIO!
-# Câmeras são adicionadas via API pelo Streaming Service
-# quando o usuário cadastra no frontend
+# Paths - Paths dinâmicos para LPR
 ###############################################
 
 paths:

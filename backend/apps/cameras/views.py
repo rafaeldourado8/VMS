@@ -7,6 +7,7 @@ Endpoints REST para gestão de câmeras.
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from .models import Camera
 from .serializers import CameraSerializer
 from .services import CameraService
 from .schemas import CameraDTO
@@ -25,6 +26,7 @@ class CameraViewSet(viewsets.ModelViewSet):
     - POST   /api/cameras/reprovision/ - Reprovisiona todas as câmeras no MediaMTX
     - GET    /api/cameras/{id}/stream_status/ - Status do stream
     """
+    queryset = Camera.objects.all()
     serializer_class = CameraSerializer
     permission_classes = [permissions.IsAuthenticated]
     service = CameraService()
@@ -36,6 +38,7 @@ class CameraViewSet(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         """
         Cria câmera e provisiona automaticamente no MediaMTX.
+        Nome será: username_gtvision_nome_fornecido
         
         Request Body:
         {
@@ -49,9 +52,13 @@ class CameraViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
+        # Formatar nome: email_gtvision_nome
+        original_name = serializer.validated_data['name']
+        formatted_name = f"{request.user.email.split('@')[0]}_gtvision_{original_name}"
+        
         camera_dto = CameraDTO(
             owner_id=request.user.id,
-            **serializer.validated_data
+            **{**serializer.validated_data, 'name': formatted_name}
         )
         
         camera = self.service.create_camera(camera_dto)
@@ -129,4 +136,31 @@ class CameraViewSet(viewsets.ModelViewSet):
         return Response({
             "success": True,
             "message": "Configurações de detecção atualizadas"
+        })
+
+    @action(detail=True, methods=['post'])
+    def start_ai(self, request, pk=None):
+        """Inicia detecção de IA para a câmera"""
+        camera = self.get_object()
+        success = self.service._start_ai_processing(camera)
+        
+        if success:
+            return Response({"success": True, "message": "IA iniciada"})
+        return Response({"success": False, "message": "Falha ao iniciar IA"}, status=500)
+
+    @action(detail=False, methods=['post'])
+    def start_all_ai(self, request):
+        """Inicia IA para todas as câmeras do usuário"""
+        cameras = self.get_queryset()
+        results = {"success": 0, "failed": 0, "total": cameras.count()}
+        
+        for camera in cameras:
+            if self.service._start_ai_processing(camera):
+                results["success"] += 1
+            else:
+                results["failed"] += 1
+        
+        return Response({
+            **results,
+            "message": f"{results['success']}/{results['total']} câmeras com IA iniciada"
         })

@@ -9,6 +9,7 @@ import { DetectionsPage } from '@/pages/DetectionsPage'
 import { ClipsPage } from '@/pages/ClipsPage'
 import { MosaicosPage } from '@/pages/MosaicosPage'
 import { SettingsPage } from '@/pages/SettingsPage'
+import LiveDetectionsPage from '@/pages/LiveDetectionsPage'
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -62,6 +63,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/cameras" element={<CamerasPage />} />
           <Route path="/detections" element={<DetectionsPage />} />
+          <Route path="/live" element={<LiveDetectionsPage />} />
           <Route path="/clips" element={<ClipsPage />} />
           <Route path="/mosaicos" element={<MosaicosPage />} />
           <Route path="/settings" element={<SettingsPage />} />
