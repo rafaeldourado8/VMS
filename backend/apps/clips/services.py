@@ -1,40 +1,37 @@
-import os
-import subprocess
+import httpx
 from datetime import datetime
 from django.conf import settings
 from django.shortcuts import get_object_or_404
 from apps.cameras.models import Camera
 from .models import Clip
 
+CLIPS_SERVICE_URL = "http://clips:8004"
+
 class ClipService:
     @staticmethod
-    def create_clip(user, camera_id, name, start_time, end_time):
-        """Cria um clip de vídeo a partir de uma gravação"""
+    async def create_clip(user, camera_id, name, start_time, end_time, quality="medium"):
+        """Cria um clip de vídeo via Clips Service"""
         camera = get_object_or_404(Camera, id=camera_id, owner=user)
         
-        # Calcular duração
-        duration = (end_time - start_time).total_seconds()
+        duration = int((end_time - start_time).total_seconds())
         
-        # Gerar paths
-        clips_dir = os.path.join(settings.MEDIA_ROOT, 'clips', str(user.id))
-        os.makedirs(clips_dir, exist_ok=True)
-        
-        filename = f"{camera.name}_{start_time.strftime('%Y%m%d_%H%M%S')}.mp4"
-        file_path = os.path.join(clips_dir, filename)
-        thumbnail_path = os.path.join(clips_dir, f"{filename}_thumb.jpg")
-        
-        # Extrair clip usando ffmpeg (simulado - implementar com gravações reais)
-        # ffmpeg_cmd = [
-        #     'ffmpeg', '-i', f'path_to_recording_{camera_id}',
-        #     '-ss', start_time.strftime('%H:%M:%S'),
-        #     '-t', str(int(duration)),
-        #     '-c', 'copy', file_path
-        # ]
-        # subprocess.run(ffmpeg_cmd)
-        
-        # Por agora, criar arquivo vazio para teste
-        with open(file_path, 'w') as f:
-            f.write('')
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                f"{CLIPS_SERVICE_URL}/clips/create",
+                json={
+                    "camera_id": camera_id,
+                    "start_time": start_time.isoformat(),
+                    "end_time": end_time.isoformat(),
+                    "quality": quality
+                },
+                timeout=30.0
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Erro ao criar clip: {response.text}")
+            
+            data = response.json()
+            clip_id = data["id"]
         
         clip = Clip.objects.create(
             owner=user,
@@ -42,9 +39,25 @@ class ClipService:
             name=name,
             start_time=start_time,
             end_time=end_time,
-            file_path=file_path,
-            thumbnail_path=thumbnail_path,
-            duration_seconds=int(duration)
+            file_path=f"/clips/{clip_id}.mp4",
+            duration_seconds=duration
         )
         
+        clip.external_id = clip_id
+        clip.save()
+        
         return clip
+    
+    @staticmethod
+    async def get_clip_status(clip_id):
+        """Verifica status do clip no serviço"""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(f"{CLIPS_SERVICE_URL}/clips/{clip_id}")
+            if response.status_code == 200:
+                return response.json()
+        return None
+    
+    @staticmethod
+    def get_download_url(clip_id):
+        """Retorna URL de download do clip"""
+        return f"{CLIPS_SERVICE_URL}/clips/{clip_id}/download"

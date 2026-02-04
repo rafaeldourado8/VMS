@@ -19,6 +19,8 @@ class Clip(models.Model):
     file_path = models.CharField(max_length=1000)
     thumbnail_path = models.CharField(max_length=1000, blank=True, null=True)
     duration_seconds = models.IntegerField()
+    external_id = models.CharField(max_length=64, blank=True, null=True)
+    status = models.CharField(max_length=20, default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
