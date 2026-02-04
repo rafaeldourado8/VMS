@@ -152,12 +152,12 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: [172.18.0.0/16]
 hlsAlwaysRemux: no
 hlsVariant: fmp4
-hlsSegmentCount: 6          # Mais segmentos para estabilidade
-hlsSegmentDuration: 4s      # Segmentos maiores = menos CPU
-hlsSegmentMaxSize: 50M      # Maior para múltiplos streams
+hlsSegmentCount: 6
+hlsSegmentDuration: 4s
+hlsSegmentMaxSize: 50M
 hlsDirectory: ''
-hlsMuxerCloseAfter: 30s     # Mais tempo para estabilizar
-hlsPartDuration: 1s         # Partes maiores para performance
+hlsMuxerCloseAfter: 30s
+hlsPartDuration: 1s
 
 ###############################################
 # WebRTC server
@@ -190,21 +190,18 @@ srtAddress: :8890
 pathDefaults:
   source: publisher
   sourceFingerprint:
-  sourceOnDemand: yes
-  sourceOnDemandStartTimeout: 10s
-  sourceOnDemandCloseAfter: 30s
+  sourceOnDemand: no
   maxReaders: 12
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: no
 
-  record: no  # DESABILITA GRAVAÇÃO PARA ECONOMIZAR CPU
-  recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+  record: no
+  recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S-%f
   recordFormat: fmp4
-  recordPartDuration: 4s
-  recordMaxPartSize: 100M
-  recordSegmentDuration: 30m
-  recordDeleteAfter: 7d
+  recordPartDuration: 1s
+  recordSegmentDuration: 24h
+  recordDeleteAfter: 168h
 
   overridePublisher: yes
   srtPublishPassphrase:
