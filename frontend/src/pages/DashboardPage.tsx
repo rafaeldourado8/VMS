@@ -6,6 +6,7 @@ import {
   AlertTriangle,
   Activity,
   Clock,
+  HardDrive,
 } from 'lucide-react'
 import {
   AreaChart,
@@ -36,12 +37,15 @@ export function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: dashboardService.getStats,
-    refetchInterval: 30000, // Atualiza a cada 30s
+    refetchInterval: 60000,
+    staleTime: 30000,
   })
 
   const { data: cameras, isLoading: camerasLoading } = useQuery({
     queryKey: ['cameras'],
     queryFn: cameraService.list,
+    staleTime: 60000,
+    select: (data) => data.slice(0, 2),
   })
 
   // Preparar dados para o gráfico de pizza
@@ -78,12 +82,12 @@ export function DashboardPage() {
           trend={12}
         />
         <StatCard
-          title="Câmeras Online"
-          value={stats?.cameras_status?.online ?? 0}
-          subtitle={`${stats?.cameras_status?.offline ?? 0} offline`}
-          icon={Activity}
+          title="Armazenamento"
+          value={85}
+          subtitle="GB utilizados"
+          icon={HardDrive}
           loading={statsLoading}
-          variant={stats?.cameras_status?.offline ? 'warning' : 'success'}
+          variant="warning"
         />
         <StatCard
           title="Alertas"
@@ -273,7 +277,7 @@ export function DashboardPage() {
               </div>
             ) : cameras?.length ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {cameras.slice(0, 2).map((camera) => (
+                {cameras.map((camera) => (
                   <CameraCard key={camera.id} camera={camera} compact />
                 ))}
               </div>

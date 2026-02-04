@@ -52,13 +52,12 @@ class CameraViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
-        # Formatar nome: email_gtvision_nome
+        # Usar nome original sem prefixo
         original_name = serializer.validated_data['name']
-        formatted_name = f"{request.user.email.split('@')[0]}_gtvision_{original_name}"
         
         camera_dto = CameraDTO(
             owner_id=request.user.id,
-            **{**serializer.validated_data, 'name': formatted_name}
+            **serializer.validated_data
         )
         
         camera = self.service.create_camera(camera_dto)

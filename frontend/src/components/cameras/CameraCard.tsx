@@ -44,8 +44,9 @@ export function CameraCard({
       {/* Video */}
       <div className={cn("relative", compact ? "aspect-video" : "aspect-video")}>
         <StreamThumbnail
-          src={hlsUrl}
-          fallbackSrc={camera.thumbnail_url || undefined}
+          cameraId={camera.id}
+          cameraName={camera.name}
+          cameraStatus={camera.status}
           className="w-full h-full"
           onClick={onClick}
           showStatus={false}

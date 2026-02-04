@@ -14,6 +14,7 @@ import {
   Scissors,
   Grid3X3,
   Activity,
+  HardDrive,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'

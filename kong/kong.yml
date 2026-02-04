@@ -15,7 +15,7 @@ services:
           policy: local
       - name: cors
         config:
-          origins: ["http://localhost:5173"]
+          origins: ["${CORS_ORIGIN}"]
           credentials: true
 
   - name: streaming-service

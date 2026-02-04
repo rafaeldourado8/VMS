@@ -1,15 +1,14 @@
-# Generated manually
-
 from django.db import migrations, models
 import django.db.models.deletion
-from django.utils import timezone
+import django.utils.timezone
 
 
 class Migration(migrations.Migration):
+
     initial = True
 
     dependencies = [
-        ('cameras', '0003_alter_camera_detection_settings'),
+        ('cameras', '0002_camera_owner'),
     ]
 
     operations = [
@@ -17,22 +16,26 @@ class Migration(migrations.Migration):
             name='Deteccao',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('placa', models.CharField(max_length=20, db_index=True, help_text='Texto da placa detectada')),
+                ('placa', models.CharField(db_index=True, help_text='Texto da placa detectada', max_length=20)),
                 ('confianca', models.FloatField(default=0.0, help_text='Confiança do OCR (0.0 a 1.0)')),
-                ('snapshot_path', models.CharField(max_length=500, help_text='Caminho relativo: media/snapshots/YYYY/MM/DD/filename.jpg')),
-                ('vehicle_type', models.CharField(max_length=20, choices=[('car', 'Carro'), ('motorcycle', 'Motocicleta'), ('truck', 'Caminhão'), ('bus', 'Ônibus'), ('unknown', 'Desconhecido')], default='unknown')),
-                ('data_hora', models.DateTimeField(default=timezone.now, db_index=True)),
+                ('snapshot_path', models.CharField(help_text='Caminho relativo: media/snapshots/YYYY/MM/DD/filename.jpg', max_length=500)),
+                ('vehicle_type', models.CharField(choices=[('car', 'Carro'), ('motorcycle', 'Motocicleta'), ('truck', 'Caminhão'), ('bus', 'Ônibus'), ('unknown', 'Desconhecido')], default='unknown', max_length=20)),
+                ('data_hora', models.DateTimeField(db_index=True, default=django.utils.timezone.now)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('camera', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='deteccoes', to='cameras.camera', help_text='Câmera que originou esta detecção.')),
+                ('camera', models.ForeignKey(help_text='Câmera que originou esta detecção.', on_delete=django.db.models.deletion.CASCADE, related_name='deteccoes', to='cameras.camera')),
             ],
             options={
                 'verbose_name': 'Detecção',
                 'verbose_name_plural': 'Detecções',
                 'ordering': ['-data_hora'],
-                'indexes': [
-                    models.Index(fields=['camera', '-data_hora'], name='deteccoes_d_camera__idx'),
-                    models.Index(fields=['placa', '-data_hora'], name='deteccoes_d_placa_i_idx'),
-                ],
             },
+        ),
+        migrations.AddIndex(
+            model_name='deteccao',
+            index=models.Index(fields=['camera', '-data_hora'], name='deteccoes_d_camera_idx'),
+        ),
+        migrations.AddIndex(
+            model_name='deteccao',
+            index=models.Index(fields=['placa', '-data_hora'], name='deteccoes_d_placa_idx'),
         ),
     ]
