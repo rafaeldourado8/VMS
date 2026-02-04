@@ -2,6 +2,84 @@
 
 services:
   # ============================================
+  # STORAGE SERVICE (Indexador de Gravações)
+  # ============================================
+  storage:
+    build:
+      context: ./services/storage
+      dockerfile: Dockerfile
+    image: gtvision/storage:latest
+    container_name: gtvision_storage
+    command: uvicorn main:app --host 0.0.0.0 --port 8003
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    environment:
+      POSTGRES_HOST: postgres_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - mediamtx_recordings:/recordings:ro
+    ports:
+      - "8003:8003"
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # LPR OFFLINE WORKER (Processa vídeos gravados)
+  # ============================================
+  # lpr_offline:
+  #   build:
+  #     context: ./services/lpr
+  #     dockerfile: Dockerfile
+  #   image: gtvision/lpr:latest
+  #   container_name: gtvision_lpr_offline
+  #   command: python lpr_offline_worker.py
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2.0'
+  #         memory: 4G
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   environment:
+  #     NVIDIA_VISIBLE_DEVICES: all
+  #     NVIDIA_DRIVER_CAPABILITIES: compute,utility
+  #     STORAGE_API_URL: http://storage:8003
+  #     POSTGRES_HOST: postgres_db
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #   volumes:
+  #     - mediamtx_recordings:/recordings:ro
+  #     - ./services/lpr/weights:/app/weights:ro
+  #   depends_on:
+  #     storage:
+  #       condition: service_healthy
+  #     postgres_db:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
+
+  # ============================================
   # STREAMING SERVICE (FastAPI)
   # ============================================
   streaming:
@@ -226,6 +304,7 @@ services:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
       RABBITMQ_DEFAULT_VHOST: /
+      RABBITMQ_ERLANG_COOKIE: gtvision_erlang_cookie_secret_2025
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
     networks:
@@ -267,43 +346,87 @@ services:
       start_period: 10s
 
   # ============================================
-  # SERVIÇO LPR (COM GPU)
+  # RECORDER (Gravação otimizada)
   # ============================================
-  lpr_service:
+  recorder:
     build:
-      context: ./services/lpr
+      context: ./services/recorder
       dockerfile: Dockerfile
-    container_name: vms_lpr_service
-    command: sh -c "pip install pika && python lpr_manager.py"
-    ports:
-      - "8080:8080"
+    container_name: gtvision_recorder
     volumes:
-      - ./services/lpr:/app
-      - ./snapshots:/app/snapshots
-      - ./services/lpr/weights:/app/weights:ro
-      - ./services/lpr/configs:/app/configs:ro
-      - ./1280_720_60fps.mp4:/app/test_video.mp4:ro
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: 1
-              capabilities: [gpu]
-    environment:
-      NVIDIA_VISIBLE_DEVICES: all
-      NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      REDIS_URL: redis://redis_cache:6379/2
+      - mediamtx_recordings:/recordings
     depends_on:
+      backend:
+        condition: service_healthy
       mediamtx:
-        condition: service_healthy
-      redis_cache:
-        condition: service_healthy
-      streaming:
         condition: service_healthy
     networks:
       - gtvision_network
     restart: unless-stopped
+
+  # ============================================
+  # CLIPS SERVICE
+  # ============================================
+  clips:
+    build:
+      context: ./services/clips
+      dockerfile: Dockerfile
+    container_name: gtvision_clips
+    ports:
+      - "8004:8004"
+    volumes:
+      - mediamtx_recordings:/recordings:ro
+      - clips_storage:/clips
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # # ============================================
+  # # SERVIÇO LPR (COM GPU)
+  # # ============================================
+  # lpr_service:
+  #   build:
+  #     context: ./services/lpr
+  #     dockerfile: Dockerfile
+  #   container_name: vms_lpr_service
+  #   command: sh -c "pip install pika && python lpr_manager.py"
+  #   ports:
+  #     - "8080:8080"
+  #   volumes:
+  #     - ./services/lpr:/app
+  #     - ./snapshots:/app/snapshots
+  #     - ./services/lpr/weights:/app/weights:ro
+  #     - ./services/lpr/configs:/app/configs:ro
+  #     - ./1280_720_60fps.mp4:/app/test_video.mp4:ro
+  #   deploy:
+  #     resources:
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: 1
+  #             capabilities: [gpu]
+  #   environment:
+  #     NVIDIA_VISIBLE_DEVICES: all
+  #     NVIDIA_DRIVER_CAPABILITIES: compute,utility
+  #     REDIS_URL: redis://redis_cache:6379/2
+  #   depends_on:
+  #     mediamtx:
+  #       condition: service_healthy
+  #     redis_cache:
+  #       condition: service_healthy
+  #     streaming:
+  #       condition: service_healthy
+  #   networks:
+  #     - gtvision_network
+  #   restart: unless-stopped
 
 
   # ============================================
@@ -345,6 +468,7 @@ volumes:
   backend_media:
   mediamtx_recordings:
   rabbitmq_data:
+  clips_storage:
 
 # ============================================
 # NETWORK
