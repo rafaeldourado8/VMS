@@ -1,92 +1,65 @@
-import { useEffect, useRef, useState } from 'react'
-import Hls from 'hls.js'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { AlertCircle, Play, Camera } from 'lucide-react'
+import { Camera, Play } from 'lucide-react'
 
 interface StreamThumbnailProps {
-  src: string
-  fallbackSrc?: string
+  cameraId: number
+  cameraName?: string
+  cameraStatus?: string
   className?: string
   onClick?: () => void
   showStatus?: boolean
-  cameraName?: string
 }
 
 export function StreamThumbnail({ 
-  src, 
-  fallbackSrc,
+  cameraId,
+  cameraName,
+  cameraStatus = 'offline',
   className, 
   onClick, 
-  showStatus = true,
-  cameraName 
+  showStatus = true
 }: StreamThumbnailProps) {
-  const videoRef = useRef<HTMLVideoElement>(null)
-  const imgRef = useRef<HTMLImageElement>(null)
-  const hlsRef = useRef<Hls | null>(null)
+  const [snapshot, setSnapshot] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isOnline, setIsOnline] = useState(false)
-  const [useSnapshot, setUseSnapshot] = useState(false)
+
+  const isOnline = cameraStatus === 'online'
 
   useEffect(() => {
-    const video = videoRef.current
-    if (!video || !src) return
+    const cacheKey = `camera_snapshot_${cameraId}`
+    const cached = localStorage.getItem(cacheKey)
+    
+    if (cached) {
+      setSnapshot(cached)
+      setIsLoading(false)
+      return
+    }
 
-    setIsLoading(true)
-    setError(null)
-    setUseSnapshot(false)
-
-    if (src.includes('.m3u8')) {
-      if (Hls.isSupported()) {
-        const hls = new Hls({
-          enableWorker: false,
-          lowLatencyMode: false,
-          maxBufferLength: 5,
-          maxBufferSize: 5 * 1000 * 1000,
-        })
-
-        hls.loadSource(src)
-        hls.attachMedia(video)
-
-        hls.on(Hls.Events.MANIFEST_PARSED, () => {
-          setIsLoading(false)
-          setIsOnline(true)
-          video.play().catch(() => {})
-        })
-
-        hls.on(Hls.Events.ERROR, (_, data) => {
-          if (data.fatal) {
-            setIsOnline(false)
-            if (fallbackSrc) {
-              setUseSnapshot(true)
-              setIsLoading(false)
-            } else {
-              setError('Offline')
-              setIsLoading(false)
-            }
+    const loadSnapshot = async () => {
+      try {
+        const response = await fetch(`/streaming/cameras/${cameraId}/snapshot`)
+        
+        if (response.ok) {
+          const blob = await response.blob()
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const base64 = reader.result as string
+            setSnapshot(base64)
+            localStorage.setItem(cacheKey, base64)
           }
-        })
-
-        hlsRef.current = hls
-
-        return () => {
-          hls.destroy()
+          reader.readAsDataURL(blob)
+        } else {
+          setError('Sem snapshot')
         }
+      } catch (err) {
+        setError('Sem snapshot')
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    video.addEventListener('error', () => {
-      setIsOnline(false)
-      if (fallbackSrc) {
-        setUseSnapshot(true)
-        setIsLoading(false)
-      } else {
-        setError('Offline')
-        setIsLoading(false)
-      }
-    })
-
-  }, [src, fallbackSrc])
+    loadSnapshot()
+  }, [cameraId])
 
   return (
     <div 
@@ -96,48 +69,31 @@ export function StreamThumbnail({
       )}
       onClick={onClick}
     >
-      {useSnapshot && fallbackSrc ? (
+      {snapshot && (
         <img
-          ref={imgRef}
-          src={fallbackSrc}
+          src={snapshot}
           alt={cameraName}
           className="w-full h-full object-cover"
-          onError={() => {
-            setError('Offline')
-            setUseSnapshot(false)
-          }}
-        />
-      ) : (
-        <video
-          ref={videoRef}
-          className="w-full h-full object-cover"
-          muted
-          playsInline
-          autoPlay
         />
       )}
 
-      {/* Loading */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
           <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Error/Offline */}
-      {error && (
+      {error && !snapshot && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80">
           <Camera className="w-8 h-8 text-gray-400 mb-2" />
           <span className="text-xs text-gray-400">{error}</span>
         </div>
       )}
 
-      {/* Play overlay on hover */}
       <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
         <Play className="w-8 h-8 text-white" />
       </div>
 
-      {/* Status indicator */}
       {showStatus && (
         <div className="absolute top-2 right-2">
           <div className={cn(
@@ -147,7 +103,6 @@ export function StreamThumbnail({
         </div>
       )}
 
-      {/* Camera name */}
       {cameraName && (
         <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-2">
           <span className="text-xs text-white truncate block">{cameraName}</span>

@@ -1,6 +1,9 @@
 import asyncio
 import logging
 import time
+import subprocess
+import tempfile
+import os
 from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Optional, List, Dict, Any
@@ -142,13 +145,11 @@ class StreamingService:
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
         stream_path = f"cam_{request.camera_id}"
         
-        # CORREÇÃO CRÍTICA 2: Configuração Básica para MediaMTX
         config = {
             "source": request.rtsp_url,
-            "sourceOnDemand": False,  # LPR precisa de stream sempre ativo
-            "sourceOnDemandStartTimeout": "10s",
-            "sourceOnDemandCloseAfter": "30s",
-            "rtspTransport": "tcp"
+            "sourceOnDemand": False,
+            "rtspTransport": "tcp",
+            "record": True
         }
         
         logger.info(f"Provisionando {stream_path}")
@@ -303,6 +304,66 @@ async def camera_status(camera_id: int):
 @app.get("/stats", response_model=StreamStats)
 async def get_stats():
     return await streaming_service.get_stats()
+
+@app.get("/cameras/{camera_id}/snapshot")
+async def get_snapshot(camera_id: int):
+    """Retorna snapshot em cache ou captura novo se não existir."""
+    cache_key = f"snapshot:cam_{camera_id}"
+    
+    # Verifica cache no Redis
+    if streaming_service.redis:
+        try:
+            cached = await streaming_service.redis.get(cache_key)
+            if cached:
+                return Response(content=cached, media_type="image/jpeg")
+        except Exception as e:
+            logger.warning(f"Erro ao ler cache: {e}")
+    
+    # Captura novo snapshot
+    stream_path = f"cam_{camera_id}"
+    rtsp_url = f"rtsp://mediamtx:8554/{stream_path}"
+    
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            tmp_path = tmp.name
+        
+        # FFmpeg captura 1 frame
+        cmd = [
+            "ffmpeg", "-y",
+            "-rtsp_transport", "tcp",
+            "-i", rtsp_url,
+            "-frames:v", "1",
+            "-q:v", "2",
+            tmp_path
+        ]
+        
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        await asyncio.wait_for(proc.communicate(), timeout=10)
+        
+        if os.path.exists(tmp_path) and os.path.getsize(tmp_path) > 0:
+            with open(tmp_path, "rb") as f:
+                img_data = f.read()
+            
+            os.unlink(tmp_path)
+            
+            # Salva no cache (24h)
+            if streaming_service.redis:
+                try:
+                    await streaming_service.redis.set(cache_key, img_data, ex=86400)
+                except Exception as e:
+                    logger.warning(f"Erro ao salvar cache: {e}")
+            
+            return Response(content=img_data, media_type="image/jpeg")
+        
+        raise Exception("Snapshot vazio")
+        
+    except Exception as e:
+        logger.error(f"Erro ao capturar snapshot cam_{camera_id}: {e}")
+        raise HTTPException(status_code=503, detail="Câmera offline")
 
 # CORREÇÃO CRÍTICA 3: Proxy HLS Genérico (arquivos .ts e .m3u8)
 @app.get("/hls/{stream_path}/{file_name}")
