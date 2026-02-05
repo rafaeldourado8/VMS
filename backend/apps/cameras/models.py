@@ -15,6 +15,13 @@ class Camera(models.Model):
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="online")
     stream_url = models.CharField(max_length=1000, unique=True)
     thumbnail_url = models.CharField(max_length=1000, blank=True, null=True)
+    
+    # Credenciais ONVIF para playback
+    onvif_host = models.CharField(max_length=255, blank=True, null=True, help_text="IP ou hostname da câmera")
+    onvif_port = models.IntegerField(default=80, help_text="Porta ONVIF (geralmente 80)")
+    onvif_username = models.CharField(max_length=255, blank=True, null=True)
+    onvif_password = models.CharField(max_length=255, blank=True, null=True)
+    
     latitude = models.FloatField(blank=True, null=True)
     longitude = models.FloatField(blank=True, null=True)
     detection_settings = models.JSONField(default=dict, blank=True, null=True)

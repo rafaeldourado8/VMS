@@ -41,7 +41,7 @@ class Recorder:
         ]
         
         self.process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logger.info(f"📹 Gravação iniciada: cam_{self.camera_id} (bitrate reduzido)")
+        logger.info(f"Gravacao iniciada: cam_{self.camera_id} (bitrate reduzido)")
         
     async def monitor(self):
         while True:
@@ -49,41 +49,67 @@ class Recorder:
                 logger.warning(f"Processo morreu, reiniciando cam_{self.camera_id}")
                 await self.start()
             await asyncio.sleep(60)
+    
+    def stop(self):
+        if self.process:
+            self.process.terminate()
+            logger.info(f"Gravacao parada: cam_{self.camera_id}")
 
-async def main():
-    client = httpx.AsyncClient()
+async def sync_cameras():
+    """Sincroniza cameras do backend e retorna dict de recorders ativos"""
+    client = httpx.AsyncClient(timeout=30.0)
     
     try:
-        resp = await client.get("http://backend:8000/api/cameras/")
-        
-        if resp.status_code == 401:
-            logger.error("❌ Não autorizado - Backend requer autenticação")
-            return
-        
+        resp = await client.get("http://backend:8000/api/cameras/recorder/")
         resp.raise_for_status()
-        cameras = resp.json()
+        data = resp.json()
         
-        if not isinstance(cameras, list):
-            logger.error(f"❌ Resposta inválida do backend: {cameras}")
-            return
+        if isinstance(data, dict) and 'error' in data:
+            logger.error(f"Backend error: {data['error']}")
+            cameras = data.get('cameras', [])
+        elif isinstance(data, list):
+            cameras = data
+        else:
+            logger.error(f"Resposta invalida: {type(data)}")
+            return {}
         
-        tasks = []
-        for cam in cameras:
-            if isinstance(cam, dict) and cam.get("enabled"):
-                recorder = Recorder(cam["id"], cam["stream_url"])
-                await recorder.start()
-                tasks.append(recorder.monitor())
-        
-        if not tasks:
-            logger.warning("⚠️ Nenhuma câmera habilitada encontrada")
-            return
-        
-        await asyncio.gather(*tasks)
-        
+        return {cam["id"]: cam for cam in cameras if isinstance(cam, dict) and cam.get("status") == "online"}
     except Exception as e:
-        logger.error(f"❌ Erro ao iniciar gravação: {e}")
+        logger.error(f"Erro ao buscar cameras: {e}")
+        return {}
     finally:
         await client.aclose()
+
+async def main():
+    recorders = {}
+    
+    while True:
+        cameras = await sync_cameras()
+        
+        # Remover recorders de cameras que nao existem mais
+        for cam_id in list(recorders.keys()):
+            if cam_id not in cameras:
+                logger.info(f"Parando gravacao: cam_{cam_id}")
+                if recorders[cam_id].process:
+                    recorders[cam_id].process.terminate()
+                del recorders[cam_id]
+        
+        # Adicionar recorders para novas cameras
+        for cam_id, cam_data in cameras.items():
+            if cam_id not in recorders:
+                logger.info(f"Iniciando gravacao: cam_{cam_id}")
+                recorder = Recorder(cam_id, cam_data["stream_url"])
+                await recorder.start()
+                recorders[cam_id] = recorder
+        
+        # Monitorar processos
+        for recorder in recorders.values():
+            if recorder.process and recorder.process.poll() is not None:
+                logger.warning(f"Processo morreu, reiniciando cam_{recorder.camera_id}")
+                await recorder.start()
+        
+        logger.info(f"Gravando {len(recorders)} cameras")
+        await asyncio.sleep(30)
 
 if __name__ == "__main__":
     asyncio.run(main())

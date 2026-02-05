@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Camera, Play } from 'lucide-react'
+import { getSnapshot, saveSnapshot } from '@/lib/snapshotCache'
 
 interface StreamThumbnailProps {
   cameraId: number
@@ -26,26 +27,24 @@ export function StreamThumbnail({
   const isOnline = cameraStatus === 'online'
 
   useEffect(() => {
-    const cacheKey = `camera_snapshot_${cameraId}`
-    const cached = localStorage.getItem(cacheKey)
-    
-    if (cached) {
-      setSnapshot(cached)
-      setIsLoading(false)
-      return
-    }
-
     const loadSnapshot = async () => {
       try {
+        const cached = await getSnapshot(cameraId)
+        if (cached) {
+          setSnapshot(cached)
+          setIsLoading(false)
+          return
+        }
+
         const response = await fetch(`/streaming/cameras/${cameraId}/snapshot`)
         
         if (response.ok) {
           const blob = await response.blob()
           const reader = new FileReader()
-          reader.onloadend = () => {
+          reader.onloadend = async () => {
             const base64 = reader.result as string
             setSnapshot(base64)
-            localStorage.setItem(cacheKey, base64)
+            await saveSnapshot(cameraId, base64)
           }
           reader.readAsDataURL(blob)
         } else {

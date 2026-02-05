@@ -5,7 +5,7 @@ Endpoints REST para gestão de câmeras.
 """
 
 from rest_framework import viewsets, permissions, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from .models import Camera
 from .serializers import CameraSerializer
@@ -118,7 +118,6 @@ class CameraViewSet(viewsets.ModelViewSet):
         camera = self.get_object()
         config_data = request.data
         
-        # Atualizar configurações de detecção
         if 'roi_areas' in config_data:
             camera.roi_areas = config_data['roi_areas']
         if 'virtual_lines' in config_data:
@@ -129,12 +128,20 @@ class CameraViewSet(viewsets.ModelViewSet):
             camera.zone_triggers = config_data['zone_triggers']
         if 'recording_retention_days' in config_data:
             camera.recording_retention_days = config_data['recording_retention_days']
+        if 'onvif_host' in config_data:
+            camera.onvif_host = config_data['onvif_host']
+        if 'onvif_port' in config_data:
+            camera.onvif_port = config_data['onvif_port']
+        if 'onvif_username' in config_data:
+            camera.onvif_username = config_data['onvif_username']
+        if 'onvif_password' in config_data:
+            camera.onvif_password = config_data['onvif_password']
         
         camera.save()
         
         return Response({
             "success": True,
-            "message": "Configurações de detecção atualizadas"
+            "message": "Configurações atualizadas"
         })
 
     @action(detail=True, methods=['post'])
@@ -163,3 +170,122 @@ class CameraViewSet(viewsets.ModelViewSet):
             **results,
             "message": f"{results['success']}/{results['total']} câmeras com IA iniciada"
         })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.AllowAny])
+def cameras_for_recorder(request):
+    """Endpoint público para o recorder buscar câmeras."""
+    try:
+        cameras = Camera.objects.filter(status='online').values(
+            'id', 'name', 'stream_url', 'status'
+        )
+        return Response(list(cameras))
+    except Exception as e:
+        return Response(
+            {"error": str(e), "cameras": []},
+            status=status.HTTP_200_OK
+        )
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def list_recordings(request):
+    """
+    Lista gravações disponíveis por câmera e período.
+    
+    Query params:
+    - camera_id: ID da câmera (obrigatório)
+    - date: Data no formato YYYY-MM-DD (obrigatório)
+    - start_time: Hora inicial HH:MM (opcional)
+    - end_time: Hora final HH:MM (opcional)
+    
+    Response:
+    {
+        "camera_id": 1,
+        "date": "2025-01-20",
+        "recordings": [
+            {
+                "filename": "14-30-00.mp4",
+                "start_time": "14:30:00",
+                "size_mb": 125.5,
+                "duration_seconds": 3600,
+                "playback_url": "/playback/cam_1/2025-01-20/14-30-00.mp4/index.m3u8"
+            }
+        ],
+        "total_size_mb": 500.2,
+        "total_duration_seconds": 14400
+    }
+    """
+    from pathlib import Path
+    from datetime import datetime, time
+    import os
+    
+    camera_id = request.GET.get('camera_id')
+    date_str = request.GET.get('date')
+    start_time_str = request.GET.get('start_time')
+    end_time_str = request.GET.get('end_time')
+    
+    if not camera_id or not date_str:
+        return Response(
+            {"error": "camera_id e date são obrigatórios"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    
+    try:
+        camera = Camera.objects.get(id=camera_id, owner=request.user)
+    except Camera.DoesNotExist:
+        return Response(
+            {"error": "Câmera não encontrada"},
+            status=status.HTTP_404_NOT_FOUND
+        )
+    
+    recordings_path = Path(f"/recordings/cam_{camera_id}/{date_str}")
+    
+    if not recordings_path.exists():
+        return Response({
+            "camera_id": int(camera_id),
+            "date": date_str,
+            "recordings": [],
+            "total_size_mb": 0,
+            "total_duration_seconds": 0
+        })
+    
+    recordings = []
+    total_size = 0
+    
+    for file_path in sorted(recordings_path.glob("*.mp4")):
+        file_time = file_path.stem
+        
+        if start_time_str or end_time_str:
+            try:
+                file_dt = datetime.strptime(file_time, "%H-%M-%S").time()
+                if start_time_str:
+                    start_t = datetime.strptime(start_time_str, "%H:%M").time()
+                    if file_dt < start_t:
+                        continue
+                if end_time_str:
+                    end_t = datetime.strptime(end_time_str, "%H:%M").time()
+                    if file_dt > end_t:
+                        continue
+            except ValueError:
+                continue
+        
+        size_bytes = file_path.stat().st_size
+        size_mb = size_bytes / (1024 * 1024)
+        total_size += size_mb
+        
+        recordings.append({
+            "filename": file_path.name,
+            "start_time": file_time.replace("-", ":"),
+            "size_mb": round(size_mb, 2),
+            "playback_url": f"/cam_{camera_id}/{date_str}/{file_path.name}/index.m3u8"
+        })
+    
+    return Response({
+        "camera_id": int(camera_id),
+        "date": date_str,
+        "recordings": recordings,
+        "total_size_mb": round(total_size, 2),
+        "total_duration_seconds": len(recordings) * 3600
+    })

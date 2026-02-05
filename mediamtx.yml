@@ -196,11 +196,14 @@ pathDefaults:
   fallback:
   useAbsoluteTimestamp: no
 
-  record: no
-  recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S-%f
+  # ============================================
+  # GRAVAÇÃO 24/7 - HABILITADA POR PADRÃO
+  # ============================================
+  record: yes
+  recordPath: /recordings/%path/%Y-%m-%d/%H.mp4
   recordFormat: fmp4
-  recordPartDuration: 1s
-  recordSegmentDuration: 24h
+  recordPartDuration: 2s
+  recordSegmentDuration: 1h
   recordDeleteAfter: 168h
 
   overridePublisher: yes

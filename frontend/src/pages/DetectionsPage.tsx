@@ -39,7 +39,6 @@ export function DetectionsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div>
         <h1 className="text-2xl font-bold">Detecções</h1>
         <p className="text-muted-foreground">
@@ -47,54 +46,53 @@ export function DetectionsPage() {
         </p>
       </div>
 
-      {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar por placa..."
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value)
-              setPage(1)
-            }}
-            className="pl-10"
-          />
-        </div>
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por placa..."
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value)
+                setPage(1)
+              }}
+              className="pl-10"
+            />
+          </div>
 
-        <div className="flex gap-2">
-          <select
-            className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring"
-            value={cameraFilter ?? ''}
-            onChange={(e) => {
-              setCameraFilter(e.target.value ? Number(e.target.value) : undefined)
-              setPage(1)
-            }}
-          >
-            <option value="">Todas as câmeras</option>
-            {cameras?.map((cam) => (
-              <option key={cam.id} value={cam.id}>
-                {cam.name}
-              </option>
-            ))}
-          </select>
-
-          {(search || cameraFilter) && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setSearch('')
-                setCameraFilter(undefined)
+          <div className="flex gap-2">
+            <select
+              className="h-9 px-3 rounded-md border border-input bg-transparent text-sm focus:outline-none focus:ring-1 focus:ring-ring"
+              value={cameraFilter ?? ''}
+              onChange={(e) => {
+                setCameraFilter(e.target.value ? Number(e.target.value) : undefined)
                 setPage(1)
               }}
             >
-              <X className="w-4 h-4 mr-1" />
-              Limpar
-            </Button>
-          )}
+              <option value="">Todas as câmeras</option>
+              {cameras?.map((cam) => (
+                <option key={cam.id} value={cam.id}>
+                  {cam.name}
+                </option>
+              ))}
+            </select>
+
+            {(search || cameraFilter) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setSearch('')
+                  setCameraFilter(undefined)
+                  setPage(1)
+                }}
+              >
+                <X className="w-4 h-4 mr-1" />
+                Limpar
+              </Button>
+            )}
+          </div>
         </div>
-      </div>
 
       {/* Stats */}
       <div className="flex items-center gap-4 text-sm text-muted-foreground">

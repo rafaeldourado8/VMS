@@ -43,6 +43,11 @@ export interface Camera {
   recording_enabled: boolean;
   recording_retention_days: number;
   ai_enabled: boolean;
+  // ONVIF Playback
+  onvif_host: string | null;
+  onvif_port: number;
+  onvif_username: string | null;
+  onvif_password?: string;
   created_at: string;
   stream_url_frontend: string;
   ai_websocket_url: string;

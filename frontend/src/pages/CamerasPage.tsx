@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
 import {
@@ -12,7 +12,7 @@ import {
 } from '@/components/ui'
 import { VideoPlayer } from '@/components/cameras/VideoPlayer'
 import { StreamThumbnail } from '@/components/cameras/StreamThumbnail'
-import { DetectionConfig } from '@/components/cameras/DetectionConfig'
+import { CameraConfig } from '@/components/cameras/DetectionConfig'
 import { cameraService, streamingService } from '@/services/api'
 import type { Camera, CameraCreateRequest } from '@/types'
 
@@ -153,7 +153,7 @@ export function CamerasPage() {
 
       {/* Detection Config Modal */}
       {showDetectionConfig && (
-        <DetectionConfig
+        <CameraConfig
           camera={showDetectionConfig}
           onClose={() => setShowDetectionConfig(null)}
         />
@@ -270,6 +270,47 @@ function CameraDetailModal({
 }) {
   const hlsUrl = streamingService.getHlsUrl(camera.id)
 
+  // TIMELINE DESABILITADA - Causando múltiplas requisições
+  // const [mode, setMode] = useState<'live' | 'playback'>('live')
+  // const [playbackTime, setPlaybackTime] = useState(new Date())
+  // const [videoSrc, setVideoSrc] = useState(streamingService.getHlsUrl(camera.id))
+  // const [recordings, setRecordings] = useState<any[]>([])
+
+  // useEffect(() => {
+  //   const fetchRecordings = async () => {
+  //     try {
+  //       const date = new Date().toISOString().split('T')[0]
+  //       const response = await fetch(`/api/cameras/${camera.id}/recordings/${date}/`)
+  //       if (response.ok) {
+  //         const data = await response.json()
+  //         setRecordings(data.map((r: any) => ({
+  //           start: new Date(r.start),
+  //           end: r.end ? new Date(r.end) : new Date(),
+  //           type: r.type
+  //         })))
+  //       }
+  //     } catch (e) {
+  //       console.error('Failed to fetch recordings:', e)
+  //     }
+  //   }
+  //   fetchRecordings()
+  // }, [camera.id])
+
+  // const handleSeek = (time: Date) => {
+  //   setMode('playback')
+  //   setPlaybackTime(time)
+  //   const dateStr = time.toISOString().split('T')[0]
+  //   const timeStr = `${String(time.getHours()).padStart(2, '0')}-${String(time.getMinutes()).padStart(2, '0')}`
+  //   const playbackUrl = `/playback/camera/${camera.id}/${dateStr}/${timeStr}.m3u8`
+  //   setVideoSrc(playbackUrl)
+  // }
+
+  // const goLive = () => {
+  //   setMode('live')
+  //   setVideoSrc(streamingService.getHlsUrl(camera.id))
+  //   setPlaybackTime(new Date())
+  // }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
@@ -298,6 +339,37 @@ function CameraDetailModal({
             className="h-full"
           />
         </div>
+
+        {/* TIMELINE DESABILITADA - Causando múltiplas requisições */}
+        {/* <div className="relative aspect-video bg-black">
+          <VideoPlayer
+            src={videoSrc}
+            autoPlay
+            muted={false}
+            showRecordingControls={true}
+            cameraId={camera.id}
+            className="h-full"
+          />
+          
+          {mode === 'playback' && (
+            <button
+              onClick={goLive}
+              className="absolute top-4 right-4 flex items-center gap-2 px-3 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-sm font-medium transition-colors shadow-lg"
+            >
+              <Radio className="w-4 h-4" />
+              Ao Vivo
+            </button>
+          )}
+        </div>
+
+        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+          <PlaybackTimeline
+            cameraId={camera.id}
+            currentTime={mode === 'live' ? new Date() : playbackTime}
+            recordings={recordings}
+            onSeek={handleSeek}
+          />
+        </div> */}
 
         {/* Info */}
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm bg-white dark:bg-gray-900">

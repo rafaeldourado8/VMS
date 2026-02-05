@@ -215,6 +215,27 @@ export const aiService = {
   },
 }
 
+// ======================================================
+// RECORDINGS
+// ======================================================
+
+export const recordingService = {
+  async list(params: {
+    camera_id: number
+    date: string
+    start_time?: string
+    end_time?: string
+  }) {
+    const { data } = await api.get('/cameras/recordings/', { params })
+    return data
+  },
+
+  getPlaybackUrl(cameraId: number, date: string, filename: string): string {
+    const nameWithoutExt = filename.replace('.mp4', '')
+    return `/playback/cam_${cameraId}/${date}/${nameWithoutExt}/index.m3u8`
+  },
+}
+
 export default api
 
 // ======================================================

@@ -49,6 +49,8 @@ INSTALLED_APPS = [
     "apps.dashboard",
     "apps.suporte",
     "apps.thumbnails",
+    "apps.onvif",
+    "apps.recordings",
 ]
 
 MIDDLEWARE = [

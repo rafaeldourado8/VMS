@@ -55,10 +55,10 @@ export function VideoPlayer({
         const hls = new Hls({
           enableWorker: true,
           lowLatencyMode: true,
-          backBufferLength: 30,
-          maxLoadingDelay: 4,
-          maxBufferLength: 30,
-          maxBufferSize: 60 * 1000 * 1000,
+          backBufferLength: 10,
+          maxBufferLength: 20,
+          maxBufferSize: 20 * 1000 * 1000,
+          maxMaxBufferLength: 30,
         })
 
         hls.loadSource(src)
@@ -100,7 +100,13 @@ export function VideoPlayer({
         hlsRef.current = hls
 
         return () => {
+          if (video) {
+            video.pause()
+            video.src = ''
+            video.load()
+          }
           hls.destroy()
+          hlsRef.current = null
         }
       } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
         // Safari nativo
@@ -110,6 +116,12 @@ export function VideoPlayer({
           if (autoPlay) video.play()
           onReady?.()
         })
+        
+        return () => {
+          video.pause()
+          video.src = ''
+          video.load()
+        }
       }
     } else {
       // Video normal (não HLS)
@@ -118,6 +130,12 @@ export function VideoPlayer({
         setIsLoading(false)
         onReady?.()
       })
+      
+      return () => {
+        video.pause()
+        video.src = ''
+        video.load()
+      }
     }
 
     video.addEventListener('error', () => {
@@ -188,6 +206,38 @@ export function VideoPlayer({
       setShowClipModal(true)
     }
   }
+
+  // Reconecta stream a cada 45min para evitar memory leak
+  useEffect(() => {
+    const reconnectInterval = setInterval(() => {
+      if (hlsRef.current && !error) {
+        const video = videoRef.current
+        const wasPlaying = video && !video.paused
+        
+        hlsRef.current.destroy()
+        
+        const hls = new Hls({
+          enableWorker: true,
+          lowLatencyMode: true,
+          backBufferLength: 10,
+          maxBufferLength: 20,
+          maxBufferSize: 20 * 1000 * 1000,
+          maxMaxBufferLength: 30,
+        })
+        
+        hls.loadSource(src)
+        if (video) hls.attachMedia(video)
+        
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          if (wasPlaying && video) video.play()
+        })
+        
+        hlsRef.current = hls
+      }
+    }, 45 * 60 * 1000) // 45min
+    
+    return () => clearInterval(reconnectInterval)
+  }, [src, error])
 
   // Auto retry para erros de manifest (câmera não ready)
   useEffect(() => {

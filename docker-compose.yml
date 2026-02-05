@@ -2,6 +2,63 @@
 
 services:
   # ============================================
+  # RECORDING SERVICE (Bounded Context)
+  # ============================================
+  recording:
+    build:
+      context: ./services/recording
+      dockerfile: Dockerfile
+    container_name: gtvision_recording
+    ports:
+      - "8006:8006"
+    volumes:
+      - mediamtx_recordings:/recordings:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
+  # ONVIF PLAYBACK SERVICE
+  # ============================================
+  onvif:
+    build:
+      context: ./services/onvif
+      dockerfile: Dockerfile
+    container_name: gtvision_onvif
+    command: uvicorn main:app --host 0.0.0.0 --port 8005
+    ports:
+      - "8005:8005"
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ============================================
   # STORAGE SERVICE (Indexador de Gravações)
   # ============================================
   storage:
@@ -148,13 +205,10 @@ services:
       DB_HOST: postgres_db
       DB_PORT: 5432
       REDIS_HOST: redis_cache
-      CELERY_BROKER_URL: amqp://${RABBITMQ_USER:-gtvision_user}:${RABBITMQ_PASS:-your-rabbitmq-password-here}@rabbitmq:5672//
     depends_on:
       postgres_db:
         condition: service_healthy
       redis_cache:
-        condition: service_healthy
-      rabbitmq:
         condition: service_healthy
     networks:
       - gtvision_network
@@ -295,27 +349,6 @@ services:
       retries: 5
 
   # ============================================
-  # RABBITMQ
-  # ============================================
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: gtvision_rabbitmq
-    environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-gtvision_user}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-your-rabbitmq-password-here}
-      RABBITMQ_DEFAULT_VHOST: /
-      RABBITMQ_ERLANG_COOKIE: gtvision_erlang_cookie_secret_2025
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      - gtvision_network
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "check_running"]
-      interval: 10s
-      timeout: 10s
-      retries: 10
-
-  # ============================================
   # MEDIAMTX
   # ============================================
   mediamtx:
@@ -324,6 +357,7 @@ services:
     ports:
       - "8888:8888"  # HLS
       - "8889:8889"  # WebRTC
+      - "9996:9996"  # Playback
       - "9997:9997"  # API
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
@@ -467,7 +501,6 @@ volumes:
   backend_static:
   backend_media:
   mediamtx_recordings:
-  rabbitmq_data:
   clips_storage:
 
 # ============================================
