@@ -16,7 +16,7 @@
 ```yaml
 pathDefaults:
   record: yes
-  recordPath: /recordings/%path/%Y-%m-%d/%H.mp4
+  recordPath: /recordings/$path/%Y-%m-%d/%H.mp4
   recordFormat: fmp4
   recordPartDuration: 2s
   recordSegmentDuration: 1h
@@ -65,13 +65,13 @@ ffprobe -v error -select_streams v:0 \
 
 ## CRITÉRIOS DE ACEITAÇÃO
 
-- [ ] Arquivos criados a cada hora exata (00.mp4, 01.mp4, ...)
-- [ ] Estrutura de pastas: `/recordings/cam_999/YYYY-MM-DD/HH.mp4`
-- [ ] Cada arquivo tem ~1 hora de duração
-- [ ] Formato: fMP4 (fragmented MP4)
-- [ ] Codec: H.264 (sem reencoding)
-- [ ] Sem gaps entre arquivos
-- [ ] Logs sem erros de gravação
+- [x] Arquivos criados a cada hora exata (00.mp4, 01.mp4, ...)
+- [x] Estrutura de pastas: `/recordings/cam_999/YYYY-MM-DD/HH.mp4`
+- [x] Cada arquivo tem ~1 hora de duração
+- [x] Formato: fMP4 (fragmented MP4)
+- [x] Codec: H.264 (sem reencoding)
+- [x] Sem gaps entre arquivos
+- [x] Logs sem erros de gravação
 
 ---
 

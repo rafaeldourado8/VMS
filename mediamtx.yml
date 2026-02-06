@@ -200,7 +200,7 @@ pathDefaults:
   # GRAVAÇÃO 24/7 - HABILITADA POR PADRÃO
   # ============================================
   record: yes
-  recordPath: /recordings/%path/%Y-%m-%d/%H.mp4
+  recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S.mp4
   recordFormat: fmp4
   recordPartDuration: 2s
   recordSegmentDuration: 1h
