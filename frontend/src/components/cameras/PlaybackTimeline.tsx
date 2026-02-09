@@ -18,6 +18,7 @@ interface PlaybackTimelineProps {
   onSeek: (time: Date) => void
   onExport?: (start: Date, end: Date) => void
   className?: string
+  startTime?: Date // Tempo de início da timeline
 }
 
 export function PlaybackTimeline({
@@ -26,18 +27,50 @@ export function PlaybackTimeline({
   recordings,
   onSeek,
   onExport,
-  className
+  className,
+  startTime = new Date()
 }: PlaybackTimelineProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [scale, setScale] = useState<TimeScale>('1h')
+  const [scale, setScale] = useState<TimeScale>('5m')
   const [isDragging, setIsDragging] = useState(false)
-  const [viewStart, setViewStart] = useState(new Date(currentTime.getTime() - 30 * 60 * 1000))
+  const [viewStart, setViewStart] = useState<Date | null>(null)
+  const hasInitialized = useRef(false)
+  
+  // Calcula duração desde o início da timeline
+  const getElapsedMinutes = () => {
+    return Math.floor((new Date().getTime() - startTime.getTime()) / 60000)
+  }
+  
+  // Define escala automática baseada no tempo decorrido
+  const getAutoScale = (): TimeScale => {
+    const elapsed = getElapsedMinutes()
+    if (elapsed <= 5) return '5m'
+    if (elapsed <= 60) return '1h'
+    return '24h'
+  }
+  
+  // Atualiza escala automaticamente
+  useEffect(() => {
+    const autoScale = getAutoScale()
+    setScale(autoScale)
+  }, [currentTime])
+  
+  // Inicializa viewStart no startTime
+  useEffect(() => {
+    if (!hasInitialized.current) {
+      setViewStart(new Date(startTime.getTime()))
+      hasInitialized.current = true
+    }
+  }, [])
+  
+  // Fallback
+  const effectiveViewStart = viewStart || startTime
 
   const scaleMinutes = { '24h': 1440, '1h': 60, '5m': 5 }[scale]
 
   useEffect(() => {
     drawTimeline()
-  }, [recordings, currentTime, viewStart, scale])
+  }, [recordings, currentTime, effectiveViewStart, scale])
 
   const drawTimeline = () => {
     const canvas = canvasRef.current
@@ -54,14 +87,14 @@ export function PlaybackTimeline({
     ctx.fillRect(0, 0, width, height)
 
     // Recording segments
-    const viewEnd = new Date(viewStart.getTime() + scaleMinutes * 60 * 1000)
-    const pixelPerMs = width / (viewEnd.getTime() - viewStart.getTime())
+    const viewEnd = new Date(effectiveViewStart.getTime() + scaleMinutes * 60 * 1000)
+    const pixelPerMs = width / (viewEnd.getTime() - effectiveViewStart.getTime())
 
     recordings.forEach(seg => {
-      if (seg.end < viewStart || seg.start > viewEnd) return
+      if (seg.end < effectiveViewStart || seg.start > viewEnd) return
 
-      const x1 = Math.max(0, (seg.start.getTime() - viewStart.getTime()) * pixelPerMs)
-      const x2 = Math.min(width, (seg.end.getTime() - viewStart.getTime()) * pixelPerMs)
+      const x1 = Math.max(0, (seg.start.getTime() - effectiveViewStart.getTime()) * pixelPerMs)
+      const x2 = Math.min(width, (seg.end.getTime() - effectiveViewStart.getTime()) * pixelPerMs)
 
       ctx.fillStyle = seg.type === 'event' ? '#ef4444' : seg.type === 'manual' ? '#eab308' : '#3b82f6'
       ctx.fillRect(x1, height * 0.4, x2 - x1, height * 0.2)
@@ -73,10 +106,10 @@ export function PlaybackTimeline({
     ctx.font = '10px sans-serif'
     
     const markerInterval = scale === '24h' ? 3600000 : scale === '1h' ? 300000 : 60000
-    let markerTime = Math.ceil(viewStart.getTime() / markerInterval) * markerInterval
+    let markerTime = Math.ceil(effectiveViewStart.getTime() / markerInterval) * markerInterval
 
     while (markerTime < viewEnd.getTime()) {
-      const x = (markerTime - viewStart.getTime()) * pixelPerMs
+      const x = (markerTime - effectiveViewStart.getTime()) * pixelPerMs
       ctx.beginPath()
       ctx.moveTo(x, 0)
       ctx.lineTo(x, height)
@@ -92,7 +125,7 @@ export function PlaybackTimeline({
     }
 
     // Playhead
-    const playheadX = (currentTime.getTime() - viewStart.getTime()) * pixelPerMs
+    const playheadX = (currentTime.getTime() - effectiveViewStart.getTime()) * pixelPerMs
     if (playheadX >= 0 && playheadX <= width) {
       ctx.strokeStyle = '#ef4444'
       ctx.lineWidth = 2
@@ -112,14 +145,14 @@ export function PlaybackTimeline({
     const x = e.clientX - rect.left
     const ratio = x / rect.width
 
-    const viewEnd = new Date(viewStart.getTime() + scaleMinutes * 60 * 1000)
-    const clickedTime = new Date(viewStart.getTime() + ratio * (viewEnd.getTime() - viewStart.getTime()))
+    const viewEnd = new Date(effectiveViewStart.getTime() + scaleMinutes * 60 * 1000)
+    const clickedTime = new Date(effectiveViewStart.getTime() + ratio * (viewEnd.getTime() - effectiveViewStart.getTime()))
 
     onSeek(clickedTime)
   }
 
   const shift = (minutes: number) => {
-    setViewStart(new Date(viewStart.getTime() + minutes * 60 * 1000))
+    setViewStart(new Date((viewStart || effectiveViewStart).getTime() + minutes * 60 * 1000))
   }
 
   return (
@@ -130,6 +163,7 @@ export function PlaybackTimeline({
             variant={scale === '24h' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setScale('24h')}
+            disabled={getElapsedMinutes() < 60}
           >
             24h
           </Button>
@@ -137,6 +171,7 @@ export function PlaybackTimeline({
             variant={scale === '1h' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setScale('1h')}
+            disabled={getElapsedMinutes() < 5}
           >
             1h
           </Button>
@@ -155,6 +190,9 @@ export function PlaybackTimeline({
           </Button>
           <span className="text-sm font-mono">
             {currentTime.toLocaleTimeString()}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            ({getElapsedMinutes()}min)
           </span>
           <Button variant="ghost" size="icon" onClick={() => shift(scaleMinutes / 2)}>
             <ChevronRight className="w-4 h-4" />

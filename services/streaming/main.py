@@ -142,6 +142,21 @@ class StreamingService:
             except Exception as e:
                 logger.error(f"Erro no loop de stats: {e}")
 
+    async def _validate_rtsp_stream(self, rtsp_url: str) -> bool:
+        """Valida stream RTSP antes de provisionar."""
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "ffprobe", "-v", "error", "-rtsp_transport", "tcp",
+                "-i", rtsp_url, "-show_entries", "stream=codec_type",
+                "-of", "default=noprint_wrappers=1",
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=10)
+            return b"video" in stdout
+        except:
+            return False
+
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
         stream_path = f"cam_{request.camera_id}"
         

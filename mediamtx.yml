@@ -12,9 +12,9 @@ logDestinations: [stdout]
 logFile: mediamtx.log
 sysLogPrefix: mediamtx
 
-readTimeout: 60s
-writeTimeout: 60s
-writeQueueSize: 65536
+readTimeout: 120s
+writeTimeout: 120s
+writeQueueSize: 524288
 udpMaxPayloadSize: 1472
 
 runOnConnect:
@@ -128,7 +128,7 @@ multicastSRTCPPort: 8007
 rtspServerKey: server.key
 rtspServerCert: server.crt
 rtspAuthMethods: [basic]
-rtspUDPReadBufferSize: 65536
+rtspUDPReadBufferSize: 0
 
 ###############################################
 # RTMP server
@@ -152,12 +152,12 @@ hlsAllowOrigins: ['*']
 hlsTrustedProxies: [172.18.0.0/16]
 hlsAlwaysRemux: no
 hlsVariant: fmp4
-hlsSegmentCount: 6
-hlsSegmentDuration: 4s
-hlsSegmentMaxSize: 50M
+hlsSegmentCount: 3
+hlsSegmentDuration: 2s
+hlsSegmentMaxSize: 10M
 hlsDirectory: ''
-hlsMuxerCloseAfter: 30s
-hlsPartDuration: 1s
+hlsMuxerCloseAfter: 60s
+hlsPartDuration: 200ms
 
 ###############################################
 # WebRTC server
@@ -191,18 +191,18 @@ pathDefaults:
   source: publisher
   sourceFingerprint:
   sourceOnDemand: no
-  maxReaders: 12
+  maxReaders: 100
   srtReadPassphrase:
   fallback:
   useAbsoluteTimestamp: no
 
   # ============================================
-  # GRAVAÇÃO 24/7 - HABILITADA POR PADRÃO
+  # GRAVAÇÃO 24/7 - DESABILITADA (ativar por path)
   # ============================================
-  record: yes
+  record: no
   recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S.mp4
   recordFormat: fmp4
-  recordPartDuration: 2s
+  recordPartDuration: 1s
   recordSegmentDuration: 1h
   recordDeleteAfter: 168h
 
@@ -212,11 +212,11 @@ pathDefaults:
   rtspAnyPort: no
   rtspRangeType:
   rtspRangeStart:
-  rtspUDPReadBufferSize: 65536    # 64KB buffer
+  rtspUDPReadBufferSize: 0
 
-  mpegtsUDPReadBufferSize: 65536   # 64KB
+  mpegtsUDPReadBufferSize: 0
   rtpSDP:
-  rtpUDPReadBufferSize: 65536      # 64KB
+  rtpUDPReadBufferSize: 0
   sourceRedirect:
   
   rpiCameraCamID: 0

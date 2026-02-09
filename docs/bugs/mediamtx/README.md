@@ -196,6 +196,64 @@ volumes:
 
 ---
 
+## BUG #7: Drift entre gravação e tempo absoluto
+
+**Data**: 2026-02-06  
+**Severidade**: 🟡 Média  
+**Status**: ⚠️ Monitorar
+
+### Sintoma
+```
+ERR [path cam_3] [recorder] detected drift between recording duration and absolute time, resetting
+WAR [path cam_3] [RTSP source] 2060 RTP packets lost
+```
+
+### Causa
+- Perda de pacotes RTP na rede
+- Câmera com transmissão instável
+- Latência de rede alta
+- Buffer overflow
+
+### Impacto
+- Gravação é resetada (cria novo arquivo)
+- Possível gap de alguns segundos no vídeo
+- Não afeta estabilidade do sistema
+
+### Solução Automática
+MediaMTX detecta e reseta automaticamente. Nenhuma ação necessária.
+
+### Mitigação
+```yaml
+# Aumentar buffers UDP no mediamtx.yml
+rtspUDPReadBufferSize: 131072  # 128KB (padrão: 65536)
+rtpUDPReadBufferSize: 131072   # 128KB
+
+# Forçar TCP (mais estável, porém mais lento)
+rtspTransport: tcp
+```
+
+### Monitoramento
+```bash
+# Contar ocorrências de drift
+docker logs gtvision_mediamtx 2>&1 | grep -c "detected drift"
+
+# Verificar perda de pacotes por câmera
+docker logs gtvision_mediamtx 2>&1 | grep "packets lost" | tail -20
+```
+
+### Quando se Preocupar
+- ✅ 1-5 drifts por dia: Normal (rede/câmera instável)
+- ⚠️ 10+ drifts por hora: Investigar rede/câmera
+- 🔴 Drift contínuo: Câmera com problema grave
+
+### Lição Aprendida
+- Drift é esperado em redes não ideais
+- MediaMTX lida automaticamente
+- Usar TCP se drift for frequente
+- Monitorar logs para identificar câmeras problemáticas
+
+---
+
 ## Checklist de Validação
 
 Antes de provisionar câmeras, verificar:
@@ -206,6 +264,7 @@ Antes de provisionar câmeras, verificar:
 - [ ] Path provisionado via API antes de acessar HLS
 - [ ] Container rebuilded após alteração de código
 - [ ] Fonte RTSP acessível se `sourceOnDemand: false`
+- [ ] Monitorar drift em logs (< 10/hora por câmera)
 
 ---
 
@@ -228,6 +287,9 @@ docker exec gtvision_mediamtx ls -lh /recordings/cam_1/$(date +%Y-%m-%d)/
 
 # Verificar integridade de arquivo
 docker exec gtvision_mediamtx ffprobe /recordings/cam_1/2026-02-06/12-00-00-000001.mp4
+
+# Monitorar drift e perda de pacotes
+docker logs -f gtvision_mediamtx 2>&1 | grep -E "drift|packets lost"
 ```
 
 ---
@@ -237,3 +299,87 @@ docker exec gtvision_mediamtx ffprobe /recordings/cam_1/2026-02-06/12-00-00-0000
 - [MediaMTX Documentation](https://github.com/bluenviron/mediamtx)
 - [MediaMTX API Reference](https://github.com/bluenviron/mediamtx/blob/main/apidocs/openapi.yaml)
 - Versão testada: MediaMTX v1.16.0
+
+
+---
+
+## BUG #8: MediaMTX crash - integer divide by zero
+
+**Data**: 2026-02-06  
+**Severidade**: 🔴 CRÍTICA  
+**Status**: ⚠️ Bug upstream (gortsplib v5.3.0)
+
+### Sintoma
+```
+panic: runtime error: integer divide by zero
+
+goroutine 347 [running]:
+github.com/bluenviron/gortsplib/v5/pkg/rtpreceiver.(*Receiver).report
+```
+
+Container MediaMTX crasha completamente e para de responder.
+
+### Causa
+Bug no `gortsplib` ao calcular estatísticas RTP quando:
+- Câmera envia pacotes RTP com timestamps inválidos
+- Divisão por zero ao calcular taxa de perda de pacotes
+- Ocorre principalmente com câmeras de baixa qualidade ou firmware antigo
+
+### Impacto
+- 🔴 MediaMTX para completamente
+- 🔴 Todas as câmeras ficam offline
+- 🔴 Gravações são interrompidas
+- 🔴 HLS retorna 503
+
+### Solução Imediata
+```bash
+# 1. Reiniciar MediaMTX
+docker restart gtvision_mediamtx
+
+# 2. Identificar câmera problemática nos logs
+docker logs gtvision_mediamtx 2>&1 | findstr /C:"panic" /B
+
+# 3. Remover câmera problemática
+curl -X DELETE http://localhost:8001/cameras/{camera_id}
+```
+
+### Workaround
+Desabilitar câmera problemática ou usar TCP em vez de UDP:
+
+```python
+# No streaming service, forçar TCP para câmeras problemáticas
+config = {
+    "source": rtsp_url,
+    "rtspTransport": "tcp",  # TCP é mais estável
+    "sourceProtocol": "tcp"
+}
+```
+
+### Monitoramento
+```bash
+# Verificar se MediaMTX está rodando
+docker ps | findstr mediamtx
+
+# Monitorar crashes
+docker logs gtvision_mediamtx 2>&1 | findstr /C:"panic"
+
+# Auto-restart no docker-compose.yml
+restart: unless-stopped
+```
+
+### Prevenção
+1. Adicionar healthcheck robusto no docker-compose.yml
+2. Implementar auto-restart de câmeras problemáticas
+3. Validar stream RTSP antes de provisionar
+4. Usar TCP para câmeras instáveis
+
+### Issue Upstream
+- Reportado em: https://github.com/bluenviron/mediamtx/issues
+- Versão afetada: gortsplib v5.3.0
+- Aguardando fix na próxima versão
+
+### Lição Aprendida
+- Sempre usar `restart: unless-stopped` no docker-compose
+- Implementar healthcheck que detecta crashes
+- Validar qualidade do stream RTSP antes de adicionar câmera
+- Manter lista de câmeras problemáticas conhecidas

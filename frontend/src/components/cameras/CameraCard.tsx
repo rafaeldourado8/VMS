@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { MapPin, MoreVertical, Maximize2, Settings, Trash2 } from 'lucide-react'
 import type { Camera } from '@/types'
 import { cn } from '@/lib/utils'
@@ -9,6 +9,7 @@ import { streamingService } from '@/services/api'
 interface CameraCardProps {
   camera: Camera
   onClick?: () => void
+  onDoubleClick?: () => void
   onDelete?: () => void
   onSettings?: () => void
   compact?: boolean
@@ -17,29 +18,46 @@ interface CameraCardProps {
 export function CameraCard({
   camera,
   onClick,
+  onDoubleClick,
   onDelete,
   onSettings,
   compact = false,
 }: CameraCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
+  const clickTimeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const hlsUrl = streamingService.getHlsUrl(camera.id)
   const isOnline = camera.status === 'online'
+
+  const handleClick = () => {
+    if (clickTimeoutRef.current) {
+      // Duplo clique detectado
+      clearTimeout(clickTimeoutRef.current)
+      clickTimeoutRef.current = null
+      onDoubleClick?.()
+    } else {
+      // Primeiro clique - aguarda segundo clique
+      clickTimeoutRef.current = setTimeout(() => {
+        clickTimeoutRef.current = null
+        onClick?.()
+      }, 300)
+    }
+  }
 
   return (
     <div
       className={cn(
         "relative rounded-xl border border-border bg-card overflow-hidden transition-all",
         isHovered && "ring-2 ring-primary/50",
-        onClick && "cursor-pointer"
+        (onClick || onDoubleClick) && "cursor-pointer"
       )}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false)
         setMenuOpen(false)
       }}
-      onClick={onClick}
+      onClick={handleClick}
     >
       {/* Video */}
       <div className={cn("relative", compact ? "aspect-video" : "aspect-video")}>

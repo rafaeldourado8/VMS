@@ -12,7 +12,7 @@ services:
     ports:
       - "8006:8006"
     volumes:
-      - mediamtx_recordings:/recordings:ro
+      - ./recordings:/recordings:ro
     deploy:
       resources:
         limits:
@@ -79,7 +79,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - mediamtx_recordings:/recordings:ro
+      - ./recordings:/recordings:ro
     ports:
       - "8003:8003"
     depends_on:
@@ -179,6 +179,33 @@ services:
       retries: 3
 
   # ============================================
+  # MEDIAMTX MONITOR (Auto-recovery)
+  # ============================================
+  mediamtx_monitor:
+    build:
+      context: ./services/streaming
+      dockerfile: Dockerfile
+    image: gtvision/streaming:latest
+    container_name: gtvision_mediamtx_monitor
+    command: python mediamtx_monitor.py
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 128M
+    environment:
+      MEDIAMTX_API_URL: http://mediamtx:9997
+      STREAMING_API_URL: http://streaming:8001
+    depends_on:
+      streaming:
+        condition: service_healthy
+      mediamtx:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  # ============================================
   # BACKEND (Django API)
   # ============================================
   backend:
@@ -199,7 +226,7 @@ services:
       - ./backend/logs:/app/logs
       - backend_static:/app/staticfiles
       - backend_media:/app/media
-      - mediamtx_recordings:/recordings:ro
+      - ./recordings:/recordings:ro
     env_file: .env
     environment:
       DB_HOST: postgres_db
@@ -357,29 +384,31 @@ services:
     environment:
       TZ: America/Sao_Paulo
     ports:
-      - "8888:8888"  # HLS
-      - "8889:8889"  # WebRTC
-      - "9996:9996"  # Playback
-      - "9997:9997"  # API
+      - "8554:8554"
+      - "8888:8888"
+      - "8889:8889"
+      - "9996:9996"
+      - "9997:9997"
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
-      - mediamtx_recordings:/recordings
+      - ./recordings:/recordings
     deploy:
       resources:
         limits:
-          cpus: '2.5'
-          memory: 2G
+          cpus: '4.0'
+          memory: 4G
         reservations:
-          cpus: '1.0'
-          memory: 512M
+          cpus: '2.0'
+          memory: 2G
     networks:
       - gtvision_network
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9997/v3/config/global/get"]
-      interval: 10s
+      interval: 15s
       timeout: 5s
-      retries: 5
+      retries: 3
       start_period: 10s
+    restart: unless-stopped
 
   # ============================================
   # RECORDER (Gravação otimizada)
@@ -390,7 +419,7 @@ services:
       dockerfile: Dockerfile
     container_name: gtvision_recorder
     volumes:
-      - mediamtx_recordings:/recordings
+      - ./recordings:/recordings
     depends_on:
       backend:
         condition: service_healthy
@@ -411,7 +440,7 @@ services:
     ports:
       - "8004:8004"
     volumes:
-      - mediamtx_recordings:/recordings:ro
+      - ./recordings:/recordings:ro
       - clips_storage:/clips
     depends_on:
       mediamtx:

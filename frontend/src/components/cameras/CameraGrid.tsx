@@ -8,10 +8,11 @@ import { useCameraStore } from '@/store/cameraStore'
 interface CameraGridProps {
   cameras: Camera[]
   onCameraClick?: (camera: Camera) => void
+  onCameraDoubleClick?: (camera: Camera) => void
   onCameraDelete?: (camera: Camera) => void
 }
 
-export function CameraGrid({ cameras, onCameraClick, onCameraDelete }: CameraGridProps) {
+export function CameraGrid({ cameras, onCameraClick, onCameraDoubleClick, onCameraDelete }: CameraGridProps) {
   const { gridLayout, setGridLayout } = useCameraStore()
 
   const layouts = [
@@ -66,6 +67,7 @@ export function CameraGrid({ cameras, onCameraClick, onCameraDelete }: CameraGri
               key={camera.id}
               camera={camera}
               onClick={() => onCameraClick?.(camera)}
+              onDoubleClick={() => onCameraDoubleClick?.(camera)}
               onDelete={() => onCameraDelete?.(camera)}
               compact={gridLayout > 4}
             />

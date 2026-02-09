@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight, Radio } from 'lucide-react'
 import {
   Button,
   Input,
@@ -13,6 +13,7 @@ import {
 import { VideoPlayer } from '@/components/cameras/VideoPlayer'
 import { StreamThumbnail } from '@/components/cameras/StreamThumbnail'
 import { CameraConfig } from '@/components/cameras/DetectionConfig'
+import { PlaybackTimeline } from '@/components/cameras/PlaybackTimeline'
 import { cameraService, streamingService } from '@/services/api'
 import type { Camera, CameraCreateRequest } from '@/types'
 
@@ -268,48 +269,109 @@ function CameraDetailModal({
   camera: Camera
   onClose: () => void
 }) {
-  const hlsUrl = streamingService.getHlsUrl(camera.id)
+  const [mode, setMode] = useState<'live' | 'playback'>('live')
+  const [playbackTime, setPlaybackTime] = useState(new Date())
+  const [videoSrc, setVideoSrc] = useState(streamingService.getHlsUrl(camera.id))
+  const [recordings, setRecordings] = useState<any[]>([])
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [timelineStartTime] = useState(new Date()) // Marca quando a timeline foi aberta
 
-  // TIMELINE DESABILITADA - Causando múltiplas requisições
-  // const [mode, setMode] = useState<'live' | 'playback'>('live')
-  // const [playbackTime, setPlaybackTime] = useState(new Date())
-  // const [videoSrc, setVideoSrc] = useState(streamingService.getHlsUrl(camera.id))
-  // const [recordings, setRecordings] = useState<any[]>([])
+  useEffect(() => {
+    const fetchRecordings = async () => {
+      try {
+        const response = await fetch(`/api/cameras/recordings/?camera_id=${camera.id}`)
+        if (response.ok) {
+          const data = await response.json()
+          console.log('Recordings response:', data)
+          
+          if (data.recordings && data.recordings.length > 0) {
+            // Agrupa gravações por minuto para criar segmentos contínuos
+            const segments: any[] = []
+            let currentSegment: any = null
+            
+            data.recordings.forEach((rec: any) => {
+              const recTime = new Date(rec.timestamp)
+              
+              if (!currentSegment) {
+                currentSegment = {
+                  start: recTime,
+                  end: new Date(recTime.getTime() + 60000),
+                  type: 'continuous',
+                  recordings: [rec]
+                }
+              } else {
+                const timeDiff = recTime.getTime() - currentSegment.end.getTime()
+                
+                if (timeDiff < 120000) { // Menos de 2min de diferença
+                  currentSegment.end = new Date(recTime.getTime() + 60000)
+                  currentSegment.recordings.push(rec)
+                } else {
+                  segments.push(currentSegment)
+                  currentSegment = {
+                    start: recTime,
+                    end: new Date(recTime.getTime() + 60000),
+                    type: 'continuous',
+                    recordings: [rec]
+                  }
+                }
+              }
+            })
+            
+            if (currentSegment) segments.push(currentSegment)
+            
+            setRecordings(segments)
+            console.log('Timeline segments:', segments)
+            
+            // Inicializa no início da primeira gravação
+            if (segments.length > 0) {
+              setPlaybackTime(segments[0].start)
+            }
+          } else {
+            console.log('Nenhuma gravação encontrada')
+            setRecordings([])
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch recordings:', e)
+      }
+    }
+    if (showTimeline) {
+      fetchRecordings()
+    }
+  }, [camera.id, showTimeline])
 
-  // useEffect(() => {
-  //   const fetchRecordings = async () => {
-  //     try {
-  //       const date = new Date().toISOString().split('T')[0]
-  //       const response = await fetch(`/api/cameras/${camera.id}/recordings/${date}/`)
-  //       if (response.ok) {
-  //         const data = await response.json()
-  //         setRecordings(data.map((r: any) => ({
-  //           start: new Date(r.start),
-  //           end: r.end ? new Date(r.end) : new Date(),
-  //           type: r.type
-  //         })))
-  //       }
-  //     } catch (e) {
-  //       console.error('Failed to fetch recordings:', e)
-  //     }
-  //   }
-  //   fetchRecordings()
-  // }, [camera.id])
+  const handleSeek = (time: Date) => {
+    console.log('Seek to:', time)
+    setMode('playback')
+    setPlaybackTime(time)
+    
+    // Busca o segmento que contém o tempo clicado
+    const segment = recordings.find(seg => 
+      time >= seg.start && time <= seg.end
+    )
+    
+    if (segment && segment.recordings) {
+      // Busca a gravação mais próxima dentro do segmento
+      const closestRec = segment.recordings.reduce((prev: any, curr: any) => {
+        const prevDiff = Math.abs(new Date(prev.timestamp).getTime() - time.getTime())
+        const currDiff = Math.abs(new Date(curr.timestamp).getTime() - time.getTime())
+        return currDiff < prevDiff ? curr : prev
+      })
+      
+      // Usa o playback_url do backend
+      const playbackUrl = closestRec.playback_url
+      console.log('Playing:', playbackUrl)
+      setVideoSrc(playbackUrl)
+    } else {
+      console.log('Nenhuma gravação encontrada para:', time)
+    }
+  }
 
-  // const handleSeek = (time: Date) => {
-  //   setMode('playback')
-  //   setPlaybackTime(time)
-  //   const dateStr = time.toISOString().split('T')[0]
-  //   const timeStr = `${String(time.getHours()).padStart(2, '0')}-${String(time.getMinutes()).padStart(2, '0')}`
-  //   const playbackUrl = `/playback/camera/${camera.id}/${dateStr}/${timeStr}.m3u8`
-  //   setVideoSrc(playbackUrl)
-  // }
-
-  // const goLive = () => {
-  //   setMode('live')
-  //   setVideoSrc(streamingService.getHlsUrl(camera.id))
-  //   setPlaybackTime(new Date())
-  // }
+  const goLive = () => {
+    setMode('live')
+    setVideoSrc(streamingService.getHlsUrl(camera.id))
+    setPlaybackTime(new Date())
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -329,19 +391,7 @@ function CameraDetailModal({
         </div>
 
         {/* Video */}
-        <div className="aspect-video bg-black">
-          <VideoPlayer
-            src={hlsUrl}
-            autoPlay
-            muted={false}
-            showRecordingControls={true}
-            cameraId={camera.id}
-            className="h-full"
-          />
-        </div>
-
-        {/* TIMELINE DESABILITADA - Causando múltiplas requisições */}
-        {/* <div className="relative aspect-video bg-black">
+        <div className="relative aspect-video bg-black">
           <VideoPlayer
             src={videoSrc}
             autoPlay
@@ -362,14 +412,30 @@ function CameraDetailModal({
           )}
         </div>
 
-        <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
-          <PlaybackTimeline
-            cameraId={camera.id}
-            currentTime={mode === 'live' ? new Date() : playbackTime}
-            recordings={recordings}
-            onSeek={handleSeek}
-          />
-        </div> */}
+        {/* Timeline - Aparece apenas após duplo clique */}
+        {showTimeline && (
+          <div className="bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+            <PlaybackTimeline
+              cameraId={camera.id}
+              currentTime={mode === 'live' ? new Date() : playbackTime}
+              recordings={recordings}
+              onSeek={handleSeek}
+              startTime={timelineStartTime}
+            />
+          </div>
+        )}
+
+        {/* Toggle Timeline Button */}
+        <div className="px-4 py-2 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowTimeline(!showTimeline)}
+            className="w-full"
+          >
+            {showTimeline ? 'Ocultar Timeline' : 'Mostrar Timeline'}
+          </Button>
+        </div>
 
         {/* Info */}
         <div className="p-4 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm bg-white dark:bg-gray-900">
