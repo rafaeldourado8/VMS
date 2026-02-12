@@ -29,7 +29,6 @@ class Recorder:
             "-f", "segment",
             "-segment_time", "60",
             "-segment_format", "mp4",
-            "-segment_atclocktime", "1",
             "-reset_timestamps", "1",
             "-strftime", "1",
             output_path

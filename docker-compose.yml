@@ -243,9 +243,9 @@ services:
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8000/admin/login/ || exit 1"]
       interval: 15s
-      timeout: 5s
+      timeout: 10s
       retries: 10
-      start_period: 60s
+      start_period: 90s
 
   # ============================================
   # BACKEND WORKER (Celery) - DESABILITADO
@@ -293,11 +293,14 @@ services:
       KONG_DATABASE: "off"
       KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
       KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    ports:
+      - "8002:8000"
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
     depends_on:
       backend:
-        condition: service_started
+        condition: service_healthy
       streaming:
         condition: service_healthy
     networks:

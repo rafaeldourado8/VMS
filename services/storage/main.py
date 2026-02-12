@@ -99,8 +99,8 @@ class StorageService:
                 f"{date_str} {parts[0]}:{parts[1]}:{parts[2]}", 
                 "%Y-%m-%d %H:%M:%S"
             )
-            end_time = start_time + timedelta(hours=1)
-            duration = int((end_time - start_time).total_seconds())
+            end_time = start_time + timedelta(seconds=60)
+            duration = 60
             
             async with self.db_pool.acquire() as conn:
                 await conn.execute("""
@@ -193,8 +193,8 @@ async def query_recordings_endpoint(query: RecordingQuery):
                         "camera_id": query.camera_id,
                         "path": str(video_file),
                         "start_time": timestamp.isoformat(),
-                        "end_time": (timestamp + timedelta(hours=1)).isoformat(),
-                        "duration_seconds": 3600,
+                        "end_time": (timestamp + timedelta(seconds=60)).isoformat(),
+                        "duration_seconds": 60,
                         "file_size_bytes": stat.st_size,
                         "processed": False
                     })

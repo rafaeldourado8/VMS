@@ -163,10 +163,7 @@ class StreamingService:
         config = {
             "source": request.rtsp_url,
             "sourceOnDemand": request.on_demand,
-            "rtspTransport": "tcp",
-            "record": False,
-            "recordPath": "",
-            "recordFormat": "fmp4"
+            "rtspTransport": "tcp"
         }
         
         logger.info(f"Provisionando {stream_path}")

@@ -196,15 +196,8 @@ pathDefaults:
   fallback:
   useAbsoluteTimestamp: no
 
-  # ============================================
-  # GRAVAÇÃO - DESABILITADA (Recorder Service faz isso)
-  # ============================================
+  # Gravação desabilitada - Recorder Service faz isso
   record: no
-  recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S.mp4
-  recordFormat: fmp4
-  recordPartDuration: 1s
-  recordSegmentDuration: 1h
-  recordDeleteAfter: 168h
 
   overridePublisher: yes
   srtPublishPassphrase:
