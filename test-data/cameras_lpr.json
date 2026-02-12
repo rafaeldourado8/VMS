@@ -1,0 +1,83 @@
+{
+  "camapua": [
+    {
+      "camera_id": 10,
+      "rtsp_url": "rtsp://admin:Camerite123@45.236.226.75:6053/cam/realmonitor?channel=1&subtype=0",
+      "name": "LPR Camapuã - Rua Pedro Celestino/Olaria - CAM 2",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 11,
+      "rtsp_url": "rtsp://admin:Camerite123@45.236.226.72:6048/cam/realmonitor?channel=1&subtype=0",
+      "name": "LPR Camapuã - Av. Areado - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 12,
+      "rtsp_url": "rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0",
+      "name": "LPR Camapuã - BR 060 - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 13,
+      "rtsp_url": "rtsp://admin:Camerite123@45.236.226.70:6045/cam/realmonitor?channel=1&subtype=0",
+      "name": "LPR Camapuã - MS 338 Cargil - CAM 2",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 14,
+      "rtsp_url": "rtsp://admin:Camerite123@45.236.226.70:6044/cam/realmonitor?channel=1&subtype=0",
+      "name": "LPR Camapuã - MS 338 Cargil - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    }
+  ],
+  "navirai": [
+    {
+      "camera_id": 20,
+      "rtsp_url": "rtsp://admin:Camerite@186.226.193.111:602/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av Weimar G. Torres - CAM 2",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 21,
+      "rtsp_url": "rtsp://admin:Camerite@186.226.193.111:601/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av. Amélia Fukuda EXPONAVI - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 22,
+      "rtsp_url": "rtsp://admin:Camerite@186.226.193.111:600/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av. Amambai - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 23,
+      "rtsp_url": "rtsp://admin:Camerite@170.84.217.84:603/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av. Campo Grande - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 24,
+      "rtsp_url": "rtsp://admin:Camerite@170.84.217.83:608/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av. Mato Grosso/Porto Belo - CAM 1",
+      "enabled": true,
+      "on_demand": false
+    },
+    {
+      "camera_id": 25,
+      "rtsp_url": "rtsp://admin:Camerite@170.84.217.71:608/h264/ch1/main/av_stream",
+      "name": "LPR Naviraí - Av. Campo Grande FLEET NET - CAM 2",
+      "enabled": true,
+      "on_demand": false
+    }
+  ]
+}

@@ -1,3 +1,6 @@
+# Generated manually
+
+from django.conf import settings
 from django.db import migrations, models
 import django.db.models.deletion
 
@@ -7,6 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
@@ -19,6 +23,10 @@ class Migration(migrations.Migration):
                 ('status', models.CharField(choices=[('online', 'Online'), ('offline', 'Offline')], default='online', max_length=10)),
                 ('stream_url', models.CharField(max_length=1000, unique=True)),
                 ('thumbnail_url', models.CharField(blank=True, max_length=1000, null=True)),
+                ('onvif_host', models.CharField(blank=True, help_text='IP ou hostname da câmera', max_length=255, null=True)),
+                ('onvif_port', models.IntegerField(default=80, help_text='Porta ONVIF (geralmente 80)')),
+                ('onvif_username', models.CharField(blank=True, max_length=255, null=True)),
+                ('onvif_password', models.CharField(blank=True, max_length=255, null=True)),
                 ('latitude', models.FloatField(blank=True, null=True)),
                 ('longitude', models.FloatField(blank=True, null=True)),
                 ('detection_settings', models.JSONField(blank=True, default=dict, null=True)),
@@ -30,27 +38,7 @@ class Migration(migrations.Migration):
                 ('recording_retention_days', models.IntegerField(default=30)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),
                 ('updated_at', models.DateTimeField(auto_now=True)),
+                ('owner', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='cameras', to=settings.AUTH_USER_MODEL)),
             ],
-        ),
-        migrations.CreateModel(
-            name='Recording',
-            fields=[
-                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('video_path', models.CharField(help_text='Caminho: /recordings/cam_X/YYYY-MM-DD_HH-MM-SS.mp4', max_length=500)),
-                ('duration_seconds', models.IntegerField(default=0)),
-                ('file_size_bytes', models.BigIntegerField(default=0)),
-                ('snapshot_cached', models.ImageField(blank=True, null=True, upload_to='recording_snapshots/%Y/%m/%d/')),
-                ('started_at', models.DateTimeField(db_index=True)),
-                ('ended_at', models.DateTimeField(blank=True, null=True)),
-                ('created_at', models.DateTimeField(auto_now_add=True)),
-                ('camera', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='recordings', to='cameras.camera')),
-            ],
-            options={
-                'ordering': ['-started_at'],
-            },
-        ),
-        migrations.AddIndex(
-            model_name='recording',
-            index=models.Index(fields=['camera', '-started_at'], name='cameras_rec_camera_idx'),
         ),
     ]

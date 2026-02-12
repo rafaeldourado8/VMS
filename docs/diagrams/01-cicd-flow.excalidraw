@@ -1,0 +1,408 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "rectangle",
+      "id": "dev-start",
+      "x": 100,
+      "y": 100,
+      "width": 200,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "👨‍💻 Developer\ngit push origin develop"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-1",
+      "x": 200,
+      "y": 180,
+      "width": 0,
+      "height": 80
+    },
+    {
+      "type": "rectangle",
+      "id": "ci-pipeline",
+      "x": 100,
+      "y": 280,
+      "width": 200,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "🤖 GitHub Actions\nCI Pipeline"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "lint",
+      "x": 50,
+      "y": 420,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "🔍 Lint & Format\nruff, eslint"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "test",
+      "x": 250,
+      "y": 420,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "🧪 Unit Tests\npytest, vitest"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "build",
+      "x": 450,
+      "y": 420,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "🏗️ Build Images\nDocker Compose"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "security",
+      "x": 250,
+      "y": 520,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "🔒 Security Scan\nTrivy, Snyk"
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "security-check",
+      "x": 275,
+      "y": 620,
+      "width": 100,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "Pass?"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "push-ecr",
+      "x": 250,
+      "y": 760,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "📦 Push to ECR\ndevelop-sha"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "deploy-dev",
+      "x": 250,
+      "y": 860,
+      "width": 150,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#e1bee7",
+      "label": {
+        "text": "🚀 Deploy Dev\nEC2 Spot"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "e2e-tests",
+      "x": 50,
+      "y": 980,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "🎭 E2E Tests\nPlaywright"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "integration",
+      "x": 250,
+      "y": 980,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "🔗 Integration\nAPI Tests"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "manual",
+      "x": 450,
+      "y": 980,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "👀 Manual Test\nWebSockets, RTSP"
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "dev-ok",
+      "x": 275,
+      "y": 1080,
+      "width": 100,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#e8f5e9",
+      "label": {
+        "text": "Dev OK?"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "merge",
+      "x": 250,
+      "y": 1220,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "✅ git merge\ndevelop → main"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "cd-pipeline",
+      "x": 700,
+      "y": 100,
+      "width": 200,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "🤖 GitHub Actions\nCD Pipeline"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "load-test",
+      "x": 650,
+      "y": 240,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "📊 Load Tests\nLocust 100 users"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "chaos",
+      "x": 850,
+      "y": 240,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "🐒 Chaos Monkey\nKill containers"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "build-prod",
+      "x": 700,
+      "y": 340,
+      "width": 200,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "🏗️ Build Prod\nprod-version"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "staging",
+      "x": 700,
+      "y": 440,
+      "width": 200,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#e1bee7",
+      "label": {
+        "text": "🎪 Deploy Staging\nClone de Prod"
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "approval",
+      "x": 750,
+      "y": 560,
+      "width": 100,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "👤 Approve?"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "blue-green",
+      "x": 700,
+      "y": 700,
+      "width": 200,
+      "height": 100,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "🔵🟢 Blue/Green\nDeploy"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "green-deploy",
+      "x": 650,
+      "y": 840,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "🟢 Deploy Green\nNew Version"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "health",
+      "x": 850,
+      "y": 840,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "❤️ Health Checks\n5 minutes"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "traffic",
+      "x": 700,
+      "y": 940,
+      "width": 200,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "🔀 Switch Traffic\n10% → 50% → 100%"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "monitor",
+      "x": 700,
+      "y": 1040,
+      "width": 200,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "📈 Monitor\n10 minutes"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "success",
+      "x": 700,
+      "y": 1140,
+      "width": 200,
+      "height": 80,
+      "fillStyle": "solid",
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "🎉 Deploy Success\nCleanup Blue"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "rollback",
+      "x": 950,
+      "y": 1040,
+      "width": 150,
+      "height": 60,
+      "fillStyle": "solid",
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "⏪ Auto Rollback\nKeep Blue"
+      }
+    },
+    {
+      "type": "text",
+      "id": "title",
+      "x": 400,
+      "y": 20,
+      "width": 400,
+      "height": 50,
+      "fontSize": 32,
+      "fontFamily": 1,
+      "text": "GT-Vision CI/CD Pipeline",
+      "textAlign": "center"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

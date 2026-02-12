@@ -1,3 +1,5 @@
+# Generated manually
+
 from django.db import migrations, models
 import django.db.models.deletion
 import django.utils.timezone
@@ -8,7 +10,7 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ('cameras', '0002_camera_owner'),
+        ('cameras', '0001_initial'),
     ]
 
     operations = [
@@ -32,7 +34,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddIndex(
             model_name='deteccao',
-            index=models.Index(fields=['camera', '-data_hora'], name='deteccoes_d_camera_idx'),
+            index=models.Index(fields=['camera', '-data_hora'], name='deteccoes_d_camera__idx'),
         ),
         migrations.AddIndex(
             model_name='deteccao',

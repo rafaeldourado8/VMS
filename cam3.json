@@ -1,7 +1,0 @@
-{
-  "camera_id": 3,
-  "rtsp_url": "rtsp://admin:Camerite@186.226.193.111:602/h264/ch1/main/av_stream",
-  "name": "Camera 3 - IP 186",
-  "enabled": true,
-  "on_demand": false
-}

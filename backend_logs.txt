@@ -1,0 +1,15 @@
+gtvision_backend  | [2026-02-10 10:41:04,148] INFO [django.utils.autoreload:667] Watching for file changes with StatReloader
+gtvision_backend  | [2026-02-10 10:41:09,777] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:41:10,853] INFO [django.server:213] "GET /api/cameras/recorder/ HTTP/1.1" 200 141
+gtvision_backend  | [2026-02-10 10:41:24,863] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:41:40,032] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:41:40,916] INFO [django.server:213] "GET /api/cameras/recorder/ HTTP/1.1" 200 141
+gtvision_backend  | [2026-02-10 10:41:55,128] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:42:10,212] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:42:10,971] INFO [django.server:213] "GET /api/cameras/recorder/ HTTP/1.1" 200 141
+gtvision_backend  | [2026-02-10 10:42:25,325] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:42:40,438] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:42:41,033] INFO [django.server:213] "GET /api/cameras/recorder/ HTTP/1.1" 200 141
+gtvision_backend  | [2026-02-10 10:42:55,529] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:43:10,642] INFO [django.server:213] "GET /admin/login/ HTTP/1.1" 200 4193
+gtvision_backend  | [2026-02-10 10:43:11,103] INFO [django.server:213] "GET /api/cameras/recorder/ HTTP/1.1" 200 141

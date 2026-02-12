@@ -1,0 +1,325 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 400,
+      "y": 20,
+      "width": 500,
+      "height": 50,
+      "fontSize": 32,
+      "text": "🐒 Chaos Engineering Strategy"
+    },
+    {
+      "type": "ellipse",
+      "id": "start",
+      "x": 500,
+      "y": 100,
+      "width": 200,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "🐒 Chaos Monkey\nStart"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "attack1",
+      "x": 100,
+      "y": 250,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "💀 Kill Container\nRandom service\ndocker kill"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "attack2",
+      "x": 350,
+      "y": 250,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "🌐 Network Chaos\n100ms latency\n10% packet loss"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "attack3",
+      "x": 600,
+      "y": 250,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "🔥 CPU Stress\n100% CPU\n60 seconds"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "attack4",
+      "x": 850,
+      "y": 250,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "💾 Disk I/O\nSaturate disk\nRandom writes"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-start-1",
+      "x": 600,
+      "y": 180,
+      "points": [[0, 0], [-400, 70]],
+      "strokeColor": "#f44336"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-start-2",
+      "x": 600,
+      "y": 180,
+      "points": [[0, 0], [-150, 70]],
+      "strokeColor": "#f44336"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-start-3",
+      "x": 600,
+      "y": 180,
+      "points": [[0, 0], [100, 70]],
+      "strokeColor": "#f44336"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-start-4",
+      "x": 600,
+      "y": 180,
+      "points": [[0, 0], [350, 70]],
+      "strokeColor": "#f44336"
+    },
+    {
+      "type": "rectangle",
+      "id": "wait",
+      "x": 450,
+      "y": 400,
+      "width": 300,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "⏳ Wait 30 seconds\nLet system react"
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "health-check",
+      "x": 500,
+      "y": 530,
+      "width": 200,
+      "height": 120,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "❤️ Health\nCheck"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "success",
+      "x": 150,
+      "y": 700,
+      "width": 250,
+      "height": 100,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "✅ System Recovered\n📝 Log success\n🎯 Resilience confirmed"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "failure",
+      "x": 800,
+      "y": 700,
+      "width": 250,
+      "height": 100,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffcdd2",
+      "label": {
+        "text": "❌ System Failed\n🚨 Alert team\n⏪ Trigger rollback"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-health-success",
+      "x": 550,
+      "y": 650,
+      "points": [[0, 0], [-275, 50]],
+      "strokeColor": "#4caf50",
+      "strokeWidth": 2,
+      "label": {
+        "text": "Healthy"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-health-failure",
+      "x": 650,
+      "y": 650,
+      "points": [[0, 0], [275, 50]],
+      "strokeColor": "#f44336",
+      "strokeWidth": 2,
+      "label": {
+        "text": "Failed"
+      }
+    },
+    {
+      "type": "diamond",
+      "id": "continue",
+      "x": 500,
+      "y": 850,
+      "width": 200,
+      "height": 100,
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "Continue\nTesting?"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-success-continue",
+      "x": 275,
+      "y": 800,
+      "points": [[0, 0], [275, 75]],
+      "strokeColor": "#9c27b0"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-failure-continue",
+      "x": 925,
+      "y": 800,
+      "points": [[0, 0], [-275, 75]],
+      "strokeColor": "#9c27b0"
+    },
+    {
+      "type": "rectangle",
+      "id": "wait-random",
+      "x": 450,
+      "y": 1000,
+      "width": 300,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "⏳ Wait Random\n10-30 seconds"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-continue-wait",
+      "x": 600,
+      "y": 950,
+      "points": [[0, 0], [0, 50]],
+      "strokeColor": "#9c27b0",
+      "label": {
+        "text": "Yes"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-wait-start",
+      "x": 450,
+      "y": 1040,
+      "points": [[0, 0], [-300, -900]],
+      "strokeColor": "#ff9800",
+      "strokeStyle": "dashed"
+    },
+    {
+      "type": "ellipse",
+      "id": "end",
+      "x": 800,
+      "y": 1000,
+      "width": 200,
+      "height": 80,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "📊 Generate Report\nEnd"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-continue-end",
+      "x": 700,
+      "y": 900,
+      "points": [[0, 0], [150, 120]],
+      "strokeColor": "#4caf50",
+      "label": {
+        "text": "No"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "targets",
+      "x": 100,
+      "y": 1150,
+      "width": 950,
+      "height": 150,
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "🎯 CHAOS TARGETS"
+      }
+    },
+    {
+      "type": "text",
+      "id": "targets-list",
+      "x": 120,
+      "y": 1190,
+      "width": 910,
+      "height": 90,
+      "fontSize": 14,
+      "text": "• Backend (Django)  • Frontend (Nginx)  • MediaMTX (Streaming)\n• Recorder  • Storage  • PostgreSQL  • Redis  • HAProxy\n• Network interfaces  • CPU cores  • Memory  • Disk I/O\n• Random container selection  • Multiple simultaneous attacks\n• Gradual degradation  • Sudden failures"
+    },
+    {
+      "type": "rectangle",
+      "id": "metrics",
+      "x": 100,
+      "y": 1340,
+      "width": 950,
+      "height": 120,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "📊 MONITORED DURING CHAOS"
+      }
+    },
+    {
+      "type": "text",
+      "id": "metrics-list",
+      "x": 120,
+      "y": 1380,
+      "width": 910,
+      "height": 60,
+      "fontSize": 14,
+      "text": "• Service availability  • Response times  • Error rates  • Recovery time\n• Auto-restart success  • Data consistency  • User impact\n• Cascade failures  • Circuit breaker activation  • Fallback mechanisms"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

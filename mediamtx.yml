@@ -98,9 +98,9 @@ pprofAllowOrigins: ['*']
 pprofTrustedProxies: []
 
 ###############################################
-# Playback server
+# Playback server - DESABILITADO (Backend faz playback)
 
-playback: yes
+playback: no
 playbackAddress: :9996
 playbackEncryption: no
 playbackServerKey: server.key
@@ -197,7 +197,7 @@ pathDefaults:
   useAbsoluteTimestamp: no
 
   # ============================================
-  # GRAVAÇÃO 24/7 - DESABILITADA (ativar por path)
+  # GRAVAÇÃO - DESABILITADA (Recorder Service faz isso)
   # ============================================
   record: no
   recordPath: /recordings/%path/%Y-%m-%d/%H-%M-%S.mp4

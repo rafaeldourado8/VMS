@@ -1,0 +1,441 @@
+{
+  "type": "excalidraw",
+  "version": 2,
+  "source": "https://excalidraw.com",
+  "elements": [
+    {
+      "type": "text",
+      "id": "title",
+      "x": 400,
+      "y": 20,
+      "width": 500,
+      "height": 50,
+      "fontSize": 32,
+      "text": "GT-Vision AWS Architecture"
+    },
+    {
+      "type": "rectangle",
+      "id": "dev-env",
+      "x": 100,
+      "y": 100,
+      "width": 300,
+      "height": 400,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "🔧 DEV ENVIRONMENT"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "dev-ec2",
+      "x": 120,
+      "y": 150,
+      "width": 260,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "EC2 t3.large Spot\n16 vCPU, 32GB RAM\n$50/mês"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "dev-db",
+      "x": 120,
+      "y": 260,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "PostgreSQL\nLocal"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "dev-s3",
+      "x": 260,
+      "y": 260,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "S3 Dev\n10GB"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "dev-docker",
+      "x": 120,
+      "y": 350,
+      "width": 260,
+      "height": 120,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "🐳 Docker Compose\n• Backend\n• Frontend\n• MediaMTX\n• All Services"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "staging-env",
+      "x": 450,
+      "y": 100,
+      "width": 300,
+      "height": 400,
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "🎪 STAGING ENVIRONMENT"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "stg-ec2",
+      "x": 470,
+      "y": 150,
+      "width": 260,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "EC2 c6i.2xlarge\n8 vCPU, 16GB RAM\n$100/mês"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "stg-rds",
+      "x": 470,
+      "y": 260,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "RDS Aurora\nServerless"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "stg-s3",
+      "x": 610,
+      "y": 260,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "S3 Staging\n100GB"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "prod-env",
+      "x": 800,
+      "y": 100,
+      "width": 500,
+      "height": 600,
+      "strokeColor": "#f44336",
+      "backgroundColor": "#ffebee",
+      "label": {
+        "text": "🚀 PRODUCTION ENVIRONMENT"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "alb",
+      "x": 950,
+      "y": 150,
+      "width": 200,
+      "height": 60,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "⚖️ Application\nLoad Balancer"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "blue-group",
+      "x": 820,
+      "y": 250,
+      "width": 200,
+      "height": 150,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "🔵 BLUE (Current)"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "blue1",
+      "x": 840,
+      "y": 290,
+      "width": 160,
+      "height": 40,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "EC2 c6i.4xlarge"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "blue2",
+      "x": 840,
+      "y": 340,
+      "width": 160,
+      "height": 40,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#e3f2fd",
+      "label": {
+        "text": "EC2 c6i.4xlarge"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "green-group",
+      "x": 1060,
+      "y": 250,
+      "width": 200,
+      "height": 150,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "🟢 GREEN (New)"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "green1",
+      "x": 1080,
+      "y": 290,
+      "width": 160,
+      "height": 40,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#e8f5e9",
+      "label": {
+        "text": "EC2 c6i.4xlarge"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "green2",
+      "x": 1080,
+      "y": 340,
+      "width": 160,
+      "height": 40,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#e8f5e9",
+      "label": {
+        "text": "EC2 c6i.4xlarge"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "prod-rds",
+      "x": 820,
+      "y": 440,
+      "width": 180,
+      "height": 80,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "💾 RDS Aurora\nMulti-AZ\nPostgreSQL 15"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "prod-cache",
+      "x": 1020,
+      "y": 440,
+      "width": 120,
+      "height": 80,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "⚡ ElastiCache\nRedis"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "prod-s3",
+      "x": 1160,
+      "y": 440,
+      "width": 120,
+      "height": 80,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "📦 S3\n200TB\nRecordings"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "monitoring",
+      "x": 820,
+      "y": 560,
+      "width": 460,
+      "height": 120,
+      "strokeColor": "#9c27b0",
+      "backgroundColor": "#f3e5f5",
+      "label": {
+        "text": "📊 MONITORING"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "grafana",
+      "x": 840,
+      "y": 600,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "📈 Grafana\nDashboards"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "prometheus",
+      "x": 980,
+      "y": 600,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "📊 Prometheus\nMetrics"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "loki",
+      "x": 1120,
+      "y": 600,
+      "width": 120,
+      "height": 60,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#fff3e0",
+      "label": {
+        "text": "📝 Loki\nLogs"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "github",
+      "x": 100,
+      "y": 550,
+      "width": 300,
+      "height": 150,
+      "strokeColor": "#000000",
+      "backgroundColor": "#f5f5f5",
+      "label": {
+        "text": "🤖 GITHUB ACTIONS"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "ci",
+      "x": 120,
+      "y": 590,
+      "width": 120,
+      "height": 50,
+      "strokeColor": "#2196f3",
+      "backgroundColor": "#bbdefb",
+      "label": {
+        "text": "CI Pipeline\ndevelop"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "cd",
+      "x": 260,
+      "y": 590,
+      "width": 120,
+      "height": 50,
+      "strokeColor": "#ff9800",
+      "backgroundColor": "#ffe0b2",
+      "label": {
+        "text": "CD Pipeline\nmain"
+      }
+    },
+    {
+      "type": "rectangle",
+      "id": "ecr",
+      "x": 120,
+      "y": 660,
+      "width": 260,
+      "height": 30,
+      "strokeColor": "#4caf50",
+      "backgroundColor": "#c8e6c9",
+      "label": {
+        "text": "📦 ECR Registry"
+      }
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-ci-dev",
+      "x": 240,
+      "y": 640,
+      "points": [[0, 0], [0, -120]],
+      "strokeColor": "#2196f3"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-cd-stg",
+      "x": 380,
+      "y": 640,
+      "points": [[0, 0], [220, -120]],
+      "strokeColor": "#ff9800"
+    },
+    {
+      "type": "arrow",
+      "id": "arrow-stg-prod",
+      "x": 750,
+      "y": 300,
+      "points": [[0, 0], [70, 0]],
+      "strokeColor": "#f44336"
+    },
+    {
+      "type": "text",
+      "id": "cost-dev",
+      "x": 120,
+      "y": 480,
+      "width": 260,
+      "height": 30,
+      "fontSize": 16,
+      "text": "💰 Custo: ~$50/mês",
+      "textAlign": "center"
+    },
+    {
+      "type": "text",
+      "id": "cost-stg",
+      "x": 470,
+      "y": 480,
+      "width": 260,
+      "height": 30,
+      "fontSize": 16,
+      "text": "💰 Custo: ~$100/mês",
+      "textAlign": "center"
+    },
+    {
+      "type": "text",
+      "id": "cost-prod",
+      "x": 950,
+      "y": 680,
+      "width": 200,
+      "height": 30,
+      "fontSize": 16,
+      "text": "💰 Custo: ~$600/mês",
+      "textAlign": "center"
+    }
+  ],
+  "appState": {
+    "viewBackgroundColor": "#ffffff"
+  }
+}

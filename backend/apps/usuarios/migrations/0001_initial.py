@@ -1,3 +1,5 @@
+# Generated manually
+
 from django.db import migrations, models
 import django.utils.timezone
 
@@ -17,15 +19,15 @@ class Migration(migrations.Migration):
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('password', models.CharField(max_length=128, verbose_name='password')),
                 ('last_login', models.DateTimeField(blank=True, null=True, verbose_name='last login')),
-                ('is_superuser', models.BooleanField(default=False)),
+                ('is_superuser', models.BooleanField(default=False, help_text='Designates that this user has all permissions without explicitly assigning them.', verbose_name='superuser status')),
                 ('email', models.EmailField(max_length=254, unique=True)),
                 ('name', models.CharField(max_length=255)),
                 ('role', models.CharField(choices=[('admin', 'Administrador'), ('viewer', 'Visualizador')], default='viewer', max_length=50)),
                 ('is_active', models.BooleanField(default=True)),
                 ('is_staff', models.BooleanField(default=False)),
                 ('created_at', models.DateTimeField(default=django.utils.timezone.now)),
-                ('groups', models.ManyToManyField(blank=True, related_name='usuario_set', to='auth.group')),
-                ('user_permissions', models.ManyToManyField(blank=True, related_name='usuario_set', to='auth.permission')),
+                ('groups', models.ManyToManyField(blank=True, help_text='The groups this user belongs to.', related_name='usuario_set', to='auth.group', verbose_name='groups')),
+                ('user_permissions', models.ManyToManyField(blank=True, help_text='Specific permissions for this user.', related_name='usuario_set', to='auth.permission', verbose_name='user permissions')),
             ],
             options={
                 'abstract': False,

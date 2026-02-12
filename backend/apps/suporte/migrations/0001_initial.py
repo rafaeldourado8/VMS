@@ -1,7 +1,32 @@
-from django.db import migrations
+# Generated manually
+
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
 
 
 class Migration(migrations.Migration):
+
     initial = True
-    dependencies = []
-    operations = []
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name='Mensagem',
+            fields=[
+                ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
+                ('conteudo', models.TextField()),
+                ('timestamp', models.DateTimeField(auto_now_add=True, db_index=True)),
+                ('respondido_por_admin', models.BooleanField(default=False)),
+                ('autor', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='mensagens_suporte', to=settings.AUTH_USER_MODEL)),
+            ],
+            options={
+                'verbose_name': 'Mensagem de Suporte',
+                'verbose_name_plural': 'Mensagens de Suporte',
+                'ordering': ['-timestamp'],
+            },
+        ),
+    ]

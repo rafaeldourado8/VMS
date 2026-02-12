@@ -20,7 +20,7 @@ async def health():
 @app.get("/recordings/{camera_id}")
 async def get_recordings(camera_id: int, date: str = None):
     """Lista gravações de uma câmera"""
-    base = Path(f"/recordings/cam_{camera_id}")
+    base = Path(f"/recordings/camera_{camera_id}")
     target_date = date or datetime.now().strftime("%Y-%m-%d")
     path = base / target_date
     
@@ -49,7 +49,7 @@ async def get_recordings(camera_id: int, date: str = None):
 @app.post("/recordings/{camera_id}/validate")
 async def validate_recording(camera_id: int, date: str = None):
     """Valida integridade das gravações"""
-    base = Path(f"/recordings/cam_{camera_id}")
+    base = Path(f"/recordings/camera_{camera_id}")
     target_date = date or datetime.now().strftime("%Y-%m-%d")
     path = base / target_date
     

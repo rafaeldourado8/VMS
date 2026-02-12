@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LPR Live Preview</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #1a1a1a;
+            color: white;
+            font-family: Arial, sans-serif;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            color: #00ff00;
+        }
+        #preview {
+            width: 100%;
+            max-width: 1280px;
+            background: black;
+            display: block;
+            margin: 20px auto;
+            border: 2px solid #00ff00;
+        }
+        .controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        input {
+            padding: 10px;
+            width: 200px;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            background: #00ff00;
+            border: none;
+            cursor: pointer;
+            margin: 0 5px;
+            color: black;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00cc00;
+        }
+        .info {
+            text-align: center;
+            margin: 10px 0;
+            color: #888;
+        }
+        .legend {
+            background: #2a2a2a;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .legend h3 {
+            margin-top: 0;
+            color: #00ff00;
+        }
+        .color-box {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-right: 10px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚗 LPR Live Preview</h1>
+        
+        <div class="controls">
+            <input type="number" id="cameraId" placeholder="Camera ID" value="700">
+            <button onclick="startPreview()">▶ Iniciar</button>
+            <button onclick="stopPreview()">⏸ Parar</button>
+        </div>
+        
+        <div class="info" id="status">Digite o ID da câmera e clique em Iniciar</div>
+        
+        <img id="preview" src="" alt="Preview será exibido aqui">
+        
+        <div class="legend">
+            <h3>📊 Legenda</h3>
+            <p><span class="color-box" style="background: red;"></span> <strong>NEW</strong> - Placa detectada pela primeira vez</p>
+            <p><span class="color-box" style="background: yellow;"></span> <strong>TRACKING</strong> - Placa sendo rastreada</p>
+            <p><span class="color-box" style="background: lime;"></span> <strong>SAVED</strong> - Placa já salva</p>
+            <p><span class="color-box" style="background: cyan;"></span> <strong>ROI</strong> - Região de interesse</p>
+            <p style="margin-top: 15px; color: #00ff00;">🔄 Atualização automática a cada 1 segundo</p>
+        </div>
+    </div>
+
+    <script>
+        let intervalId = null;
+        let currentCamera = null;
+        
+        function startPreview() {
+            const cameraId = document.getElementById('cameraId').value;
+            if (!cameraId) {
+                alert('Digite o ID da câmera!');
+                return;
+            }
+            
+            currentCamera = cameraId;
+            document.getElementById('status').textContent = `🔴 LIVE - Câmera ${cameraId}`;
+            
+            updatePreview();
+            
+            if (intervalId) {
+                clearInterval(intervalId);
+            }
+            
+            intervalId = setInterval(updatePreview, 1000);
+        }
+        
+        function updatePreview() {
+            if (!currentCamera) return;
+            
+            const img = document.getElementById('preview');
+            const timestamp = new Date().getTime();
+            img.src = `http://localhost:8090/preview/cam_${currentCamera}_preview.jpg?t=${timestamp}`;
+            
+            img.onerror = function() {
+                document.getElementById('status').textContent = `⚠️ Aguardando frames da câmera ${currentCamera}...`;
+            };
+            
+            img.onload = function() {
+                document.getElementById('status').textContent = `🔴 LIVE - Câmera ${currentCamera} (atualizado ${new Date().toLocaleTimeString()})`;
+            };
+        }
+        
+        function stopPreview() {
+            if (intervalId) {
+                clearInterval(intervalId);
+                intervalId = null;
+            }
+            document.getElementById('status').textContent = '⏸ Preview pausado';
+        }
+    </script>
+</body>
+</html>

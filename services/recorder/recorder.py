@@ -16,32 +16,27 @@ class Recorder:
         
     async def start(self):
         date_str = datetime.now().strftime("%Y-%m-%d")
-        time_str = datetime.now().strftime("%H-%M-%S")
-        output_dir = f"/recordings/cam_{self.camera_id}/{date_str}"
+        output_dir = f"/recordings/camera_{self.camera_id}/{date_str}"
         Path(output_dir).mkdir(parents=True, exist_ok=True)
-        output_path = f"{output_dir}/{time_str}.mp4"
+        output_path = f"{output_dir}/%H-%M-%S.mp4"
         
         cmd = [
             "ffmpeg", "-y",
             "-rtsp_transport", "tcp",
             "-i", self.rtsp_url,
-            "-c:v", "libx264",
-            "-preset", "veryfast",
-            "-crf", "28",
-            "-maxrate", "2M",
-            "-bufsize", "4M",
-            "-c:a", "aac",
-            "-b:a", "64k",
+            "-c:v", "copy",
+            "-c:a", "copy",
             "-f", "segment",
-            "-segment_time", "86400",
+            "-segment_time", "60",
             "-segment_format", "mp4",
+            "-segment_atclocktime", "1",
             "-reset_timestamps", "1",
             "-strftime", "1",
             output_path
         ]
         
         self.process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logger.info(f"Gravacao iniciada: cam_{self.camera_id} (bitrate reduzido)")
+        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - segmentos de 1min")
         
     async def monitor(self):
         while True:

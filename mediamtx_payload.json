@@ -1,5 +1,0 @@
-{
-  "source": "rtsp://admin:Camerite123@45.236.226.71:6047/cam/realmonitor?channel=1&subtype=0",
-  "sourceOnDemand": true,
-  "rtspTransport": "tcp"
-}
