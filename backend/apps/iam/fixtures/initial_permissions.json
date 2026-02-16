@@ -1,0 +1,102 @@
+[
+  {
+    "model": "iam.iampermission",
+    "pk": 1,
+    "fields": {
+      "code": "cameras.view",
+      "name": "Visualizar Câmeras",
+      "description": "Permite visualizar lista e streams de câmeras",
+      "resource": "cameras"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 2,
+    "fields": {
+      "code": "cameras.create",
+      "name": "Criar Câmeras",
+      "description": "Permite adicionar novas câmeras ao sistema",
+      "resource": "cameras"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 3,
+    "fields": {
+      "code": "cameras.edit",
+      "name": "Editar Câmeras",
+      "description": "Permite modificar configurações de câmeras existentes",
+      "resource": "cameras"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 4,
+    "fields": {
+      "code": "cameras.delete",
+      "name": "Deletar Câmeras",
+      "description": "Permite remover câmeras do sistema",
+      "resource": "cameras"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 5,
+    "fields": {
+      "code": "recordings.view",
+      "name": "Visualizar Gravações",
+      "description": "Permite acessar e visualizar gravações",
+      "resource": "recordings"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 6,
+    "fields": {
+      "code": "recordings.download",
+      "name": "Baixar Gravações",
+      "description": "Permite fazer download de arquivos de gravação",
+      "resource": "recordings"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 7,
+    "fields": {
+      "code": "recordings.delete",
+      "name": "Deletar Gravações",
+      "description": "Permite remover gravações do sistema",
+      "resource": "recordings"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 8,
+    "fields": {
+      "code": "detections.view",
+      "name": "Visualizar Detecções",
+      "description": "Permite visualizar detecções de LPR e eventos",
+      "resource": "detections"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 9,
+    "fields": {
+      "code": "users.manage",
+      "name": "Gerenciar Usuários",
+      "description": "Permite criar, editar e deletar usuários",
+      "resource": "users"
+    }
+  },
+  {
+    "model": "iam.iampermission",
+    "pk": 10,
+    "fields": {
+      "code": "settings.manage",
+      "name": "Gerenciar Configurações",
+      "description": "Permite alterar configurações do sistema",
+      "resource": "settings"
+    }
+  }
+]

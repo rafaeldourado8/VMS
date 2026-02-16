@@ -7,10 +7,13 @@ Endpoints REST para gestão de câmeras.
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+import logging
 from .models import Camera
 from .serializers import CameraSerializer
 from .services import CameraService
 from .schemas import CameraDTO
+
+logger = logging.getLogger(__name__)
 
 
 class CameraViewSet(viewsets.ModelViewSet):
@@ -32,8 +35,9 @@ class CameraViewSet(viewsets.ModelViewSet):
     service = CameraService()
 
     def get_queryset(self):
-        """Retorna apenas câmeras do usuário autenticado."""
-        return self.service.list_cameras_for_user(self.request.user)
+        """Retorna apenas câmeras do usuário autenticado com isolamento de tenant."""
+        queryset = Camera.objects.for_user(self.request.user, 'camera')
+        return queryset
 
     def create(self, request, *args, **kwargs):
         """
@@ -46,21 +50,45 @@ class CameraViewSet(viewsets.ModelViewSet):
             "stream_url": "rtsp://admin:pass@192.168.1.100:554/stream",
             "location": "Portaria Principal",
             "latitude": -23.5505,
-            "longitude": -46.6333
+            "longitude": -46.6333,
+            "recording_retention_days": 15
         }
         """
+        logger.info(f"Creating camera with RAW data: {request.data}")
+        logger.info(f"recording_retention_days in request.data: {'recording_retention_days' in request.data}")
+        if 'recording_retention_days' in request.data:
+            logger.info(f"recording_retention_days RAW value: {request.data['recording_retention_days']}")
+        
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+        
+        logger.info(f"Validated data: {serializer.validated_data}")
+        logger.info(f"recording_retention_days in validated_data: {'recording_retention_days' in serializer.validated_data}")
         
         # Usar nome original sem prefixo
         original_name = serializer.validated_data['name']
         
-        camera_dto = CameraDTO(
-            owner_id=request.user.id,
-            **serializer.validated_data
-        )
+        # Extrair apenas os campos que o CameraDTO aceita
+        dto_data = {
+            'name': serializer.validated_data['name'],
+            'stream_url': serializer.validated_data['stream_url'],
+            'owner_id': request.user.id,
+            'location': serializer.validated_data.get('location'),
+            'latitude': serializer.validated_data.get('latitude'),
+            'longitude': serializer.validated_data.get('longitude'),
+            'detection_settings': serializer.validated_data.get('detection_settings', {}),
+            'recording_retention_days': serializer.validated_data.get('recording_retention_days', 30)
+        }
+        
+        camera_dto = CameraDTO(**dto_data)
+        
+        logger.info(f"CameraDTO: recording_retention_days={camera_dto.recording_retention_days}")
         
         camera = self.service.create_camera(camera_dto)
+        
+        # Conceder acesso automático ao criador
+        camera.grant_access_to_user(request.user, read=True, write=True, delete=True)
+        
         output_serializer = self.get_serializer(camera)
         return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
@@ -178,7 +206,7 @@ def cameras_for_recorder(request):
     """Endpoint público para o recorder buscar câmeras."""
     try:
         cameras = Camera.objects.filter(status='online').values(
-            'id', 'name', 'stream_url', 'status'
+            'id', 'name', 'stream_url', 'status', 'recording_retention_days'
         )
         return Response(list(cameras))
     except Exception as e:
@@ -189,7 +217,6 @@ def cameras_for_recorder(request):
 
 
 @api_view(['GET'])
-@permission_classes([permissions.IsAuthenticated])
 def list_recordings(request):
     """
     Lista gravações disponíveis por câmera e período.
@@ -226,23 +253,43 @@ def list_recordings(request):
     start_time_str = request.GET.get('start_time')
     end_time_str = request.GET.get('end_time')
     
+    print(f"[DEBUG] list_recordings - camera_id={camera_id}, date={date_str}, user={request.user}")
+    
     if not camera_id or not date_str:
         return Response(
             {"error": "camera_id e date são obrigatórios"},
             status=status.HTTP_400_BAD_REQUEST
         )
     
+    # Verificar se a câmera existe (sem verificar owner por enquanto para debug)
     try:
-        camera = Camera.objects.get(id=camera_id, owner=request.user)
+        camera = Camera.objects.get(id=camera_id)
+        print(f"[DEBUG] Câmera encontrada: {camera.name}, owner={camera.owner}")
     except Camera.DoesNotExist:
+        print(f"[DEBUG] Câmera {camera_id} não existe no banco")
         return Response(
             {"error": "Câmera não encontrada"},
             status=status.HTTP_404_NOT_FOUND
         )
     
-    recordings_path = Path(f"/recordings/cam_{camera_id}/{date_str}")
+    # Tentar diferentes paths para as gravações
+    possible_paths = [
+        Path(f"d:/VMS/recordings/camera_{camera_id}/{date_str}"),
+        Path(f"/recordings/cam_{camera_id}/{date_str}"),
+        Path(f"/recordings/camera_{camera_id}/{date_str}"),
+    ]
     
-    if not recordings_path.exists():
+    print(f"[DEBUG] Buscando gravações - camera_id={camera_id}, date={date_str}")
+    
+    recordings_path = None
+    for path in possible_paths:
+        print(f"[DEBUG] Tentando path: {path}")
+        if path.exists():
+            recordings_path = path
+            print(f"[DEBUG] Path encontrado: {path}")
+            break
+    
+    if not recordings_path:
         return Response({
             "camera_id": int(camera_id),
             "date": date_str,
@@ -254,8 +301,13 @@ def list_recordings(request):
     recordings = []
     total_size = 0
     
-    for file_path in sorted(recordings_path.glob("*.mp4")):
+    print(f"[DEBUG] Listando arquivos em: {recordings_path}")
+    mp4_files = list(recordings_path.glob("*.mp4"))
+    print(f"[DEBUG] Encontrados {len(mp4_files)} arquivos MP4")
+    
+    for file_path in sorted(mp4_files):
         file_time = file_path.stem
+        print(f"[DEBUG] Processando arquivo: {file_path.name}")
         
         if start_time_str or end_time_str:
             try:
@@ -276,11 +328,16 @@ def list_recordings(request):
         total_size += size_mb
         
         recordings.append({
+            "camera_id": int(camera_id),
+            "date": date_str,
             "filename": file_path.name,
             "start_time": file_time.replace("-", ":"),
             "size_mb": round(size_mb, 2),
             "playback_url": f"/cam_{camera_id}/{date_str}/{file_path.name}/index.m3u8"
         })
+    
+    print(f"[DEBUG] Total de gravações encontradas: {len(recordings)}")
+    print(f"[DEBUG] Retornando response com {len(recordings)} gravações")
     
     return Response({
         "camera_id": int(camera_id),

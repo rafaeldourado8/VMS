@@ -15,6 +15,8 @@ import {
   Grid3X3,
   Activity,
   HardDrive,
+  Map,
+  Shield,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
@@ -23,10 +25,12 @@ import { useAuthStore } from '@/store/authStore'
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Câmeras', href: '/cameras', icon: Camera },
+  { name: 'Visão Tática', href: '/cameras/tactical', icon: Map },
   { name: 'Detecções', href: '/detections', icon: Car },
   { name: 'Meus Clips', href: '/clips', icon: Scissors },
   { name: 'Mosaicos', href: '/mosaicos', icon: Grid3X3 },
   { name: 'Configurações', href: '/settings', icon: Settings },
+  { name: 'IAM', href: '/settings/iam', icon: Shield },
 ]
 
 export function Layout() {

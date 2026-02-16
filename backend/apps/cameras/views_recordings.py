@@ -1,12 +1,12 @@
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import permissions
 from rest_framework.response import Response
 from pathlib import Path
 from datetime import datetime
 import os
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.IsAuthenticated])
 def list_recordings(request, camera_id=None):
     """Lista gravações disponíveis"""
     print(f"[DEBUG] list_recordings chamado - camera_id={camera_id}, user={request.user}")
@@ -70,16 +70,34 @@ def list_recordings(request, camera_id=None):
     })
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([permissions.AllowAny])
 def playback_recording(request, camera_id, date, filename):
     """Retorna vídeo gravado para playback"""
     from django.http import FileResponse, Http404
+    import os
     
-    video_path = Path(f"/recordings/cam_{camera_id}/{date}/{filename}")
+    # Tentar diferentes paths
+    possible_paths = [
+        Path(f"d:/VMS/recordings/camera_{camera_id}/{date}/{filename}"),
+        Path(f"/recordings/cam_{camera_id}/{date}/{filename}"),
+        Path(f"/recordings/camera_{camera_id}/{date}/{filename}"),
+    ]
     
-    if not video_path.exists():
+    print(f"[DEBUG] Playback request - camera_id={camera_id}, date={date}, filename={filename}")
+    
+    video_path = None
+    for path in possible_paths:
+        print(f"[DEBUG] Trying path: {path}")
+        if path.exists():
+            video_path = path
+            print(f"[DEBUG] Found file at: {path}")
+            break
+    
+    if not video_path:
+        print(f"[DEBUG] File not found in any path")
         raise Http404("Gravação não encontrada")
     
+    print(f"[DEBUG] Serving file: {video_path}")
     return FileResponse(
         open(video_path, 'rb'),
         content_type='video/mp4',

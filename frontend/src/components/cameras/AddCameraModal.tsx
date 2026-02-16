@@ -5,6 +5,12 @@ import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '@/compo
 import { cameraService, streamingService } from '@/services/api'
 import type { CameraCreateRequest } from '@/types'
 
+const RETENTION_PLANS = [
+  { value: 7, label: '7 dias', description: 'Retenção curta - ideal para monitoramento básico' },
+  { value: 15, label: '15 dias', description: 'Retenção média - balanceamento entre espaço e histórico' },
+  { value: 30, label: '30 dias', description: 'Retenção longa - máximo histórico disponível' },
+]
+
 interface AddCameraModalProps {
   onClose: () => void
 }
@@ -13,11 +19,106 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'select' | 'easy' | 'advanced'>('select')
   const [protocol, setProtocol] = useState<'rtsp' | 'rtmp' | 'ip' | 'p2'>('rtsp')
+  const [locationMode, setLocationMode] = useState<'text' | 'address' | 'coords' | 'url'>('text')
   const [formData, setFormData] = useState<CameraCreateRequest>({
     name: '',
     stream_url: '',
     location: '',
+    recording_retention_days: 30,
   })
+  const [locationInput, setLocationInput] = useState('')
+  const [addressData, setAddressData] = useState({
+    street: '',
+    number: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+  })
+  const [coordsData, setCoordsData] = useState({
+    latitude: '',
+    longitude: '',
+  })
+
+  // Extrai coordenadas de URL do Google Maps
+  const extractCoordinatesFromUrl = (url: string) => {
+    try {
+      const patterns = [
+        /@([+-]?\d+\.\d+),([+-]?\d+\.\d+)/,  // @-20.5039951,-54.6228302
+        /!3d([+-]?\d+\.\d+)!4d([+-]?\d+\.\d+)/,  // !3d-20.5039951!4d-54.6228302
+        /[?&]q=([+-]?\d+\.\d+),([+-]?\d+\.\d+)/,  // ?q=-20.5039951,-54.6228302
+      ]
+      
+      for (const pattern of patterns) {
+        const match = url.match(pattern)
+        if (match) {
+          return {
+            latitude: parseFloat(match[1]),
+            longitude: parseFloat(match[2]),
+          }
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao extrair coordenadas:', e)
+    }
+    return null
+  }
+
+  const handleLocationChange = (value: string) => {
+    setLocationInput(value)
+    
+    // Auto-detectar tipo de entrada
+    if (value.includes('google.com/maps') || value.includes('maps.google.com')) {
+      setLocationMode('url')
+      const coords = extractCoordinatesFromUrl(value)
+      if (coords) {
+        setFormData(f => ({
+          ...f,
+          location: value,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          maps_url: value,
+        }))
+      }
+    } else {
+      setLocationMode('text')
+      setFormData(f => ({ ...f, location: value }))
+    }
+  }
+
+  const handleAddressChange = () => {
+    const parts = []
+    if (addressData.street) {
+      let street = addressData.street
+      if (addressData.number) street += `, ${addressData.number}`
+      parts.push(street)
+    }
+    if (addressData.neighborhood) parts.push(addressData.neighborhood)
+    if (addressData.city) parts.push(addressData.city)
+    if (addressData.state) parts.push(addressData.state)
+    
+    setFormData(f => ({
+      ...f,
+      location: parts.join(' - '),
+      address_street: addressData.street,
+      address_number: addressData.number,
+      address_neighborhood: addressData.neighborhood,
+      address_city: addressData.city,
+      address_state: addressData.state,
+    }))
+  }
+
+  const handleCoordsChange = () => {
+    const lat = parseFloat(coordsData.latitude)
+    const lng = parseFloat(coordsData.longitude)
+    if (!isNaN(lat) && !isNaN(lng)) {
+      setFormData(f => ({
+        ...f,
+        latitude: lat,
+        longitude: lng,
+        location: `${lat}, ${lng}`,
+      }))
+    }
+  }
 
   const createMutation = useMutation({
     mutationFn: async (data: CameraCreateRequest) => {
@@ -45,10 +146,10 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
             <CardTitle>Adicionar Câmera</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button onClick={() => setMode('easy')} className="w-full h-20 text-lg" variant="outline">
+            <Button onClick={() => setMode('easy')} className="w-full h-20 text-lg" variant="outline" disabled>
               <div>
                 <div className="font-semibold">Modo Fácil</div>
-                <div className="text-xs text-muted-foreground">Configuração guiada</div>
+                <div className="text-xs text-muted-foreground">Em desenvolvimento</div>
               </div>
             </Button>
             <Button onClick={() => setMode('advanced')} className="w-full h-20 text-lg" variant="outline">
@@ -94,7 +195,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Nome</label>
+                <label className="text-sm font-medium">Nome *</label>
                 <Input
                   placeholder="Ex: Entrada Principal"
                   value={formData.name}
@@ -105,7 +206,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
 
               {protocol === 'rtsp' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">URL RTSP</label>
+                  <label className="text-sm font-medium">URL RTSP *</label>
                   <Input
                     placeholder="rtsp://usuario:senha@192.168.1.100:554/stream"
                     value={formData.stream_url}
@@ -117,7 +218,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
 
               {protocol === 'rtmp' && (
                 <div className="space-y-2">
-                  <label className="text-sm font-medium">URL RTMP</label>
+                  <label className="text-sm font-medium">URL RTMP *</label>
                   <Input
                     placeholder="rtmp://192.168.1.100:1935/live/stream"
                     value={formData.stream_url}
@@ -130,7 +231,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
               {protocol === 'p2' && (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">ID P2P</label>
+                    <label className="text-sm font-medium">ID P2P *</label>
                     <Input
                       placeholder="XXXXX-XXXXX-XXXXX"
                       onChange={(e) => setFormData(f => ({ ...f, stream_url: e.target.value }))}
@@ -144,25 +245,164 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
               )}
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Localização (opcional)</label>
-                <Input
-                  placeholder="Ex: Portaria"
-                  value={formData.location}
-                  onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
-                />
+                <label className="text-sm font-medium">Localização *</label>
+                <div className="flex gap-2 mb-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationMode === 'text' ? 'default' : 'outline'}
+                    onClick={() => setLocationMode('text')}
+                  >
+                    Texto
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationMode === 'address' ? 'default' : 'outline'}
+                    onClick={() => setLocationMode('address')}
+                  >
+                    Endereço
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationMode === 'coords' ? 'default' : 'outline'}
+                    onClick={() => setLocationMode('coords')}
+                  >
+                    Coordenadas
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationMode === 'url' ? 'default' : 'outline'}
+                    onClick={() => setLocationMode('url')}
+                  >
+                    URL Maps
+                  </Button>
+                </div>
+
+                {locationMode === 'text' && (
+                  <Input
+                    placeholder="Digite o local"
+                    value={locationInput}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                    required
+                  />
+                )}
+
+                {locationMode === 'address' && (
+                  <div className="space-y-2">
+                    <Input
+                      placeholder="Rua"
+                      value={addressData.street}
+                      onChange={(e) => {
+                        setAddressData(d => ({ ...d, street: e.target.value }))
+                        handleAddressChange()
+                      }}
+                      required
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        placeholder="Número"
+                        value={addressData.number}
+                        onChange={(e) => {
+                          setAddressData(d => ({ ...d, number: e.target.value }))
+                          handleAddressChange()
+                        }}
+                      />
+                      <Input
+                        placeholder="Bairro"
+                        value={addressData.neighborhood}
+                        onChange={(e) => {
+                          setAddressData(d => ({ ...d, neighborhood: e.target.value }))
+                          handleAddressChange()
+                        }}
+                      />
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Input
+                        placeholder="Cidade"
+                        className="col-span-2"
+                        value={addressData.city}
+                        onChange={(e) => {
+                          setAddressData(d => ({ ...d, city: e.target.value }))
+                          handleAddressChange()
+                        }}
+                        required
+                      />
+                      <Input
+                        placeholder="UF"
+                        maxLength={2}
+                        value={addressData.state}
+                        onChange={(e) => {
+                          setAddressData(d => ({ ...d, state: e.target.value.toUpperCase() }))
+                          handleAddressChange()
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {locationMode === 'coords' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Latitude"
+                      type="number"
+                      step="any"
+                      value={coordsData.latitude}
+                      onChange={(e) => {
+                        setCoordsData(d => ({ ...d, latitude: e.target.value }))
+                        handleCoordsChange()
+                      }}
+                      required
+                    />
+                    <Input
+                      placeholder="Longitude"
+                      type="number"
+                      step="any"
+                      value={coordsData.longitude}
+                      onChange={(e) => {
+                        setCoordsData(d => ({ ...d, longitude: e.target.value }))
+                        handleCoordsChange()
+                      }}
+                      required
+                    />
+                  </div>
+                )}
+
+                {locationMode === 'url' && (
+                  <Input
+                    placeholder="Cole a URL do Google Maps"
+                    value={locationInput}
+                    onChange={(e) => handleLocationChange(e.target.value)}
+                    required
+                  />
+                )}
+
+                {formData.latitude && formData.longitude && (
+                  <p className="text-xs text-green-600">
+                    ✓ Coordenadas: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                  </p>
+                )}
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Plano de Gravação</label>
+                <label className="text-sm font-medium">Plano de Gravação *</label>
                 <select
-                  className="w-full px-3 py-2 border rounded-md"
-                  value={formData.recording_retention_days || 30}
+                  className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+                  value={formData.recording_retention_days}
                   onChange={(e) => setFormData(f => ({ ...f, recording_retention_days: parseInt(e.target.value) }))}
+                  required
                 >
-                  <option value={7}>7 dias (cíclico)</option>
-                  <option value={15}>15 dias (cíclico)</option>
-                  <option value={30}>30 dias (cíclico)</option>
+                  {RETENTION_PLANS.map(plan => (
+                    <option key={plan.value} value={plan.value}>
+                      {plan.label}
+                    </option>
+                  ))}
                 </select>
+                <p className="text-xs text-gray-500">
+                  {RETENTION_PLANS.find(p => p.value === formData.recording_retention_days)?.description}
+                </p>
               </div>
 
               {createMutation.isError && (
@@ -198,7 +438,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <label className="text-sm font-medium">Nome</label>
+              <label className="text-sm font-medium">Nome *</label>
               <Input
                 placeholder="Ex: Entrada Principal"
                 value={formData.name}
@@ -208,7 +448,7 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">URL do Stream</label>
+              <label className="text-sm font-medium">URL do Stream *</label>
               <Input
                 placeholder="rtsp://usuario:senha@ip:porta/stream"
                 value={formData.stream_url}
@@ -221,25 +461,164 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Localização (opcional)</label>
-              <Input
-                placeholder="Ex: Portaria, Estacionamento"
-                value={formData.location}
-                onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
-              />
+              <label className="text-sm font-medium">Localização *</label>
+              <div className="flex gap-2 mb-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationMode === 'text' ? 'default' : 'outline'}
+                  onClick={() => setLocationMode('text')}
+                >
+                  Texto
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationMode === 'address' ? 'default' : 'outline'}
+                  onClick={() => setLocationMode('address')}
+                >
+                  Endereço
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationMode === 'coords' ? 'default' : 'outline'}
+                  onClick={() => setLocationMode('coords')}
+                >
+                  Coordenadas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationMode === 'url' ? 'default' : 'outline'}
+                  onClick={() => setLocationMode('url')}
+                >
+                  URL Maps
+                </Button>
+              </div>
+
+              {locationMode === 'text' && (
+                <Input
+                  placeholder="Digite o local"
+                  value={locationInput}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  required
+                />
+              )}
+
+              {locationMode === 'address' && (
+                <div className="space-y-2">
+                  <Input
+                    placeholder="Rua"
+                    value={addressData.street}
+                    onChange={(e) => {
+                      setAddressData(d => ({ ...d, street: e.target.value }))
+                      handleAddressChange()
+                    }}
+                    required
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      placeholder="Número"
+                      value={addressData.number}
+                      onChange={(e) => {
+                        setAddressData(d => ({ ...d, number: e.target.value }))
+                        handleAddressChange()
+                      }}
+                    />
+                    <Input
+                      placeholder="Bairro"
+                      value={addressData.neighborhood}
+                      onChange={(e) => {
+                        setAddressData(d => ({ ...d, neighborhood: e.target.value }))
+                        handleAddressChange()
+                      }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Input
+                      placeholder="Cidade"
+                      className="col-span-2"
+                      value={addressData.city}
+                      onChange={(e) => {
+                        setAddressData(d => ({ ...d, city: e.target.value }))
+                        handleAddressChange()
+                      }}
+                      required
+                    />
+                    <Input
+                      placeholder="UF"
+                      maxLength={2}
+                      value={addressData.state}
+                      onChange={(e) => {
+                        setAddressData(d => ({ ...d, state: e.target.value.toUpperCase() }))
+                        handleAddressChange()
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {locationMode === 'coords' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    placeholder="Latitude"
+                    type="number"
+                    step="any"
+                    value={coordsData.latitude}
+                    onChange={(e) => {
+                      setCoordsData(d => ({ ...d, latitude: e.target.value }))
+                      handleCoordsChange()
+                    }}
+                    required
+                  />
+                  <Input
+                    placeholder="Longitude"
+                    type="number"
+                    step="any"
+                    value={coordsData.longitude}
+                    onChange={(e) => {
+                      setCoordsData(d => ({ ...d, longitude: e.target.value }))
+                      handleCoordsChange()
+                    }}
+                    required
+                  />
+                </div>
+              )}
+
+              {locationMode === 'url' && (
+                <Input
+                  placeholder="Cole a URL do Google Maps"
+                  value={locationInput}
+                  onChange={(e) => handleLocationChange(e.target.value)}
+                  required
+                />
+              )}
+
+              {formData.latitude && formData.longitude && (
+                <p className="text-xs text-green-600">
+                  ✓ Coordenadas: {formData.latitude.toFixed(6)}, {formData.longitude.toFixed(6)}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <label className="text-sm font-medium">Plano de Gravação</label>
+              <label className="text-sm font-medium">Plano de Gravação *</label>
               <select
-                className="w-full px-3 py-2 border rounded-md"
-                value={formData.recording_retention_days || 30}
+                className="w-full px-3 py-2 border rounded-md dark:bg-gray-700"
+                value={formData.recording_retention_days}
                 onChange={(e) => setFormData(f => ({ ...f, recording_retention_days: parseInt(e.target.value) }))}
+                required
               >
-                <option value={7}>7 dias (cíclico)</option>
-                <option value={15}>15 dias (cíclico)</option>
-                <option value={30}>30 dias (cíclico)</option>
+                {RETENTION_PLANS.map(plan => (
+                  <option key={plan.value} value={plan.value}>
+                    {plan.label}
+                  </option>
+                ))}
               </select>
+              <p className="text-xs text-gray-500">
+                {RETENTION_PLANS.find(p => p.value === formData.recording_retention_days)?.description}
+              </p>
             </div>
 
             {createMutation.isError && (

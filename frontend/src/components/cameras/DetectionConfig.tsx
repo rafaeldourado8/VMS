@@ -12,6 +12,12 @@ import {
 import { cameraService } from '@/services/api'
 import type { Camera } from '@/types'
 
+const RETENTION_PLANS = [
+  { value: 7, label: '7 dias', description: 'Retenção curta - ideal para monitoramento básico' },
+  { value: 15, label: '15 dias', description: 'Retenção média - balanceamento entre espaço e histórico' },
+  { value: 30, label: '30 dias', description: 'Retenção longa - máximo histórico disponível' },
+]
+
 interface CameraConfigProps {
   camera: Camera
   onClose: () => void
@@ -122,23 +128,24 @@ export function CameraConfig({ camera, onClose }: CameraConfigProps) {
 
           <Card>
             <CardHeader>
-              <CardTitle>Gravação Local (MediaMTX)</CardTitle>
+              <CardTitle>Plano de Gravação</CardTitle>
             </CardHeader>
             <CardContent>
               <div>
-                <label className="text-sm font-medium">Retenção de Gravações</label>
+                <label className="text-sm font-medium">Retenção de Gravações *</label>
                 <select 
                   value={retentionDays}
                   onChange={(e) => setRetentionDays(parseInt(e.target.value))}
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm mt-2"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm mt-2"
                 >
-                  <option value="3">3 dias</option>
-                  <option value="7">7 dias</option>
-                  <option value="14">14 dias</option>
-                  <option value="30">30 dias</option>
+                  {RETENTION_PLANS.map(plan => (
+                    <option key={plan.value} value={plan.value}>
+                      {plan.label}
+                    </option>
+                  ))}
                 </select>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Gravações locais são deletadas automaticamente após este período
+                  {RETENTION_PLANS.find(p => p.value === retentionDays)?.description}
                 </p>
               </div>
             </CardContent>

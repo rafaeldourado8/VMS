@@ -40,7 +40,31 @@ export function VideoPlayer({
   const [isRecording, setIsRecording] = useState(false)
   const [recordingStartTime, setRecordingStartTime] = useState<Date | null>(null)
   const [showClipModal, setShowClipModal] = useState(false)
+  const [currentTime, setCurrentTime] = useState(0)
+  const [duration, setDuration] = useState(0)
   const maxRetries = 3
+
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video) return
+
+    const handleTimeUpdate = () => setCurrentTime(video.currentTime)
+    const handleDurationChange = () => setDuration(video.duration)
+    const handlePlay = () => setIsPlaying(true)
+    const handlePause = () => setIsPlaying(false)
+
+    video.addEventListener('timeupdate', handleTimeUpdate)
+    video.addEventListener('durationchange', handleDurationChange)
+    video.addEventListener('play', handlePlay)
+    video.addEventListener('pause', handlePause)
+
+    return () => {
+      video.removeEventListener('timeupdate', handleTimeUpdate)
+      video.removeEventListener('durationchange', handleDurationChange)
+      video.removeEventListener('play', handlePlay)
+      video.removeEventListener('pause', handlePause)
+    }
+  }, [])
 
   useEffect(() => {
     const video = videoRef.current
@@ -53,7 +77,7 @@ export function VideoPlayer({
     if (src.includes('.m3u8')) {
       if (Hls.isSupported()) {
         const hls = new Hls({
-          enableWorker: true,
+          enableWorker: false,
           lowLatencyMode: true,
           backBufferLength: 10,
           maxBufferLength: 20,
@@ -75,8 +99,8 @@ export function VideoPlayer({
         })
 
         hls.on(Hls.Events.ERROR, (_, data) => {
-          console.log('HLS Error:', data)
           if (data.fatal) {
+            console.log('HLS Fatal Error:', data)
             switch (data.type) {
               case Hls.ErrorTypes.NETWORK_ERROR:
                 if (data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR) {
@@ -124,24 +148,49 @@ export function VideoPlayer({
         }
       }
     } else {
-      // Video normal (não HLS)
+      // MP4 direto (Timeline)
+      console.log('[VideoPlayer] Loading MP4:', src)
+      console.log('[VideoPlayer] Video element:', video)
+      
       video.src = src
-      video.addEventListener('loadeddata', () => {
+      video.load() // Força o carregamento
+      
+      const handleLoadedData = () => {
+        console.log('[VideoPlayer] MP4 loaded successfully')
+        console.log('[VideoPlayer] Video duration:', video.duration)
+        console.log('[VideoPlayer] Video readyState:', video.readyState)
         setIsLoading(false)
+        if (autoPlay) {
+          video.play().catch(err => {
+            console.error('[VideoPlayer] Autoplay failed:', err)
+          })
+        }
         onReady?.()
-      })
+      }
+      
+      const handleError = (e: Event) => {
+        console.error('[VideoPlayer] MP4 error event:', e)
+        console.error('[VideoPlayer] Video error code:', video.error?.code)
+        console.error('[VideoPlayer] Video error message:', video.error?.message)
+        console.error('[VideoPlayer] Video networkState:', video.networkState)
+        console.error('[VideoPlayer] Video readyState:', video.readyState)
+        console.error('[VideoPlayer] Video src:', video.src)
+        setError(`Erro ao carregar vídeo: ${video.error?.message || 'Desconhecido'}`)
+        setIsLoading(false)
+        onError?.(`Video error: ${video.error?.code}`)
+      }
+      
+      video.addEventListener('loadeddata', handleLoadedData)
+      video.addEventListener('error', handleError)
       
       return () => {
+        video.removeEventListener('loadeddata', handleLoadedData)
+        video.removeEventListener('error', handleError)
         video.pause()
         video.src = ''
         video.load()
       }
     }
-
-    video.addEventListener('error', () => {
-      setError('Erro ao carregar vídeo')
-      setIsLoading(false)
-    })
 
   }, [src, autoPlay, onError, onReady])
 
@@ -175,6 +224,23 @@ export function VideoPlayer({
     } else {
       container.requestFullscreen()
     }
+  }
+
+  const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    const video = videoRef.current
+    if (!video || !duration || src.includes('.m3u8')) return
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = e.clientX - rect.left
+    const percentage = x / rect.width
+    video.currentTime = percentage * duration
+  }
+
+  const formatTime = (seconds: number) => {
+    if (!isFinite(seconds)) return '00:00'
+    const mins = Math.floor(seconds / 60)
+    const secs = Math.floor(seconds % 60)
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
   const retry = () => {
@@ -217,7 +283,7 @@ export function VideoPlayer({
         hlsRef.current.destroy()
         
         const hls = new Hls({
-          enableWorker: true,
+          enableWorker: false,
           lowLatencyMode: true,
           backBufferLength: 10,
           maxBufferLength: 20,
@@ -253,13 +319,13 @@ export function VideoPlayer({
   return (
     <div
       ref={containerRef}
-      className={cn("video-container group", className)}
+      className={cn("relative", className)}
       onMouseEnter={() => setShowControls(true)}
       onMouseLeave={() => setShowControls(false)}
     >
       <video
         ref={videoRef}
-        className="w-full h-full object-contain"
+        className="w-full h-full object-contain bg-black"
         poster={poster}
         muted={isMuted}
         playsInline
@@ -297,11 +363,30 @@ export function VideoPlayer({
       {!error && !isLoading && (
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/80 to-transparent transition-opacity",
+            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity",
             showControls ? "opacity-100" : "opacity-0"
           )}
         >
-          <div className="flex items-center gap-2">
+          {/* Progress Bar */}
+          {duration > 0 && !src.includes('.m3u8') && (
+            <div 
+              className="px-3 pt-2 cursor-pointer"
+              onClick={handleProgressClick}
+            >
+              <div className="h-1 bg-white/30 rounded-full overflow-hidden">
+                <div 
+                  className="h-full bg-blue-500 transition-all"
+                  style={{ width: `${(currentTime / duration) * 100}%` }}
+                />
+              </div>
+              <div className="flex justify-between text-xs text-white/70 mt-1">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2 p-3">
             <Button
               variant="ghost"
               size="icon"

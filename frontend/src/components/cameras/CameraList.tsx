@@ -37,14 +37,8 @@ export function CameraList({ cameras, onCameraView, onCameraConfig, onCameraDele
                     }`}>
                       {camera.status === 'online' ? 'Online' : 'Offline'}
                     </span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      camera.ai_enabled 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      IA {camera.ai_enabled ? 'Ativa' : 'Inativa'}
-                    </span>
                     <span className="text-xs text-muted-foreground">ID: {camera.id}</span>
+                    <span className="text-xs text-muted-foreground">{camera.recording_retention_days}d</span>
                   </div>
                 </div>
               </div>

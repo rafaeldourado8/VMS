@@ -4,18 +4,21 @@ import httpx
 import logging
 from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("recorder")
 
 class Recorder:
-    def __init__(self, camera_id: int, rtsp_url: str):
+    def __init__(self, camera_id: int, rtsp_url: str, timezone: str = "America/Sao_Paulo"):
         self.camera_id = camera_id
         self.rtsp_url = rtsp_url
+        self.timezone = timezone
         self.process = None
         
     async def start(self):
-        date_str = datetime.now().strftime("%Y-%m-%d")
+        tz = ZoneInfo(self.timezone)
+        date_str = datetime.now(tz).strftime("%Y-%m-%d")
         output_dir = f"/recordings/camera_{self.camera_id}/{date_str}"
         Path(output_dir).mkdir(parents=True, exist_ok=True)
         output_path = f"{output_dir}/%H-%M-%S.mp4"
@@ -92,7 +95,8 @@ async def main():
         for cam_id, cam_data in cameras.items():
             if cam_id not in recorders:
                 logger.info(f"Iniciando gravacao: cam_{cam_id}")
-                recorder = Recorder(cam_id, cam_data["stream_url"])
+                timezone = cam_data.get("timezone", "America/Sao_Paulo")
+                recorder = Recorder(cam_id, cam_data["stream_url"], timezone)
                 await recorder.start()
                 recorders[cam_id] = recorder
         

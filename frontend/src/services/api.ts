@@ -26,6 +26,7 @@ const api = axios.create({
 // Interceptor para adicionar token
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().accessToken
+  console.log('[API] Token:', token ? 'presente' : 'ausente')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -226,13 +227,57 @@ export const recordingService = {
     start_time?: string
     end_time?: string
   }) {
-    const { data } = await api.get('/cameras/recordings/', { params })
-    return data
+    console.log('[RecordingService] Chamando Storage Service com params:', params)
+    const { data } = await axios.get(`http://localhost:8003/timeline/${params.camera_id}`, {
+      params: { date: params.date }
+    })
+    console.log('[RecordingService] Resposta do Storage Service:', data)
+    
+    // Converter formato do Storage Service para o esperado pelo frontend
+    const recordings = (data.blocks || []).map((block: any) => {
+      const startTime = new Date(block.start_time)
+      const filename = `${startTime.getHours().toString().padStart(2, '0')}-${startTime.getMinutes().toString().padStart(2, '0')}-${startTime.getSeconds().toString().padStart(2, '0')}.mp4`
+      
+      return {
+        camera_id: params.camera_id,
+        date: params.date,
+        filename: filename,
+        start_time: startTime.toTimeString().split(' ')[0],
+        duration_seconds: block.duration_seconds,
+        file_size_bytes: block.file_size_bytes,
+        url: block.file_path
+      }
+    })
+    
+    return {
+      camera_id: params.camera_id,
+      date: params.date,
+      recordings: recordings,
+      total_size_mb: recordings.reduce((sum: number, r: any) => sum + (r.file_size_bytes / 1024 / 1024), 0),
+      total_duration_seconds: recordings.reduce((sum: number, r: any) => sum + r.duration_seconds, 0)
+    }
   },
 
   getPlaybackUrl(cameraId: number, date: string, filename: string): string {
-    const nameWithoutExt = filename.replace('.mp4', '')
-    return `/playback/cam_${cameraId}/${date}/${nameWithoutExt}/index.m3u8`
+    const timeStr = filename.replace('.mp4', '')
+    return `http://localhost:8003/download/${cameraId}/${date}/${timeStr}`
+  },
+}
+
+// ======================================================
+// TIMELINE
+// ======================================================
+
+export const timelineService = {
+  async getTimeline(cameraId: number, date?: string) {
+    const params = date ? { date } : {}
+    const { data } = await axios.get(`http://localhost:8003/timeline/${cameraId}`, { params })
+    return data
+  },
+  
+  async resolveVideo(cameraId: number, timestamp: string) {
+    const { data } = await axios.get(`http://localhost:8003/video/${cameraId}/${timestamp}`)
+    return data
   },
 }
 

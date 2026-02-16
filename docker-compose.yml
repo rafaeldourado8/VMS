@@ -2,35 +2,6 @@
 
 services:
   # ============================================
-  # RECORDING SERVICE (Bounded Context)
-  # ============================================
-  recording:
-    build:
-      context: ./services/recording
-      dockerfile: Dockerfile
-    container_name: gtvision_recording
-    ports:
-      - "8006:8006"
-    volumes:
-      - ./recordings:/recordings:ro
-    deploy:
-      resources:
-        limits:
-          cpus: '0.5'
-          memory: 512M
-    depends_on:
-      mediamtx:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # ============================================
   # ONVIF PLAYBACK SERVICE
   # ============================================
   onvif:
@@ -427,6 +398,29 @@ services:
       backend:
         condition: service_healthy
       mediamtx:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  # ============================================
+  # RETENTION CLEANUP (Limpeza automática)
+  # ============================================
+  retention_cleanup:
+    build:
+      context: ./services/recorder
+      dockerfile: Dockerfile
+    container_name: gtvision_retention_cleanup
+    command: python retention_cleanup.py
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+    volumes:
+      - ./recordings:/recordings
+    depends_on:
+      backend:
         condition: service_healthy
     networks:
       - gtvision_network

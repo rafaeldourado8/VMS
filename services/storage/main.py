@@ -8,8 +8,9 @@ from pathlib import Path
 from typing import List, Optional
 import logging
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import asyncpg
 
@@ -44,6 +45,8 @@ class StorageService:
             database=os.getenv("POSTGRES_DB", "gtvision_db")
         )
         await self._create_tables()
+        logger.info("Executando scan inicial...")
+        await self._scan_recordings()
         asyncio.create_task(self._scan_recordings_loop())
     
     async def _create_tables(self):
@@ -73,13 +76,22 @@ class StorageService:
     
     async def _scan_recordings(self):
         if not self.recordings_path.exists():
+            logger.warning(f"Diretório {self.recordings_path} não existe")
             return
         
+        total_indexed = 0
         for cam_dir in self.recordings_path.iterdir():
-            if not cam_dir.is_dir() or not cam_dir.name.startswith("cam_"):
+            if not cam_dir.is_dir():
                 continue
             
-            camera_id = int(cam_dir.name.split("_")[1])
+            if cam_dir.name.startswith("cam_"):
+                camera_id = int(cam_dir.name.split("_")[1])
+            elif cam_dir.name.startswith("camera_"):
+                camera_id = int(cam_dir.name.split("_")[1])
+            else:
+                continue
+            
+            logger.info(f"Scaneando {cam_dir.name} (camera_id={camera_id})")
             
             for date_dir in cam_dir.iterdir():
                 if not date_dir.is_dir():
@@ -87,6 +99,9 @@ class StorageService:
                 
                 for segment_file in date_dir.glob("*.mp4"):
                     await self._index_segment(camera_id, segment_file)
+                    total_indexed += 1
+        
+        logger.info(f"Scan completo: {total_indexed} segmentos processados")
     
     async def _index_segment(self, camera_id: int, file_path: Path):
         try:
@@ -103,12 +118,15 @@ class StorageService:
             duration = 60
             
             async with self.db_pool.acquire() as conn:
-                await conn.execute("""
+                result = await conn.execute("""
                     INSERT INTO recording_segments 
                     (camera_id, file_path, start_time, end_time, duration_seconds, file_size_bytes)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     ON CONFLICT (file_path) DO NOTHING
                 """, camera_id, str(file_path), start_time, end_time, duration, stat.st_size)
+                
+                if "INSERT" in result:
+                    logger.debug(f"Indexado: {file_path.name} (camera {camera_id})")
                 
         except Exception as e:
             logger.error(f"Erro ao indexar {file_path}: {e}")
@@ -159,49 +177,35 @@ async def health():
 
 @app.post("/recordings/query")
 async def query_recordings_endpoint(query: RecordingQuery):
-    """Lista gravações direto do disco (sem banco)"""
-    recordings = []
-    recordings_path = Path("/recordings")
+    """Query segmentos e monta blocos com gaps"""
+    segments = await storage_service.query_recordings(query)
     
-    if not recordings_path.exists():
-        return recordings
+    if not segments:
+        return {"blocks": [], "gaps": []}
     
-    cam_dir = recordings_path / f"cam_{query.camera_id}"
-    if not cam_dir.exists():
-        return recordings
+    blocks = []
+    gaps = []
     
-    for date_dir in sorted(cam_dir.iterdir(), reverse=True):
-        if not date_dir.is_dir():
-            continue
+    for i, seg in enumerate(segments):
+        if i > 0:
+            prev_end = segments[i-1].end_time
+            gap_seconds = (seg.start_time - prev_end).total_seconds()
+            if gap_seconds > 60:
+                gaps.append({
+                    "start": prev_end.isoformat(),
+                    "end": seg.start_time.isoformat(),
+                    "duration_seconds": int(gap_seconds)
+                })
         
-        for video_file in sorted(date_dir.glob("*.mp4"), reverse=True):
-            try:
-                stat = video_file.stat()
-                filename = video_file.stem
-                parts = filename.split("-")
-                
-                timestamp = datetime.strptime(
-                    f"{date_dir.name} {parts[0]}:{parts[1]}:{parts[2]}",
-                    "%Y-%m-%d %H:%M:%S"
-                ).replace(tzinfo=timezone.utc)
-                
-                query_start = query.start_time.replace(tzinfo=timezone.utc) if query.start_time.tzinfo is None else query.start_time
-                query_end = query.end_time.replace(tzinfo=timezone.utc) if query.end_time.tzinfo is None else query.end_time
-                
-                if query_start <= timestamp <= query_end:
-                    recordings.append({
-                        "camera_id": query.camera_id,
-                        "path": str(video_file),
-                        "start_time": timestamp.isoformat(),
-                        "end_time": (timestamp + timedelta(seconds=60)).isoformat(),
-                        "duration_seconds": 60,
-                        "file_size_bytes": stat.st_size,
-                        "processed": False
-                    })
-            except:
-                pass
+        blocks.append({
+            "start_time": seg.start_time.isoformat(),
+            "end_time": seg.end_time.isoformat(),
+            "duration_seconds": seg.duration_seconds,
+            "file_path": f"http://localhost:8003/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "file_size_bytes": seg.file_size_bytes
+        })
     
-    return recordings[:50]
+    return {"blocks": blocks, "gaps": gaps}
 
 @app.post("/recordings/mark-processed")
 async def mark_processed(file_path: str):
@@ -221,3 +225,72 @@ async def get_stats():
             "pending_segments": total - processed,
             "total_size_gb": round((total_size or 0) / (1024**3), 2)
         }
+
+@app.get("/timeline/{camera_id}")
+async def get_timeline(camera_id: int, date: str = None):
+    """Timeline completa de uma câmera"""
+    if date:
+        start = datetime.strptime(date, "%Y-%m-%d")
+        end = start + timedelta(days=1)
+    else:
+        start = datetime.now() - timedelta(days=1)
+        end = datetime.now()
+    
+    query = RecordingQuery(camera_id=camera_id, start_time=start, end_time=end)
+    segments = await storage_service.query_recordings(query)
+    
+    blocks = []
+    for seg in segments:
+        blocks.append({
+            "start_time": seg.start_time.isoformat(),
+            "end_time": seg.end_time.isoformat(),
+            "duration_seconds": seg.duration_seconds,
+            "file_path": f"http://localhost:8003/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "file_size_bytes": seg.file_size_bytes
+        })
+    
+    return {"blocks": blocks}
+
+@app.get("/stream/{camera_id}")
+async def stream_segments(camera_id: int, start_date: str, start_hour: int, end_hour: int):
+    """Retorna segmentos em fila para streaming progressivo"""
+    date = datetime.strptime(start_date, "%Y-%m-%d")
+    start_time = date.replace(hour=start_hour, minute=0, second=0)
+    end_time = date.replace(hour=end_hour, minute=59, second=59)
+    
+    query = RecordingQuery(camera_id=camera_id, start_time=start_time, end_time=end_time)
+    segments = await storage_service.query_recordings(query)
+    
+    queue = []
+    for idx, seg in enumerate(segments, 1):
+        queue.append({
+            "sequence": idx,
+            "url": f"http://localhost:8003/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "start_time": seg.start_time.isoformat(),
+            "duration": seg.duration_seconds
+        })
+    
+    return {"queue": queue, "total": len(queue)}
+
+@app.get("/recordings/available-dates/{camera_id}")
+async def get_available_dates(camera_id: int):
+    """Retorna datas com pelo menos 5 minutos de gravação"""
+    async with storage_service.db_pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT DATE(start_time) as date, COUNT(*) as segment_count
+            FROM recording_segments
+            WHERE camera_id = $1
+            GROUP BY DATE(start_time)
+            HAVING COUNT(*) >= 5
+            ORDER BY date DESC
+        """, camera_id)
+        
+        return {"dates": [row["date"].isoformat() for row in rows]}
+
+@app.get("/download/{camera_id}/{date}/{filename}")
+async def download_segment(camera_id: int, date: str, filename: str):
+    """Serve arquivo MP4"""
+    file_path = Path(f"/recordings/camera_{camera_id}/{date}/{filename}.mp4")
+    if not file_path.exists():
+        raise HTTPException(404, "Arquivo não encontrado")
+    return FileResponse(file_path, media_type="video/mp4")

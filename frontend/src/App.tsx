@@ -11,6 +11,8 @@ import { ClipsPage } from '@/pages/ClipsPage'
 import { MosaicosPage } from '@/pages/MosaicosPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import LiveDetectionsPage from '@/pages/LiveDetectionsPage'
+import TacticalViewPage from '@/pages/TacticalViewPage'
+import IAMPage from '@/pages/IAMPage'
 
 // Protected Route wrapper
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -66,11 +68,13 @@ export default function App() {
         >
           <Route path="/" element={<DashboardPage />} />
           <Route path="/cameras" element={<CamerasPage />} />
+          <Route path="/cameras/tactical" element={<TacticalViewPage />} />
           <Route path="/detections" element={<DetectionsPage />} />
           <Route path="/live" element={<LiveDetectionsPage />} />
           <Route path="/clips" element={<ClipsPage />} />
           <Route path="/mosaicos" element={<MosaicosPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/settings/iam" element={<IAMPage />} />
         </Route>
 
         {/* Catch all */}

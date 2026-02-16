@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight, Radio } from 'lucide-react'
+import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight, Radio, MapPin, Calendar } from 'lucide-react'
 import {
   Button,
   Input,
@@ -196,7 +196,19 @@ function CameraList({
                 />
                 <div>
                   <h3 className="font-semibold">{camera.name}</h3>
-                  <p className="text-sm text-muted-foreground">{camera.location || 'Sem localização'}</p>
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    {camera.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="w-3 h-3" />
+                        {camera.location}
+                      </span>
+                    )}
+                    {camera.latitude && camera.longitude && (
+                      <span className="text-xs">
+                        ({camera.latitude.toFixed(4)}, {camera.longitude.toFixed(4)})
+                      </span>
+                    )}
+                  </div>
                   <div className="flex items-center gap-4 mt-1">
                     <span className={`text-xs px-2 py-1 rounded-full ${
                       camera.status === 'online' 
@@ -205,15 +217,12 @@ function CameraList({
                     }`}>
                       {camera.status === 'online' ? 'Online' : 'Offline'}
                     </span>
-                    <span className={`text-xs px-2 py-1 rounded-full ${
-                      camera.ai_enabled 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-gray-100 text-gray-600'
-                    }`}>
-                      IA {camera.ai_enabled ? 'Ativa' : 'Inativa'}
-                    </span>
                     <span className="text-xs text-muted-foreground">
                       ID: {camera.id}
+                    </span>
+                    <span className="text-xs px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                      <Calendar className="w-3 h-3 inline mr-1" />
+                      {camera.recording_retention_days || 30}d
                     </span>
                   </div>
                 </div>
@@ -352,10 +361,15 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
     name: '',
     stream_url: '',
     location: '',
+    latitude: undefined,
+    longitude: undefined,
+    recording_retention_days: 30,
   })
+  const [locationType, setLocationType] = useState<'address' | 'coords' | 'url'>('address')
 
   const createMutation = useMutation({
     mutationFn: async (data: CameraCreateRequest) => {
+      console.log('Creating camera with data:', data)
       const camera = await cameraService.create(data)
       await streamingService.provisionCamera(camera.id, data.stream_url, data.name)
       return camera
@@ -364,11 +378,34 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
       queryClient.invalidateQueries({ queryKey: ['cameras'] })
       onClose()
     },
+    onError: (error: any) => {
+      console.error('Error creating camera:', error.response?.data || error.message)
+    },
   })
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    createMutation.mutate(formData)
+    
+    // Garantir que location seja sempre string
+    const locationValue = Array.isArray(formData.location) 
+      ? formData.location[0] || '' 
+      : formData.location || ''
+    
+    // Limpar campos vazios
+    const cleanData: CameraCreateRequest = {
+      name: formData.name.trim(),
+      stream_url: formData.stream_url.trim(),
+      location: locationValue.trim(),
+      recording_retention_days: formData.recording_retention_days ?? 30,
+    }
+    
+    // Adicionar coordenadas se existirem
+    if (formData.latitude && !isNaN(formData.latitude)) cleanData.latitude = formData.latitude
+    if (formData.longitude && !isNaN(formData.longitude)) cleanData.longitude = formData.longitude
+    
+    console.log('Submitting camera data:', cleanData)
+    console.log('Recording retention days:', cleanData.recording_retention_days)
+    createMutation.mutate(cleanData)
   }
 
   if (mode === 'select') {
@@ -384,10 +421,11 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
               onClick={() => setMode('easy')}
               className="w-full h-20 text-lg"
               variant="outline"
+              disabled
             >
               <div>
                 <div className="font-semibold">Modo Fácil</div>
-                <div className="text-xs text-muted-foreground">Configuração guiada</div>
+                <div className="text-xs text-muted-foreground">Em desenvolvimento</div>
               </div>
             </Button>
             <Button
@@ -413,7 +451,7 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
         <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-        <Card className="relative w-full max-w-md animate-slide-in">
+        <Card className="relative w-full max-w-md animate-slide-in max-h-[90vh] overflow-y-auto">
           <CardHeader>
             <CardTitle>Modo Fácil - Selecione o Protocolo</CardTitle>
           </CardHeader>
@@ -596,18 +634,117 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
                 </>
               )}
 
+              {/* Localização */}
+              <div className="space-y-3">
+                <label className="text-sm font-medium">Localização</label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationType === 'address' ? 'default' : 'outline'}
+                    onClick={() => setLocationType('address')}
+                  >
+                    Endereço
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationType === 'coords' ? 'default' : 'outline'}
+                    onClick={() => setLocationType('coords')}
+                  >
+                    Coordenadas
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={locationType === 'url' ? 'default' : 'outline'}
+                    onClick={() => setLocationType('url')}
+                  >
+                    URL Maps
+                  </Button>
+                </div>
+
+                {locationType === 'address' && (
+                  <Input
+                    placeholder="Ex: Rua ABC, 123 - Bairro"
+                    value={formData.location}
+                    onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
+                  />
+                )}
+
+                {locationType === 'coords' && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Latitude"
+                      value={formData.latitude || ''}
+                      onChange={(e) => setFormData(f => ({ ...f, latitude: parseFloat(e.target.value) || undefined }))}
+                    />
+                    <Input
+                      type="number"
+                      step="any"
+                      placeholder="Longitude"
+                      value={formData.longitude || ''}
+                      onChange={(e) => setFormData(f => ({ ...f, longitude: parseFloat(e.target.value) || undefined }))}
+                    />
+                  </div>
+                )}
+
+                {locationType === 'url' && (
+                  <>
+                    <Input
+                      placeholder="Cole a URL do Google Maps"
+                      onChange={(e) => {
+                        const url = e.target.value
+                        const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+                        if (match) {
+                          setFormData(f => ({ 
+                            ...f, 
+                            latitude: parseFloat(match[1]), 
+                            longitude: parseFloat(match[2]) 
+                          }))
+                        }
+                      }}
+                    />
+                    {formData.latitude && formData.longitude && (
+                      <p className="text-xs text-green-600">
+                        ✓ Coordenadas: {formData.latitude}, {formData.longitude}
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Retenção de Gravação */}
               <div className="space-y-2">
-                <label className="text-sm font-medium">Localização (opcional)</label>
-                <Input
-                  placeholder="Ex: Portaria"
-                  value={formData.location}
-                  onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
-                />
+                <label className="text-sm font-medium flex items-center gap-2">
+                  <Calendar className="w-4 h-4" />
+                  Retenção de Gravação: <span className="text-blue-600 font-bold">{formData.recording_retention_days} dias</span>
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[7, 15, 30].map((days) => (
+                    <Button
+                      key={days}
+                      type="button"
+                      variant={formData.recording_retention_days === days ? 'default' : 'outline'}
+                      onClick={() => setFormData(prev => ({ ...prev, recording_retention_days: days }))}
+                    >
+                      {days} dias
+                    </Button>
+                  ))}
+                </div>
               </div>
 
               {createMutation.isError && (
                 <div className="p-3 rounded-lg bg-destructive/10 text-sm text-destructive">
-                  Erro ao criar câmera. Verifique os dados.
+                  <p className="font-semibold">Erro ao criar câmera</p>
+                  <p className="text-xs mt-1">
+                    {(createMutation.error as any)?.response?.data?.detail || 
+                     (createMutation.error as any)?.response?.data?.name?.[0] ||
+                     (createMutation.error as any)?.response?.data?.stream_url?.[0] ||
+                     'Verifique os dados e tente novamente'}
+                  </p>
                 </div>
               )}
 
@@ -631,7 +768,7 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
       <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <Card className="relative w-full max-w-md animate-slide-in">
+      <Card className="relative w-full max-w-md animate-slide-in max-h-[90vh] overflow-y-auto">
         <CardHeader>
           <CardTitle>Modo Avançado</CardTitle>
         </CardHeader>
@@ -660,18 +797,120 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
               </p>
             </div>
 
+            {/* Localização */}
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Localização</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationType === 'address' ? 'default' : 'outline'}
+                  onClick={() => setLocationType('address')}
+                >
+                  Endereço
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationType === 'coords' ? 'default' : 'outline'}
+                  onClick={() => setLocationType('coords')}
+                >
+                  Coordenadas
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant={locationType === 'url' ? 'default' : 'outline'}
+                  onClick={() => setLocationType('url')}
+                >
+                  URL Maps
+                </Button>
+              </div>
+
+              {locationType === 'address' && (
+                <Input
+                  placeholder="Ex: Rua ABC, 123 - Bairro"
+                  value={formData.location}
+                  onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
+                />
+              )}
+
+              {locationType === 'coords' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="Latitude"
+                    value={formData.latitude || ''}
+                    onChange={(e) => setFormData(f => ({ ...f, latitude: parseFloat(e.target.value) || undefined }))}
+                  />
+                  <Input
+                    type="number"
+                    step="any"
+                    placeholder="Longitude"
+                    value={formData.longitude || ''}
+                    onChange={(e) => setFormData(f => ({ ...f, longitude: parseFloat(e.target.value) || undefined }))}
+                  />
+                </div>
+              )}
+
+              {locationType === 'url' && (
+                <>
+                  <Input
+                    placeholder="Cole a URL do Google Maps"
+                    onChange={(e) => {
+                      const url = e.target.value
+                      const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+                      if (match) {
+                        const lat = parseFloat(match[1])
+                        const lng = parseFloat(match[2])
+                        setFormData(f => ({ 
+                          ...f, 
+                          latitude: lat, 
+                          longitude: lng,
+                          location: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+                        }))
+                      }
+                    }}
+                  />
+                  {formData.latitude && formData.longitude && (
+                    <p className="text-xs text-green-600">
+                      ✓ Coordenadas: {formData.latitude}, {formData.longitude}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Retenção de Gravação */}
             <div className="space-y-2">
-              <label className="text-sm font-medium">Localização (opcional)</label>
-              <Input
-                placeholder="Ex: Portaria, Estacionamento"
-                value={formData.location}
-                onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
-              />
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Retenção de Gravação: <span className="text-blue-600 font-bold">{formData.recording_retention_days} dias</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[7, 15, 30].map((days) => (
+                  <Button
+                    key={days}
+                    type="button"
+                    variant={formData.recording_retention_days === days ? 'default' : 'outline'}
+                    onClick={() => setFormData(prev => ({ ...prev, recording_retention_days: days }))}
+                  >
+                    {days} dias
+                  </Button>
+                ))}
+              </div>
             </div>
 
             {createMutation.isError && (
               <div className="p-3 rounded-lg bg-destructive/10 text-sm text-destructive">
-                Erro ao criar câmera. Verifique os dados.
+                <p className="font-semibold">Erro ao criar câmera</p>
+                <p className="text-xs mt-1">
+                  {(createMutation.error as any)?.response?.data?.detail || 
+                   (createMutation.error as any)?.response?.data?.name?.[0] ||
+                   (createMutation.error as any)?.response?.data?.stream_url?.[0] ||
+                   'Verifique os dados e tente novamente'}
+                </p>
               </div>
             )}
 

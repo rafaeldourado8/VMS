@@ -48,6 +48,7 @@ export interface Camera {
   onvif_port: number;
   onvif_username: string | null;
   onvif_password?: string;
+  timezone: string;
   created_at: string;
   stream_url_frontend: string;
   ai_websocket_url: string;
@@ -84,9 +85,17 @@ export interface ZoneTrigger {
 export interface CameraCreateRequest {
   name: string;
   stream_url: string;
-  location?: string;
+  location: string;
   latitude?: number;
   longitude?: number;
+  recording_retention_days?: number;
+  // Endereço estruturado
+  address_street?: string;
+  address_number?: string;
+  address_neighborhood?: string;
+  address_city?: string;
+  address_state?: string;
+  maps_url?: string;
 }
 
 // Detection

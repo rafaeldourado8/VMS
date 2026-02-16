@@ -14,6 +14,7 @@ class CameraDTO:
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     detection_settings: Dict[str, Any] = field(default_factory=dict)
+    recording_retention_days: int = 30
     id: Optional[int] = None
     created_at: Optional[datetime] = None
 
@@ -31,5 +32,6 @@ class CameraDTO:
             latitude=camera.latitude,
             longitude=camera.longitude,
             detection_settings=camera.detection_settings,
+            recording_retention_days=camera.recording_retention_days,
             created_at=camera.created_at
         )

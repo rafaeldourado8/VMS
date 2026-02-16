@@ -42,7 +42,8 @@ class CameraService:
                 thumbnail_url=data.thumbnail_url,
                 latitude=data.latitude,
                 longitude=data.longitude,
-                detection_settings=data.detection_settings
+                detection_settings=data.detection_settings,
+                recording_retention_days=data.recording_retention_days
             )
         
         # Provisiona no MediaMTX via Streaming Service
