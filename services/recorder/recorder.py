@@ -26,9 +26,17 @@ class Recorder:
         cmd = [
             "ffmpeg", "-y",
             "-rtsp_transport", "tcp",
+            "-timeout", "5000000",
             "-i", self.rtsp_url,
-            "-c:v", "copy",
-            "-c:a", "copy",
+            "-c:v", "libx264",
+            "-preset", "ultrafast",
+            "-b:v", "800k",
+            "-maxrate", "800k",
+            "-bufsize", "1600k",
+            "-an",
+            "-avoid_negative_ts", "make_zero",
+            "-fflags", "+genpts",
+            "-movflags", "+faststart+frag_keyframe+empty_moov",
             "-f", "segment",
             "-segment_time", "60",
             "-segment_format", "mp4",
@@ -37,8 +45,14 @@ class Recorder:
             output_path
         ]
         
-        self.process = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - segmentos de 1min")
+        self.process = subprocess.Popen(
+            cmd, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.PIPE,
+            bufsize=1,
+            universal_newlines=True
+        )
+        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - 800kbps, 60s max")
         
     async def monitor(self):
         while True:

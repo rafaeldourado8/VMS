@@ -15,13 +15,21 @@ class ClipViewSet(viewsets.ModelViewSet):
         return Clip.objects.filter(owner=self.request.user)
 
     def create(self, request):
+        print(f"[ClipViewSet] Recebendo request: {request.data}")
         serializer = ClipCreateSerializer(data=request.data)
         if serializer.is_valid():
-            clip = ClipService.create_clip(
-                user=request.user,
-                **serializer.validated_data
-            )
-            return Response(ClipSerializer(clip).data, status=status.HTTP_201_CREATED)
+            print(f"[ClipViewSet] Dados válidos: {serializer.validated_data}")
+            try:
+                clip = ClipService.create_clip(
+                    user=request.user,
+                    **serializer.validated_data
+                )
+                print(f"[ClipViewSet] Clip criado: {clip.id}")
+                return Response(ClipSerializer(clip).data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                print(f"[ClipViewSet] Erro ao criar clip: {e}")
+                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        print(f"[ClipViewSet] Erros de validação: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class MosaicoViewSet(viewsets.ModelViewSet):

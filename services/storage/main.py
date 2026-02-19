@@ -227,29 +227,38 @@ async def get_stats():
         }
 
 @app.get("/timeline/{camera_id}")
-async def get_timeline(camera_id: int, date: str = None):
-    """Timeline completa de uma câmera"""
+async def get_timeline(camera_id: int, date: str = None, limit: int = 100):
+    """Timeline com metadados leves - apenas blocos de tempo"""
+    logger.info(f"[Timeline] Requisição para camera_id={camera_id}, date={date}, limit={limit}")
+    
     if date:
         start = datetime.strptime(date, "%Y-%m-%d")
         end = start + timedelta(days=1)
     else:
-        start = datetime.now() - timedelta(days=1)
+        # Apenas últimas 24h
         end = datetime.now()
+        start = end - timedelta(hours=24)
     
     query = RecordingQuery(camera_id=camera_id, start_time=start, end_time=end)
     segments = await storage_service.query_recordings(query)
     
+    # Limitar resultados
+    segments = segments[:limit]
+    
+    logger.info(f"[Timeline] Retornando {len(segments)} segmentos (limit={limit})")
+    
+    # Retornar apenas metadados essenciais
     blocks = []
     for seg in segments:
         blocks.append({
             "start_time": seg.start_time.isoformat(),
             "end_time": seg.end_time.isoformat(),
             "duration_seconds": seg.duration_seconds,
-            "file_path": f"http://localhost:8003/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "file_path": f"/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
             "file_size_bytes": seg.file_size_bytes
         })
     
-    return {"blocks": blocks}
+    return {"blocks": blocks, "total": len(segments)}
 
 @app.get("/stream/{camera_id}")
 async def stream_segments(camera_id: int, start_date: str, start_hour: int, end_hour: int):
@@ -287,10 +296,59 @@ async def get_available_dates(camera_id: int):
         
         return {"dates": [row["date"].isoformat() for row in rows]}
 
+@app.get("/recordings/retention-status")
+async def get_retention_status():
+    """Status de retenção por câmera"""
+    recordings_path = Path("/recordings")
+    if not recordings_path.exists():
+        return {"error": "Diretório de gravações não existe"}
+    
+    cameras_status = []
+    for cam_dir in list(recordings_path.glob("camera_*")) + list(recordings_path.glob("cam_*")):
+        if not cam_dir.is_dir():
+            continue
+        
+        try:
+            camera_id = int(cam_dir.name.split("_")[1])
+        except (IndexError, ValueError):
+            continue
+        
+        dates = sorted([d.name for d in cam_dir.iterdir() if d.is_dir()])
+        if dates:
+            total_size = sum(
+                f.stat().st_size 
+                for date_dir in cam_dir.iterdir() 
+                if date_dir.is_dir()
+                for f in date_dir.glob("*.mp4")
+            )
+            
+            cameras_status.append({
+                "camera_id": camera_id,
+                "oldest_date": dates[0] if dates else None,
+                "newest_date": dates[-1] if dates else None,
+                "total_days": len(dates),
+                "total_size_gb": round(total_size / (1024**3), 2)
+            })
+    
+    return {"cameras": cameras_status}
+
 @app.get("/download/{camera_id}/{date}/{filename}")
 async def download_segment(camera_id: int, date: str, filename: str):
-    """Serve arquivo MP4"""
+    """Serve arquivo MP4 com range support para fast start"""
     file_path = Path(f"/recordings/camera_{camera_id}/{date}/{filename}.mp4")
     if not file_path.exists():
-        raise HTTPException(404, "Arquivo não encontrado")
-    return FileResponse(file_path, media_type="video/mp4")
+        file_path = Path(f"/recordings/cam_{camera_id}/{date}/{filename}.mp4")
+    
+    if not file_path.exists():
+        logger.error(f"Arquivo não encontrado: camera_{camera_id}/{date}/{filename}.mp4")
+        raise HTTPException(404, f"Arquivo não encontrado: {filename}.mp4")
+    
+    logger.info(f"Servindo arquivo: {file_path}")
+    return FileResponse(
+        file_path, 
+        media_type="video/mp4",
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600"
+        }
+    )

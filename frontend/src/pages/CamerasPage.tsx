@@ -35,8 +35,9 @@ export function CamerasPage() {
 
   const deleteMutation = useMutation({
     mutationFn: cameraService.delete,
-    onSuccess: () => {
+    onSuccess: (deletedCameraId) => {
       queryClient.invalidateQueries({ queryKey: ['cameras'] })
+      // Não precisa chamar removeCamera aqui pois o cache já foi limpo no serviço
     },
   })
 

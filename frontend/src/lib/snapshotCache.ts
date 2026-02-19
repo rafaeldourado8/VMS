@@ -83,3 +83,25 @@ export async function clearOldSnapshots(): Promise<void> {
     }
   } catch {}
 }
+
+export async function clearSnapshotByCamera(cameraId: number): Promise<void> {
+  try {
+    const db = await openDB()
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    await store.delete(`camera_${cameraId}`)
+  } catch (e) {
+    console.warn('Failed to clear snapshot:', e)
+  }
+}
+
+export async function clearAllSnapshots(): Promise<void> {
+  try {
+    const db = await openDB()
+    const tx = db.transaction(STORE_NAME, 'readwrite')
+    const store = tx.objectStore(STORE_NAME)
+    await store.clear()
+  } catch (e) {
+    console.warn('Failed to clear all snapshots:', e)
+  }
+}

@@ -57,7 +57,9 @@ export const TimelineViewer: React.FC<TimelineViewerProps> = ({
     const duration = endTime.getTime() - startTime.getTime();
     const targetTime = new Date(startTime.getTime() + (duration * percentage));
     
-    onVideoSelect(block.file_path, targetTime.toISOString());
+    // Converter MP4 path para HLS URL
+    const hlsUrl = `${block.file_path}/index.m3u8`;
+    onVideoSelect(hlsUrl, targetTime.toISOString());
   };
 
   const renderTimelineBlocks = () => {

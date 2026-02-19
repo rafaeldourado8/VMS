@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  vod-hls:
+    build: .
+    container_name: vms-vod-hls
+    ports:
+      - "8004:8004"
+    volumes:
+      - d:/VMS/recordings:/recordings:ro
+      - d:/VMS/hls_cache:/hls_cache
+    environment:
+      - RECORDINGS_DIR=/recordings
+      - HLS_CACHE_DIR=/hls_cache
+    restart: unless-stopped

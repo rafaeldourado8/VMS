@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Camera, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
@@ -14,6 +14,15 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [mousePos, setMousePos] = useState({ x: -100, y: -100 })
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      setMousePos({ x: e.clientX, y: e.clientY })
+    }
+    window.addEventListener('mousemove', handleMouseMove)
+    return () => window.removeEventListener('mousemove', handleMouseMove)
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -32,18 +41,23 @@ export function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gray-900">
-      {/* Background pattern */}
-      <div className="absolute inset-0 bg-[linear-gradient(to_right,#374151_1px,transparent_1px),linear-gradient(to_bottom,#374151_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+    <div className="min-h-screen flex items-center justify-center p-4 bg-black relative overflow-hidden">
+      <div 
+        className="pointer-events-none fixed w-96 h-96 rounded-full blur-3xl opacity-40 transition-all duration-300 ease-out"
+        style={{
+          background: 'radial-gradient(circle, rgba(168, 85, 247, 0.6) 0%, rgba(139, 92, 246, 0.3) 50%, transparent 70%)',
+          left: mousePos.x - 192,
+          top: mousePos.y - 192
+        }}
+      />
       
-      <Card className="w-full max-w-md relative z-10 bg-gray-800 border-gray-700">
+      <Card className="w-full max-w-md relative z-10 bg-zinc-950/90 border-zinc-800/50 backdrop-blur-sm shadow-2xl group">
         <CardHeader className="text-center pb-2">
-          {/* Logo */}
-          <div className="mx-auto w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mb-4">
-            <Camera className="w-8 h-8 text-white" />
+          <div className="mx-auto w-16 h-16 rounded-2xl bg-zinc-900 border border-zinc-800 flex items-center justify-center mb-4 group-hover:border-purple-900/50 transition-colors">
+            <Camera className="w-8 h-8 text-zinc-400 group-hover:text-purple-400 transition-colors" />
           </div>
-          <CardTitle className="text-2xl text-white">GT-Vision VMS</CardTitle>
-          <p className="text-sm text-gray-400 mt-1">
+          <CardTitle className="text-2xl text-zinc-100">GT-Vision VMS</CardTitle>
+          <p className="text-sm text-zinc-500 mt-1">
             Sistema de Videomonitoramento Inteligente
           </p>
         </CardHeader>
@@ -51,13 +65,13 @@ export function LoginPage() {
         <CardContent className="pt-6">
           <form onSubmit={handleSubmit} className="space-y-4">
             {error && (
-              <div className="p-3 rounded-lg bg-destructive/10 border border-destructive/20 text-sm text-destructive">
+              <div className="p-3 rounded-lg bg-red-950/30 border border-red-900/30 text-sm text-red-400">
                 {error}
               </div>
             )}
 
             <div className="space-y-2">
-              <label htmlFor="email" className="text-sm font-medium text-gray-200">
+              <label htmlFor="email" className="text-sm font-medium text-zinc-300">
                 Email
               </label>
               <Input
@@ -69,11 +83,12 @@ export function LoginPage() {
                 required
                 autoComplete="email"
                 autoFocus
+                className="bg-zinc-900/50 border-zinc-800 focus:border-purple-900/50 text-zinc-100 placeholder:text-zinc-600"
               />
             </div>
 
             <div className="space-y-2">
-              <label htmlFor="password" className="text-sm font-medium text-gray-200">
+              <label htmlFor="password" className="text-sm font-medium text-zinc-300">
                 Senha
               </label>
               <div className="relative">
@@ -85,12 +100,12 @@ export function LoginPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="pr-10"
+                  className="pr-10 bg-zinc-900/50 border-zinc-800 focus:border-purple-900/50 text-zinc-100 placeholder:text-zinc-600"
                 />
                 <button
                   type="button"
                   aria-label={showPassword ? 'Ocultar senha' : 'Mostrar senha'}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-purple-400 transition-colors"
                   onClick={() => setShowPassword(!showPassword)}
                 >
                   {showPassword ? (
@@ -104,7 +119,7 @@ export function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full"
+              className="w-full bg-zinc-900 hover:bg-purple-950/50 border border-zinc-800 hover:border-purple-900/50 text-zinc-100 transition-all"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -117,10 +132,6 @@ export function LoginPage() {
               )}
             </Button>
           </form>
-
-          <div className="mt-6 text-center text-xs text-gray-500">
-            <p>Demo: admin@test.com / admin123</p>
-          </div>
         </CardContent>
       </Card>
     </div>

@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { useTheme } from '@/hooks/useTheme'
 import { useSnapshotCleanup } from '@/hooks/useSnapshotCleanup'
+import { useInactivityTimeout } from '@/hooks/useInactivityTimeout'
 import { Layout } from '@/components/layout/Layout'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
@@ -39,11 +40,9 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
 export default function App() {
   const { isAuthenticated } = useAuthStore()
   
-  // Always call useTheme hook
   useTheme()
-  
-  // Cleanup old snapshots periodically
   useSnapshotCleanup()
+  useInactivityTimeout(3)
   
   return (
     <BrowserRouter>

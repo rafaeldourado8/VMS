@@ -109,8 +109,12 @@ export const cameraService = {
     return data
   },
 
-  async delete(id: number): Promise<void> {
-    await api.delete(`/cameras/${id}/`)
+  async delete(id: number): Promise<number> {
+    const { data } = await api.delete<{ deleted_camera_id: number }>(`/cameras/${id}/`)
+    // Limpar cache do frontend
+    const { clearSnapshotByCamera } = await import('@/lib/snapshotCache')
+    await clearSnapshotByCamera(id)
+    return data.deleted_camera_id
   },
 
   async updateDetectionConfig(id: number, config: {
@@ -227,13 +231,12 @@ export const recordingService = {
     start_time?: string
     end_time?: string
   }) {
-    console.log('[RecordingService] Chamando Storage Service com params:', params)
+    console.log('[RecordingService] Buscando metadados:', params)
     const { data } = await axios.get(`http://localhost:8003/timeline/${params.camera_id}`, {
-      params: { date: params.date }
+      params: { date: params.date, limit: 100 }
     })
-    console.log('[RecordingService] Resposta do Storage Service:', data)
+    console.log('[RecordingService] Metadados recebidos:', data.total, 'blocos')
     
-    // Converter formato do Storage Service para o esperado pelo frontend
     const recordings = (data.blocks || []).map((block: any) => {
       const startTime = new Date(block.start_time)
       const filename = `${startTime.getHours().toString().padStart(2, '0')}-${startTime.getMinutes().toString().padStart(2, '0')}-${startTime.getSeconds().toString().padStart(2, '0')}.mp4`
@@ -245,7 +248,7 @@ export const recordingService = {
         start_time: startTime.toTimeString().split(' ')[0],
         duration_seconds: block.duration_seconds,
         file_size_bytes: block.file_size_bytes,
-        url: block.file_path
+        url: `http://localhost:8003${block.file_path}`
       }
     })
     

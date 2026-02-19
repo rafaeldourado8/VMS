@@ -95,8 +95,14 @@ class CameraViewSet(viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         """Remove câmera do banco e do MediaMTX."""
         instance = self.get_object()
-        self.service.delete_camera(instance.id)
-        return Response(status=status.HTTP_204_NO_CONTENT)
+        camera_id = instance.id
+        self.service.delete_camera(camera_id)
+        
+        # Retorna o ID da câmera deletada para o frontend limpar o cache
+        return Response(
+            {"deleted_camera_id": camera_id},
+            status=status.HTTP_200_OK
+        )
 
     @action(detail=False, methods=['post'])
     def reprovision(self, request):

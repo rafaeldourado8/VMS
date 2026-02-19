@@ -1,12 +1,10 @@
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, Play, Download, Trash2, Calendar, Clock } from 'lucide-react'
+import { Search, Play, Download, Trash2, Calendar, Clock } from 'lucide-react'
 import {
   Button,
   Input,
   Card,
-  CardHeader,
-  CardTitle,
   CardContent,
   Skeleton,
 } from '@/components/ui'
@@ -18,7 +16,6 @@ export function ClipsPage() {
   const queryClient = useQueryClient()
   const [search, setSearch] = useState('')
   const [selectedClip, setSelectedClip] = useState<Clip | null>(null)
-  const [showCreateModal, setShowCreateModal] = useState(false)
 
   const { data: clips, isLoading } = useQuery({
     queryKey: ['clips'],
@@ -57,10 +54,6 @@ export function ClipsPage() {
           <h1 className="text-2xl font-bold">Meus Clips</h1>
           <p className="text-muted-foreground">Gerencie seus clips de vídeo salvos</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Criar Clip
-        </Button>
       </div>
 
       {/* Search */}
@@ -155,11 +148,6 @@ export function ClipsPage() {
           onClose={() => setSelectedClip(null)}
         />
       )}
-
-      {/* Create Clip Modal */}
-      {showCreateModal && (
-        <CreateClipModal onClose={() => setShowCreateModal(false)} />
-      )}
     </div>
   )
 }
@@ -183,29 +171,6 @@ function ClipPlayerModal({ clip, onClose }: { clip: Clip; onClose: () => void })
           <p className="text-sm text-muted-foreground">{clip.camera.name}</p>
         </div>
       </div>
-    </div>
-  )
-}
-
-// Create Clip Modal (placeholder)
-function CreateClipModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-      <Card className="relative w-full max-w-md">
-        <CardHeader>
-          <CardTitle>Criar Clip</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            Funcionalidade em desenvolvimento. 
-            Use o player de câmera para criar clips.
-          </p>
-          <Button onClick={onClose} className="w-full mt-4">
-            Fechar
-          </Button>
-        </CardContent>
-      </Card>
     </div>
   )
 }

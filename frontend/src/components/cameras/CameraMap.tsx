@@ -85,23 +85,101 @@ export function CameraMap({ selectedCamera, hoveredCamera, onCameraClick, onCame
 
     // Criar novos marcadores
     camerasWithLocation.forEach(camera => {
+      const isOnline = camera.status === 'online'
+      
+      // Ícone SVG customizado de câmera
+      const cameraIcon = {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="2"/>
+                <feOffset dx="0" dy="2" result="offsetblur"/>
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.3"/>
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            <circle cx="20" cy="20" r="16" fill="${isOnline ? '#10b981' : '#ef4444'}" filter="url(#shadow)"/>
+            <circle cx="20" cy="20" r="16" fill="none" stroke="white" stroke-width="2"/>
+            <path d="M14 16 L14 24 L22 20 Z" fill="white"/>
+            <circle cx="26" cy="14" r="3" fill="${isOnline ? '#34d399' : '#f87171'}" stroke="white" stroke-width="1"/>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(40, 40),
+        anchor: new google.maps.Point(20, 20)
+      }
+
       const marker = new google.maps.Marker({
         position: { lat: camera.latitude!, lng: camera.longitude! },
         map,
         title: camera.name,
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: camera.status === 'online' ? '#10b981' : '#ef4444',
-          fillOpacity: 1,
-          strokeColor: '#ffffff',
-          strokeWeight: 2,
-        },
+        icon: cameraIcon,
+        animation: isOnline ? google.maps.Animation.DROP : undefined
       })
 
-      marker.addListener('click', () => onCameraClick(camera))
-      marker.addListener('mouseover', () => onCameraHover(camera))
-      marker.addListener('mouseout', () => onCameraHover(null))
+      // InfoWindow com preview e snapshot
+      const snapshotUrl = `/streaming/cameras/${camera.id}/snapshot`
+      const locationText = camera.location ? camera.location.substring(0, 50) + (camera.location.length > 50 ? '...' : '') : ''
+      const infoWindow = new google.maps.InfoWindow({
+        content: `
+          <div style="padding: 0; min-width: 250px; max-width: 300px;">
+            <img src="${snapshotUrl}" 
+                 style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px 8px 0 0; background: #1f2937; display: block;"
+                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex'"
+                 alt="${camera.name}" 
+                 crossorigin="anonymous" />
+            <div style="display: none; width: 100%; height: 150px; background: #1f2937; border-radius: 8px 8px 0 0; align-items: center; justify-content: center; flex-direction: column; gap: 8px;">
+              <svg width="32" height="32" fill="#9ca3af" viewBox="0 0 20 20">
+                <path d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"/>
+              </svg>
+              <span style="color: #9ca3af; font-size: 12px;">Sem snapshot</span>
+            </div>
+            <div style="padding: 12px;">
+              <h3 style="margin: 0 0 8px 0; font-weight: 600; color: #1f2937; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${camera.name}</h3>
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 6px;">
+                <div style="width: 8px; height: 8px; border-radius: 50%; background: ${isOnline ? '#10b981' : '#ef4444'}; ${isOnline ? 'animation: pulse 2s infinite;' : ''}"></div>
+                <span style="font-size: 14px; color: #6b7280; font-weight: 500;">${isOnline ? 'Online' : 'Offline'}</span>
+              </div>
+              ${locationText ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #9ca3af; display: flex; align-items: flex-start; gap: 4px; line-height: 1.4;">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 20 20" style="flex-shrink: 0; margin-top: 2px;">
+                  <path fill-rule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clip-rule="evenodd"/>
+                </svg>
+                <span style="word-break: break-word;">${locationText}</span>
+              </p>` : ''}
+            </div>
+          </div>
+          <style>
+            @keyframes pulse {
+              0%, 100% { opacity: 1; }
+              50% { opacity: 0.5; }
+            }
+          </style>
+        `
+      })
+
+      marker.addListener('click', () => {
+        infoWindow.open(map, marker)
+        onCameraClick(camera)
+      })
+      
+      marker.addListener('mouseover', () => {
+        infoWindow.open(map, marker)
+        onCameraHover(camera)
+      })
+      
+      marker.addListener('mouseout', () => {
+        setTimeout(() => {
+          if (!selectedCamera || selectedCamera.id !== camera.id) {
+            infoWindow.close()
+          }
+        }, 200)
+        onCameraHover(null)
+      })
 
       markersRef.current.set(camera.id, marker)
     })
@@ -123,16 +201,42 @@ export function CameraMap({ selectedCamera, hoveredCamera, onCameraClick, onCame
       if (!camera) return
 
       const isHighlighted = highlightedCamera?.id === cameraId
-      const baseColor = camera.status === 'online' ? '#10b981' : '#ef4444'
-
-      marker.setIcon({
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: isHighlighted ? 14 : 10,
-        fillColor: baseColor,
-        fillOpacity: 1,
-        strokeColor: isHighlighted ? '#fbbf24' : '#ffffff',
-        strokeWeight: isHighlighted ? 3 : 2,
-      })
+      const isOnline = camera.status === 'online'
+      const scale = isHighlighted ? 1.3 : 1
+      
+      const cameraIcon = {
+        url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
+          <svg width="${40 * scale}" height="${40 * scale}" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="${isHighlighted ? 3 : 2}"/>
+                <feOffset dx="0" dy="2" result="offsetblur"/>
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="${isHighlighted ? 0.5 : 0.3}"/>
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+            ${isHighlighted ? '<circle cx="20" cy="20" r="18" fill="none" stroke="#fbbf24" stroke-width="2" opacity="0.6"/>' : ''}
+            <circle cx="20" cy="20" r="16" fill="${isOnline ? '#10b981' : '#ef4444'}" filter="url(#shadow)"/>
+            <circle cx="20" cy="20" r="16" fill="none" stroke="${isHighlighted ? '#fbbf24' : 'white'}" stroke-width="${isHighlighted ? 3 : 2}"/>
+            <path d="M14 16 L14 24 L22 20 Z" fill="white"/>
+            <circle cx="26" cy="14" r="3" fill="${isOnline ? '#34d399' : '#f87171'}" stroke="white" stroke-width="1"/>
+          </svg>
+        `)}`,
+        scaledSize: new google.maps.Size(40 * scale, 40 * scale),
+        anchor: new google.maps.Point(20 * scale, 20 * scale)
+      }
+      
+      marker.setIcon(cameraIcon)
+      if (isHighlighted) {
+        marker.setZIndex(1000)
+      } else {
+        marker.setZIndex(undefined)
+      }
     })
   }, [selectedCamera, hoveredCamera, cameras])
 

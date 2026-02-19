@@ -77,7 +77,6 @@ export function VideoPlayer({
     if (src.includes('.m3u8')) {
       if (Hls.isSupported()) {
         const hls = new Hls({
-          enableWorker: false,
           lowLatencyMode: true,
           backBufferLength: 10,
           maxBufferLength: 20,
@@ -148,47 +147,58 @@ export function VideoPlayer({
         }
       }
     } else {
-      // MP4 direto (Timeline)
-      console.log('[VideoPlayer] Loading MP4:', src)
-      console.log('[VideoPlayer] Video element:', video)
+      // HLS VOD (Timeline) - adiciona .m3u8 se necessário
+      const vodUrl = src.includes('.m3u8') ? src : `${src}/index.m3u8`
       
-      video.src = src
-      video.load() // Força o carregamento
-      
-      const handleLoadedData = () => {
-        console.log('[VideoPlayer] MP4 loaded successfully')
-        console.log('[VideoPlayer] Video duration:', video.duration)
-        console.log('[VideoPlayer] Video readyState:', video.readyState)
-        setIsLoading(false)
-        if (autoPlay) {
-          video.play().catch(err => {
-            console.error('[VideoPlayer] Autoplay failed:', err)
-          })
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          backBufferLength: 90,
+          maxBufferLength: 180,
+        })
+
+        hls.loadSource(vodUrl)
+        hls.attachMedia(video)
+
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          setIsLoading(false)
+          if (autoPlay) {
+            video.play().catch(() => {})
+          }
+          onReady?.()
+        })
+
+        hls.on(Hls.Events.ERROR, (_, data) => {
+          if (data.fatal) {
+            setError('Erro ao carregar gravação')
+            setIsLoading(false)
+            onError?.(data.details || 'VOD error')
+          }
+        })
+
+        hlsRef.current = hls
+
+        return () => {
+          if (video) {
+            video.pause()
+            video.src = ''
+            video.load()
+          }
+          hls.destroy()
+          hlsRef.current = null
         }
-        onReady?.()
-      }
-      
-      const handleError = (e: Event) => {
-        console.error('[VideoPlayer] MP4 error event:', e)
-        console.error('[VideoPlayer] Video error code:', video.error?.code)
-        console.error('[VideoPlayer] Video error message:', video.error?.message)
-        console.error('[VideoPlayer] Video networkState:', video.networkState)
-        console.error('[VideoPlayer] Video readyState:', video.readyState)
-        console.error('[VideoPlayer] Video src:', video.src)
-        setError(`Erro ao carregar vídeo: ${video.error?.message || 'Desconhecido'}`)
-        setIsLoading(false)
-        onError?.(`Video error: ${video.error?.code}`)
-      }
-      
-      video.addEventListener('loadeddata', handleLoadedData)
-      video.addEventListener('error', handleError)
-      
-      return () => {
-        video.removeEventListener('loadeddata', handleLoadedData)
-        video.removeEventListener('error', handleError)
-        video.pause()
-        video.src = ''
-        video.load()
+      } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+        video.src = vodUrl
+        video.addEventListener('loadedmetadata', () => {
+          setIsLoading(false)
+          if (autoPlay) video.play()
+          onReady?.()
+        })
+        
+        return () => {
+          video.pause()
+          video.src = ''
+          video.load()
+        }
       }
     }
 
@@ -275,6 +285,8 @@ export function VideoPlayer({
 
   // Reconecta stream a cada 45min para evitar memory leak
   useEffect(() => {
+    if (!src.includes('.m3u8')) return // Só para live streams
+    
     const reconnectInterval = setInterval(() => {
       if (hlsRef.current && !error) {
         const video = videoRef.current
@@ -283,7 +295,6 @@ export function VideoPlayer({
         hlsRef.current.destroy()
         
         const hls = new Hls({
-          enableWorker: false,
           lowLatencyMode: true,
           backBufferLength: 10,
           maxBufferLength: 20,
@@ -300,7 +311,7 @@ export function VideoPlayer({
         
         hlsRef.current = hls
       }
-    }, 45 * 60 * 1000) // 45min
+    }, 45 * 60 * 1000)
     
     return () => clearInterval(reconnectInterval)
   }, [src, error])
@@ -334,7 +345,13 @@ export function VideoPlayer({
       {/* Loading overlay */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin" />
+            <div className="space-y-2 w-48">
+              <div className="h-2 bg-white/20 rounded animate-pulse" />
+              <div className="h-2 bg-white/20 rounded animate-pulse w-3/4" />
+            </div>
+          </div>
         </div>
       )}
 

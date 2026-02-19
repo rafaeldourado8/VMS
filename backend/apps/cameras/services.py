@@ -9,6 +9,7 @@ import logging
 import httpx
 from django.db import transaction
 from django.conf import settings
+from django.core.cache import cache
 from .models import Camera
 from .schemas import CameraDTO
 
@@ -64,6 +65,11 @@ class CameraService:
             
             # Remove do MediaMTX primeiro
             self._remove_streaming(camera_id)
+            
+            # Limpa o cache de snapshot do backend
+            cache_key = f"camera_snapshot_{camera_id}"
+            cache.delete(cache_key)
+            logger.info(f"🗑️ Cache de snapshot limpo para câmera {camera_id}")
             
             # Depois remove do banco
             camera.delete()

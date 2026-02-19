@@ -98,8 +98,12 @@ def playback_recording(request, camera_id, date, filename):
         raise Http404("Gravação não encontrada")
     
     print(f"[DEBUG] Serving file: {video_path}")
-    return FileResponse(
+    response = FileResponse(
         open(video_path, 'rb'),
         content_type='video/mp4',
         as_attachment=False
     )
+    response['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    return response

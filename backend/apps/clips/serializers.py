@@ -15,6 +15,7 @@ class ClipCreateSerializer(serializers.Serializer):
     name = serializers.CharField(max_length=255)
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
+    quality = serializers.CharField(max_length=20, default='medium', required=False)
 
 class MosaicoCameraPositionSerializer(serializers.ModelSerializer):
     camera = CameraSerializer(read_only=True)

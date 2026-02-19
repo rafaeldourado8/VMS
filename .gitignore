@@ -236,3 +236,7 @@ __pycache__/
 media/
 staticfiles/
 node_modules/
+
+# VMS specific
+hls_cache/
+recordings/

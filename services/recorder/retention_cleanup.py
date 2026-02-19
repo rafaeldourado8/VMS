@@ -40,56 +40,70 @@ async def cleanup_old_recordings():
     logger.info("LIMPEZA AUTOMATICA DE RETENCAO (FIFO)")
     logger.info("="*60)
     
+    if not RECORDINGS_BASE.exists():
+        logger.warning(f"Diretorio {RECORDINGS_BASE} nao existe")
+        return
+    
     retention_map = await get_cameras_retention()
     if not retention_map:
-        logger.warning("Nenhuma camera encontrada")
-        return
+        logger.warning("Nenhuma camera encontrada, usando retencao padrao de 7 dias")
+        retention_map = {}
     
     today = datetime.now().date()
     total_deleted = 0
     total_size = 0
+    cameras_processed = 0
     
-    for camera_folder in RECORDINGS_BASE.glob("camera_*"):
+    # Processar ambos formatos: camera_ e cam_
+    for camera_folder in list(RECORDINGS_BASE.glob("camera_*")) + list(RECORDINGS_BASE.glob("cam_*")):
         if not camera_folder.is_dir():
             continue
         
         try:
             camera_id = int(camera_folder.name.split("_")[1])
         except (IndexError, ValueError):
+            logger.warning(f"Pasta invalida: {camera_folder.name}")
             continue
         
-        retention_days = retention_map.get(camera_id, 30)
+        retention_days = retention_map.get(camera_id, 7)  # Padrao 7 dias
         cutoff_date = today - timedelta(days=retention_days)
         
-        logger.info(f"Camera {camera_id}: Politica {retention_days} dias | Deletar antes de {cutoff_date}")
+        logger.info(f"Camera {camera_id}: Retencao {retention_days} dias | Deletar antes de {cutoff_date}")
         
         deleted_folders = 0
-        for date_folder in sorted(camera_folder.iterdir()):
-            if not date_folder.is_dir():
-                continue
-            
+        date_folders = sorted([d for d in camera_folder.iterdir() if d.is_dir()])
+        
+        for date_folder in date_folders:
             try:
                 folder_date = datetime.strptime(date_folder.name, "%Y-%m-%d").date()
             except ValueError:
+                logger.warning(f"  Pasta com formato invalido: {date_folder.name}")
                 continue
             
             # FIFO: Deleta gravacoes mais antigas que a politica
             if folder_date < cutoff_date:
                 files = list(date_folder.glob("*.mp4"))
-                folder_size = sum(f.stat().st_size for f in files)
+                folder_size = sum(f.stat().st_size for f in files if f.exists())
                 
                 logger.info(f"  [DELETANDO] {date_folder.name}: {len(files)} arquivos, {folder_size/1024/1024:.2f} MB")
                 
-                shutil.rmtree(date_folder)
-                total_deleted += len(files)
-                total_size += folder_size
-                deleted_folders += 1
+                try:
+                    shutil.rmtree(date_folder)
+                    total_deleted += len(files)
+                    total_size += folder_size
+                    deleted_folders += 1
+                except Exception as e:
+                    logger.error(f"  [ERRO] Falha ao deletar {date_folder.name}: {e}")
         
         if deleted_folders == 0:
             logger.info(f"  [OK] Nenhuma gravacao antiga para deletar")
+        
+        cameras_processed += 1
     
     logger.info("="*60)
+    logger.info(f"RESUMO: {cameras_processed} cameras processadas")
     logger.info(f"TOTAL: {total_deleted} arquivos deletados | {total_size/1024/1024:.2f} MB liberados")
+    logger.info(f"Espaco liberado: {total_size/1024/1024/1024:.2f} GB")
     logger.info("="*60)
 
 async def main():

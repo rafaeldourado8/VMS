@@ -5,7 +5,7 @@ type Theme = 'light' | 'dark' | 'system'
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     const stored = localStorage.getItem('vms-theme') as Theme
-    return stored || 'light'
+    return stored || 'dark'
   })
 
   useEffect(() => {

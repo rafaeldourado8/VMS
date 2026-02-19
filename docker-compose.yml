@@ -255,7 +255,7 @@ services:
     restart: unless-stopped
 
   # ============================================
-  # KONG API GATEWAY
+  # KONG API GATEWAY (via HAProxy)
   # ============================================
   kong:
     image: kong:3.5
@@ -265,8 +265,6 @@ services:
       KONG_DECLARATIVE_CONFIG: /etc/kong/kong.yml
       KONG_PROXY_LISTEN: 0.0.0.0:8000
       KONG_ADMIN_LISTEN: 0.0.0.0:8001
-    ports:
-      - "8002:8000"
     volumes:
       - ./kong/kong.yml:/etc/kong/kong.yml:ro
     depends_on:
@@ -319,12 +317,22 @@ services:
       - gtvision_network
 
   # ============================================
-  # POSTGRES
+  # POSTGRES PRIMARY (MASTER)
   # ============================================
   postgres_db:
     image: postgres:15-alpine
-    container_name: gtvision_postgres
+    container_name: gtvision_postgres_primary
     env_file: .env
+    environment:
+      POSTGRES_REPLICATION_MODE: master
+      POSTGRES_REPLICATION_USER: replicator
+      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_password}
+    command: |
+      postgres
+      -c wal_level=replica
+      -c max_wal_senders=3
+      -c max_replication_slots=3
+      -c hot_standby=on
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
     networks:
@@ -334,6 +342,72 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
+
+  # ============================================
+  # POSTGRES REPLICA 1 (READ-ONLY)
+  # ============================================
+  postgres_replica_1:
+    image: postgres:15-alpine
+    container_name: gtvision_postgres_replica_1
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: |
+      bash -c '
+      until pg_basebackup -h postgres_db -D /var/lib/postgresql/data -U replicator -Fp -Xs -P -R; do
+        echo "Waiting for primary to be ready..."
+        sleep 5
+      done
+      postgres -c hot_standby=on
+      '
+    volumes:
+      - gtvision_pg_replica_1:/var/lib/postgresql/data
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ============================================
+  # POSTGRES REPLICA 2 (READ-ONLY)
+  # ============================================
+  postgres_replica_2:
+    image: postgres:15-alpine
+    container_name: gtvision_postgres_replica_2
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+    command: |
+      bash -c '
+      until pg_basebackup -h postgres_db -D /var/lib/postgresql/data -U replicator -Fp -Xs -P -R; do
+        echo "Waiting for primary to be ready..."
+        sleep 5
+      done
+      postgres -c hot_standby=on
+      '
+    volumes:
+      - gtvision_pg_replica_2:/var/lib/postgresql/data
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   # ============================================
   # REDIS
@@ -392,6 +466,8 @@ services:
       context: ./services/recorder
       dockerfile: Dockerfile
     container_name: gtvision_recorder
+    environment:
+      TZ: America/Sao_Paulo
     volumes:
       - ./recordings:/recordings
     depends_on:
@@ -412,6 +488,8 @@ services:
       dockerfile: Dockerfile
     container_name: gtvision_retention_cleanup
     command: python retention_cleanup.py
+    environment:
+      TZ: America/Sao_Paulo
     deploy:
       resources:
         limits:
@@ -425,6 +503,36 @@ services:
     networks:
       - gtvision_network
     restart: unless-stopped
+
+  # ============================================
+  # VOD HLS SERVICE (Converte MP4 para HLS)
+  # ============================================
+  vod_hls:
+    build:
+      context: ./services/vod
+      dockerfile: Dockerfile
+    container_name: gtvision_vod_hls
+    ports:
+      - "8006:8004"
+    volumes:
+      - ./recordings:/recordings:ro
+      - ./hls_cache:/hls_cache
+    environment:
+      - RECORDINGS_DIR=/recordings
+      - HLS_CACHE_DIR=/hls_cache
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   # ============================================
   # CLIPS SERVICE
@@ -526,6 +634,8 @@ services:
 # ============================================
 volumes:
   gtvision_pg_data:
+  gtvision_pg_replica_1:
+  gtvision_pg_replica_2:
   backend_static:
   backend_media:
   mediamtx_recordings:

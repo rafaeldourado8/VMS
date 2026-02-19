@@ -29,6 +29,7 @@ VMS/
 1. Configure as variáveis de ambiente:
    ```bash
    cp .env.example .env
+   # Edite o .env com suas credenciais
    ```
 
 2. Inicie os serviços:
@@ -36,13 +37,25 @@ VMS/
    docker-compose up -d
    ```
 
-3. Acesse:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:8000
-   - MediaMTX: rtsp://localhost:8554
+3. Configure replicação PostgreSQL:
+   ```bash
+   # Windows
+   scripts\init_postgres_replication.bat
+   
+   # Linux/Mac
+   bash scripts/init_postgres_replication.sh
+   ```
+
+4. Acesse:
+   - Frontend: http://localhost/
+   - Backend API: http://localhost/api/
+   - Admin Django: http://localhost/admin/
+   - HAProxy Stats: http://localhost:8404/stats
+   - MediaMTX RTSP: rtsp://localhost:8554
 
 ## Documentação
 
+- [Mudanças de Arquitetura](docs/ARCHITECTURE_CHANGES.md) ⭐ NOVO
 - [Configuração para Máquina de IA](docs/CONFIGURACAO_MAQUINA_IA.md)
 - [Arquitetura MVP](docs/mvp/INDEX.md)
 - [Testes de Carga](docs/LOAD_TESTING.md)
@@ -50,7 +63,22 @@ VMS/
 
 ## Scripts Úteis
 
+- `scripts/init_postgres_replication.bat` - Configura replicação PostgreSQL (Windows)
+- `scripts/init_postgres_replication.sh` - Configura replicação PostgreSQL (Linux/Mac)
 - `scripts/provision_all.py` - Provisiona todas as câmeras
 - `scripts/add_cameras.bat` - Adiciona câmeras ao sistema
 - `scripts/load_test.py` - Testes de carga
 - `tests/quick_test.bat` - Teste rápido do sistema
+
+## Arquitetura
+
+### Gateway Unificado
+- **HAProxy** como ponto único de entrada (porta 80)
+- Kong Gateway acessível via HAProxy
+- Roteamento inteligente para todos os serviços
+
+### Banco de Dados
+- **PostgreSQL Primary** (write operations)
+- **PostgreSQL Replica 1** (read operations)
+- **PostgreSQL Replica 2** (read operations)
+- Replicação streaming assíncrona
