@@ -173,6 +173,7 @@ export interface Clip {
   start_time: string;
   end_time: string;
   file_path: string;
+  video_url?: string;
   thumbnail_path: string | null;
   duration_seconds: number;
   created_at: string;

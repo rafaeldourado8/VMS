@@ -1,0 +1,77 @@
+name: Integration Tests
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # A cada 6 horas
+  workflow_dispatch:  # Permite execução manual
+
+jobs:
+  integration-tests:
+    runs-on: self-hosted
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check services health
+        run: |
+          echo "Verificando serviços..."
+          docker-compose ps
+      
+      - name: Test database connection
+        run: |
+          docker-compose exec -T postgres-primary psql -U vms_user -d vms_dev -c "SELECT version();"
+      
+      - name: Test database replication
+        run: |
+          docker-compose exec -T postgres-primary psql -U vms_user -d vms_dev -c "SELECT * FROM pg_stat_replication;"
+      
+      - name: Test API health endpoint
+        run: |
+          curl -f http://localhost/api/health/ || exit 1
+      
+      - name: Test API cameras endpoint
+        run: |
+          STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost/api/cameras/)
+          if [ "$STATUS" != "200" ] && [ "$STATUS" != "401" ]; then
+            echo "API cameras endpoint failed with status $STATUS"
+            exit 1
+          fi
+      
+      - name: Test frontend
+        run: |
+          curl -f http://localhost/ || exit 1
+      
+      - name: Test HAProxy stats
+        run: |
+          curl -f http://localhost:8404/stats || exit 1
+      
+      - name: Test RTSP MediaMTX
+        run: |
+          timeout 5 curl -f http://localhost:8889/ || echo "MediaMTX API not responding"
+      
+      - name: Check disk space
+        run: |
+          df -h
+          USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
+          if [ "$USAGE" -gt 80 ]; then
+            echo "Warning: Disk usage is at ${USAGE}%"
+          fi
+      
+      - name: Check memory usage
+        run: |
+          free -h
+      
+      - name: Check Docker resources
+        run: |
+          docker stats --no-stream
+      
+      - name: Run quick tests
+        run: |
+          cd tests
+          python quick_test.py || exit 1
+      
+      - name: Notify on failure
+        if: failure()
+        run: |
+          echo "Integration tests failed!"
+          # Adicionar notificação aqui (Slack, Discord, Email)

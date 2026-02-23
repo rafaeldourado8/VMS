@@ -142,7 +142,7 @@ class CameraService:
                     
                     # Se for RTSP, inicia LPR automaticamente
                     if camera.stream_url.startswith('rtsp://'):
-                        self._start_lpr_processing(camera)
+                        self._start_ai_processing(camera)
                     
                     return True
                 else:

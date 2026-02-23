@@ -29,10 +29,10 @@ class Recorder:
             "-timeout", "5000000",
             "-i", self.rtsp_url,
             "-c:v", "libx264",
-            "-preset", "ultrafast",
-            "-b:v", "800k",
-            "-maxrate", "800k",
-            "-bufsize", "1600k",
+            "-preset", "medium",
+            "-crf", "20",
+            "-pix_fmt", "yuv420p",
+            "-g", "60",
             "-an",
             "-avoid_negative_ts", "make_zero",
             "-fflags", "+genpts",
@@ -52,7 +52,7 @@ class Recorder:
             bufsize=1,
             universal_newlines=True
         )
-        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - 800kbps, 60s max")
+        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - CRF 20, preset medium, 60s segments")
         
     async def monitor(self):
         while True:

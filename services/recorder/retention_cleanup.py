@@ -1,6 +1,7 @@
 """
 Servico de Limpeza de Retencao
 Executa a cada 1 hora e deleta gravacoes antigas baseado na politica de retencao de cada camera
+NAO DELETA CLIPS PROTEGIDOS
 """
 import asyncio
 import httpx
@@ -34,6 +35,18 @@ async def get_cameras_retention():
         logger.error(f"Erro ao buscar cameras: {e}")
         return {}
 
+async def get_protected_clips():
+    """Busca lista de arquivos de clips protegidos do banco"""
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.get("http://backend:8000/api/clips/protected-files/")
+            if resp.status_code == 200:
+                data = resp.json()
+                return set(data.get('protected_files', []))
+    except Exception as e:
+        logger.error(f"Erro ao buscar clips protegidos: {e}")
+    return set()
+
 async def cleanup_old_recordings():
     """Remove gravacoes antigas baseado na politica de retencao (FIFO)"""
     logger.info("="*60)
@@ -49,9 +62,14 @@ async def cleanup_old_recordings():
         logger.warning("Nenhuma camera encontrada, usando retencao padrao de 7 dias")
         retention_map = {}
     
+    # Buscar clips protegidos
+    protected_files = await get_protected_clips()
+    logger.info(f"Clips protegidos: {len(protected_files)} arquivos")
+    
     today = datetime.now().date()
     total_deleted = 0
     total_size = 0
+    total_protected = 0
     cameras_processed = 0
     
     # Processar ambos formatos: camera_ e cam_
@@ -85,6 +103,13 @@ async def cleanup_old_recordings():
                 files = list(date_folder.glob("*.mp4"))
                 folder_size = sum(f.stat().st_size for f in files if f.exists())
                 
+                # Verificar clips protegidos
+                protected_in_folder = [f for f in files if str(f) in protected_files]
+                if protected_in_folder:
+                    logger.info(f"  [PROTEGIDO] {date_folder.name}: {len(protected_in_folder)} clips protegidos, mantendo pasta")
+                    total_protected += len(protected_in_folder)
+                    continue
+                
                 logger.info(f"  [DELETANDO] {date_folder.name}: {len(files)} arquivos, {folder_size/1024/1024:.2f} MB")
                 
                 try:
@@ -103,6 +128,7 @@ async def cleanup_old_recordings():
     logger.info("="*60)
     logger.info(f"RESUMO: {cameras_processed} cameras processadas")
     logger.info(f"TOTAL: {total_deleted} arquivos deletados | {total_size/1024/1024:.2f} MB liberados")
+    logger.info(f"PROTEGIDOS: {total_protected} clips mantidos")
     logger.info(f"Espaco liberado: {total_size/1024/1024/1024:.2f} GB")
     logger.info("="*60)
 

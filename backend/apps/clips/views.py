@@ -1,11 +1,13 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
+from django.http import FileResponse
 from .models import Clip, Mosaico
 from .serializers import ClipSerializer, MosaicoSerializer, ClipCreateSerializer
 from .services import ClipService
+import os
 
 class ClipViewSet(viewsets.ModelViewSet):
     serializer_class = ClipSerializer
@@ -31,6 +33,22 @@ class ClipViewSet(viewsets.ModelViewSet):
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         print(f"[ClipViewSet] Erros de validação: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=['get'])
+    def video(self, request, pk=None):
+        clip = self.get_object()
+        file_path = clip.file_path
+        
+        if not os.path.exists(file_path):
+            return Response({"error": "Arquivo não encontrado"}, status=status.HTTP_404_NOT_FOUND)
+        
+        return FileResponse(open(file_path, 'rb'), content_type='video/mp4')
+    
+    @action(detail=False, methods=['get'], permission_classes=[AllowAny])
+    def protected_files(self, request):
+        """Retorna lista de arquivos protegidos (clips) para o retention service"""
+        protected_clips = Clip.objects.filter(is_protected=True).values_list('file_path', flat=True)
+        return Response({'protected_files': list(protected_clips)})
 
 class MosaicoViewSet(viewsets.ModelViewSet):
     serializer_class = MosaicoSerializer

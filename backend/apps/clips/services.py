@@ -15,16 +15,19 @@ class ClipService:
         
         duration = int((end_time - start_time).total_seconds())
         
-        # Criar registro no banco primeiro
+        # Criar registro no banco primeiro com backup de informações da câmera
         clip = Clip.objects.create(
             owner=user,
             camera=camera,
+            camera_id_backup=camera.id,
+            camera_name_backup=camera.name,
             name=name,
             start_time=start_time,
             end_time=end_time,
             file_path=f"/clips/pending_{camera_id}_{int(start_time.timestamp())}.mp4",
             duration_seconds=duration,
-            status='pending'
+            status='pending',
+            is_protected=True  # Protegido contra retenção
         )
         
         # Tentar criar no serviço de clips (assíncrono)

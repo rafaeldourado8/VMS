@@ -166,6 +166,7 @@ CACHES = {
 
 # --- INTEGRAÇÃO IA E STREAMING ---
 MEDIAMTX_API_URL = os.getenv("MEDIAMTX_API_URL", "http://mediamtx:9997")
+VOD_SERVICE_URL = os.getenv("VOD_SERVICE_URL", "http://vod_hls:8004")
 INGEST_API_KEY = os.environ.get("INGEST_API_KEY", "default_insecure_key_12345")
 
 # --- LOGGING ---

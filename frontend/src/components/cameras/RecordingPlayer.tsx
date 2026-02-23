@@ -30,9 +30,10 @@ export function RecordingPlayer({ cameraId, cameraName }: RecordingPlayerProps) 
     enabled: !!selectedDate,
   })
 
-  const handlePlayRecording = (filename: string) => {
-    const url = recordingService.getPlaybackUrl(cameraId, selectedDate, filename)
-    setPlaybackUrl(url)
+  const handlePlayRecording = (recording: any) => {
+    // Usa HLS URL se disponível, senão gera URL HLS
+    const hlsUrl = recording.hls_url || recordingService.getPlaybackUrl(cameraId, selectedDate, recording.file_name)
+    setPlaybackUrl(hlsUrl)
   }
 
   const goToPreviousDay = () => {
@@ -115,27 +116,27 @@ export function RecordingPlayer({ cameraId, cameraName }: RecordingPlayerProps) 
 
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Carregando...</p>
-          ) : recordings?.recordings.length > 0 ? (
+          ) : recordings?.recordings?.length > 0 ? (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm text-muted-foreground mb-2">
                 <span>{recordings.recordings.length} gravações</span>
-                <span>{recordings.total_size_mb} MB</span>
+                <span>{recordings.total_size_mb?.toFixed(2)} MB</span>
               </div>
 
               <div className="max-h-64 overflow-y-auto space-y-1">
-                {recordings.recordings.map((rec: any) => (
+                {recordings.recordings.map((rec: any, idx: number) => (
                   <div
-                    key={rec.filename}
+                    key={idx}
                     className="flex items-center justify-between p-2 rounded hover:bg-secondary cursor-pointer"
-                    onClick={() => handlePlayRecording(rec.filename)}
+                    onClick={() => handlePlayRecording(rec)}
                   >
                     <div className="flex items-center gap-2">
                       <Clock className="w-4 h-4 text-muted-foreground" />
-                      <span className="font-mono text-sm">{rec.start_time}</span>
+                      <span className="font-mono text-sm">{rec.file_name}</span>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-muted-foreground">
-                        {rec.size_mb} MB
+                        {rec.size_mb?.toFixed(2)} MB
                       </span>
                       <Play className="w-4 h-4" />
                     </div>
@@ -157,7 +158,7 @@ export function RecordingPlayer({ cameraId, cameraName }: RecordingPlayerProps) 
       {playbackUrl && (
         <Card>
           <CardContent className="p-0">
-            <VideoPlayer src={playbackUrl} />
+            <VideoPlayer src={playbackUrl} autoPlay={true} muted={false} />
           </CardContent>
         </Card>
       )}

@@ -231,12 +231,12 @@ export const recordingService = {
     start_time?: string
     end_time?: string
   }) {
-    console.log('[RecordingService] Buscando metadados:', params)
-    const { data } = await axios.get(`http://localhost:8003/timeline/${params.camera_id}`, {
+    // Usa Storage Service via HAProxy
+    const { data } = await axios.get(`/storage/timeline/${params.camera_id}`, {
       params: { date: params.date, limit: 100 }
     })
-    console.log('[RecordingService] Metadados recebidos:', data.total, 'blocos')
     
+    // Transforma blocos em recordings com HLS URL
     const recordings = (data.blocks || []).map((block: any) => {
       const startTime = new Date(block.start_time)
       const filename = `${startTime.getHours().toString().padStart(2, '0')}-${startTime.getMinutes().toString().padStart(2, '0')}-${startTime.getSeconds().toString().padStart(2, '0')}.mp4`
@@ -244,26 +244,30 @@ export const recordingService = {
       return {
         camera_id: params.camera_id,
         date: params.date,
-        filename: filename,
+        file_name: filename,
         start_time: startTime.toTimeString().split(' ')[0],
         duration_seconds: block.duration_seconds,
         file_size_bytes: block.file_size_bytes,
-        url: `http://localhost:8003${block.file_path}`
+        size_mb: (block.file_size_bytes / 1024 / 1024).toFixed(2),
+        // URL HLS via VOD Service
+        hls_url: `/vod/camera_${params.camera_id}/${params.date}/${filename}/index.m3u8`
       }
     })
     
     return {
-      camera_id: params.camera_id,
-      date: params.date,
-      recordings: recordings,
-      total_size_mb: recordings.reduce((sum: number, r: any) => sum + (r.file_size_bytes / 1024 / 1024), 0),
-      total_duration_seconds: recordings.reduce((sum: number, r: any) => sum + r.duration_seconds, 0)
+      recordings,
+      total_size_mb: recordings.reduce((sum: number, r: any) => sum + parseFloat(r.size_mb), 0).toFixed(2)
     }
   },
 
+  async getHlsUrl(recordingId: number): Promise<string> {
+    const { data } = await api.get(`/recordings/${recordingId}/hls/`)
+    return data.hls_url
+  },
+
   getPlaybackUrl(cameraId: number, date: string, filename: string): string {
-    const timeStr = filename.replace('.mp4', '')
-    return `http://localhost:8003/download/${cameraId}/${date}/${timeStr}`
+    // URL HLS via HAProxy → VOD Service
+    return `/vod/camera_${cameraId}/${date}/${filename}/index.m3u8`
   },
 }
 
@@ -274,12 +278,12 @@ export const recordingService = {
 export const timelineService = {
   async getTimeline(cameraId: number, date?: string) {
     const params = date ? { date } : {}
-    const { data } = await axios.get(`http://localhost:8003/timeline/${cameraId}`, { params })
+    const { data } = await axios.get(`/storage/timeline/${cameraId}`, { params })
     return data
   },
   
   async resolveVideo(cameraId: number, timestamp: string) {
-    const { data } = await axios.get(`http://localhost:8003/video/${cameraId}/${timestamp}`)
+    const { data } = await axios.get(`/storage/video/${cameraId}/${timestamp}`)
     return data
   },
 }

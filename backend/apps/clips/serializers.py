@@ -4,11 +4,15 @@ from apps.cameras.serializers import CameraSerializer
 
 class ClipSerializer(serializers.ModelSerializer):
     camera = CameraSerializer(read_only=True)
+    video_url = serializers.SerializerMethodField()
     
     class Meta:
         model = Clip
         fields = ['id', 'name', 'camera', 'start_time', 'end_time', 
-                 'file_path', 'thumbnail_path', 'duration_seconds', 'created_at']
+                 'file_path', 'video_url', 'thumbnail_path', 'duration_seconds', 'created_at']
+    
+    def get_video_url(self, obj):
+        return f"/api/clips/{obj.id}/video/"
 
 class ClipCreateSerializer(serializers.Serializer):
     camera_id = serializers.IntegerField()

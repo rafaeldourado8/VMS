@@ -82,3 +82,9 @@ VMS/
 - **PostgreSQL Replica 1** (read operations)
 - **PostgreSQL Replica 2** (read operations)
 - Replicação streaming assíncrona
+
+
+## Deploy e CI/CD
+
+- [Guia EC2 Spot + CI/CD](docs/AWS_EC2_SPOT_SETUP.md) ⭐ NOVO - Setup completo para desenvolvimento
+- [Checklist de Deploy](docs/DEPLOY_CHECKLIST.md) ⭐ NOVO - Passo a passo rápido

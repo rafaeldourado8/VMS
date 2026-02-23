@@ -1,0 +1,37 @@
+{
+  "ImageId": "ami-0c7217cdde317cfec",
+  "InstanceType": "t3.xlarge",
+  "KeyName": "vms-dev-key",
+  "SecurityGroups": ["vms-dev-sg"],
+  "BlockDeviceMappings": [
+    {
+      "DeviceName": "/dev/sda1",
+      "Ebs": {
+        "VolumeSize": 100,
+        "VolumeType": "gp3",
+        "Iops": 3000,
+        "DeleteOnTermination": false
+      }
+    }
+  ],
+  "UserData": "IyEvYmluL2Jhc2gKYXB0LWdldCB1cGRhdGUKYXB0LWdldCBpbnN0YWxsIC15IGRvY2tlci5pbyBkb2NrZXItY29tcG9zZSBnaXQgY3VybCBqcQpzeXN0ZW1jdGwgZW5hYmxlIGRvY2tlcgpzeXN0ZW1jdGwgc3RhcnQgZG9ja2VyCnVzZXJtb2QgLWFHIGRvY2tlciB1YnVudHU=",
+  "TagSpecifications": [
+    {
+      "ResourceType": "instance",
+      "Tags": [
+        {
+          "Key": "Name",
+          "Value": "vms-dev-spot"
+        },
+        {
+          "Key": "Environment",
+          "Value": "development"
+        },
+        {
+          "Key": "Project",
+          "Value": "VMS"
+        }
+      ]
+    }
+  ]
+}

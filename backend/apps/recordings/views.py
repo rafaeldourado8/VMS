@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from .models import Recording
 from .serializers import RecordingSerializer
 import httpx
+import os
 
 class RecordingViewSet(viewsets.ModelViewSet):
     queryset = Recording.objects.all()
@@ -21,6 +22,20 @@ class RecordingViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(recordings, many=True)
         return Response(serializer.data)
+    
+    @action(detail=True, methods=['get'])
+    def hls(self, request, pk=None):
+        """Retorna URL HLS para playback"""
+        recording = self.get_object()
+        vod_url = os.getenv('VOD_SERVICE_URL', 'http://vod_hls:8004')
+        hls_url = f"{vod_url}/vod/camera_{recording.camera_id}/{recording.date}/{recording.file_name}/index.m3u8"
+        
+        return Response({
+            'hls_url': hls_url,
+            'camera_id': recording.camera_id,
+            'date': str(recording.date),
+            'filename': recording.file_name
+        })
     
     @action(detail=False, methods=['post'])
     async def sync_from_service(self, request):

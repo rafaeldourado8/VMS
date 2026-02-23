@@ -39,42 +39,55 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
     try:
         clips_db[clip_id]["status"] = "processing"
         
-        start_dt = datetime.fromisoformat(start_time)
-        end_dt = datetime.fromisoformat(end_time)
+        start_dt = datetime.fromisoformat(start_time.replace('Z', '+00:00'))
+        end_dt = datetime.fromisoformat(end_time.replace('Z', '+00:00'))
         duration = int((end_dt - start_dt).total_seconds())
         
         if duration > 300:
             raise Exception("Duração máxima: 5 minutos")
         
         date_str = start_dt.strftime("%Y-%m-%d")
-        recording_dir = RECORDINGS_DIR / f"cam_{camera_id}" / date_str
+        recording_dir = RECORDINGS_DIR / f"camera_{camera_id}" / date_str
         
         if not recording_dir.exists():
-            raise Exception("Gravação não encontrada")
+            recording_dir = RECORDINGS_DIR / f"cam_{camera_id}" / date_str
+        
+        if not recording_dir.exists():
+            raise Exception(f"Gravação não encontrada: {recording_dir}")
         
         recordings = sorted(recording_dir.glob("*.mp4"))
         if not recordings:
             raise Exception("Nenhum arquivo de gravação")
         
-        input_file = recordings[0]
+        # Encontrar arquivo que contém o timestamp
+        input_file = None
+        for rec in recordings:
+            # Parse filename: HH-MM-SS.mp4
+            try:
+                time_parts = rec.stem.split('-')
+                if len(time_parts) == 3:
+                    file_time = datetime.strptime(f"{date_str} {time_parts[0]}:{time_parts[1]}:{time_parts[2]}", "%Y-%m-%d %H:%M:%S")
+                    if file_time <= start_dt:
+                        input_file = rec
+            except:
+                continue
+        
+        if not input_file:
+            input_file = recordings[0]
+        
         output_file = CLIPS_DIR / f"{clip_id}.mp4"
         
-        start_offset = start_dt.strftime("%H:%M:%S")
-        
-        quality_map = {
-            "low": "28",
-            "medium": "23",
-            "high": "18"
-        }
+        quality_map = {"low": "28", "medium": "23", "high": "18"}
         crf = quality_map.get(quality, "23")
         
+        # Usar -ss antes de -i para seek rápido e preciso
         cmd = [
             "ffmpeg", "-y",
-            "-ss", start_offset,
             "-i", str(input_file),
+            "-ss", start_dt.strftime("%H:%M:%S"),
             "-t", str(duration),
             "-c:v", "libx264",
-            "-preset", "ultrafast",
+            "-preset", "fast",
             "-crf", crf,
             "-c:a", "aac",
             "-movflags", "+faststart",
@@ -86,9 +99,12 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        await process.communicate()
+        stdout, stderr = await process.communicate()
         
-        if output_file.exists():
+        if process.returncode != 0:
+            raise Exception(f"FFmpeg error: {stderr.decode()[-500:]}")
+        
+        if output_file.exists() and output_file.stat().st_size > 0:
             file_size = output_file.stat().st_size
             clips_db[clip_id].update({
                 "status": "completed",
@@ -97,11 +113,12 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
                 "file_path": str(output_file)
             })
         else:
-            raise Exception("Falha ao criar clip")
+            raise Exception("Arquivo vazio ou não criado")
             
     except Exception as e:
         clips_db[clip_id]["status"] = "failed"
         clips_db[clip_id]["error"] = str(e)
+        print(f"[CLIP ERROR] {clip_id}: {e}")
 
 @app.post("/clips/create", response_model=ClipResponse)
 async def create_clip(request: ClipRequest, background_tasks: BackgroundTasks):
@@ -154,6 +171,41 @@ async def download_clip(clip_id: str):
         raise HTTPException(status_code=404, detail="Arquivo não encontrado")
     
     return FileResponse(file_path, media_type="video/mp4", filename=f"clip_{clip_id}.mp4")
+
+@app.post("/clips/{clip_id}/publish")
+async def publish_clip_to_mediamtx(clip_id: str):
+    if clip_id not in clips_db:
+        raise HTTPException(status_code=404, detail="Clip não encontrado")
+    
+    clip = clips_db[clip_id]
+    if clip["status"] != "completed":
+        raise HTTPException(status_code=400, detail="Clip ainda não está pronto")
+    
+    file_path = Path(clip["file_path"])
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Arquivo não encontrado")
+    
+    stream_name = f"clip_{clip_id}"
+    
+    # Publica no MediaMTX via FFmpeg em background
+    cmd = [
+        "ffmpeg", "-re", "-stream_loop", "-1",
+        "-i", str(file_path),
+        "-c:v", "copy",
+        "-c:a", "copy",
+        "-f", "rtsp",
+        "-rtsp_transport", "tcp",
+        f"rtsp://mediamtx:8554/{stream_name}"
+    ]
+    
+    subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    
+    return {
+        "status": "publishing",
+        "stream_name": stream_name,
+        "hls_url": f"http://localhost:8889/{stream_name}/index.m3u8",
+        "rtsp_url": f"rtsp://localhost:8554/{stream_name}"
+    }
 
 @app.delete("/clips/{clip_id}")
 async def delete_clip(clip_id: str):

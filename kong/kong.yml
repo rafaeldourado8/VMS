@@ -31,6 +31,23 @@ services:
           minute: 500
           policy: local
 
+  - name: vod-service
+    url: http://vod_hls:8004
+    routes:
+      - name: vod-hls-route
+        paths:
+          - /vod
+        strip_path: false
+    plugins:
+      - name: rate-limiting
+        config:
+          minute: 1000
+          policy: local
+      - name: cors
+        config:
+          origins: ["*"]
+          credentials: true
+
   - name: django-admin
     url: http://backend:8000
     routes:
