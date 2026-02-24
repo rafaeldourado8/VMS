@@ -55,44 +55,79 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
         if not recording_dir.exists():
             raise Exception(f"Gravação não encontrada: {recording_dir}")
         
+        # Buscar segmentos MP4 de 60s que cobrem o intervalo
         recordings = sorted(recording_dir.glob("*.mp4"))
         if not recordings:
-            raise Exception("Nenhum arquivo de gravação")
+            raise Exception(f"Nenhum arquivo MP4 em {recording_dir}")
         
-        # Encontrar arquivo que contém o timestamp
-        input_file = None
+        # Encontrar segmentos relevantes baseado no timestamp do arquivo
+        relevant_files = []
         for rec in recordings:
-            # Parse filename: HH-MM-SS.mp4
             try:
-                time_parts = rec.stem.split('-')
-                if len(time_parts) == 3:
-                    file_time = datetime.strptime(f"{date_str} {time_parts[0]}:{time_parts[1]}:{time_parts[2]}", "%Y-%m-%d %H:%M:%S")
-                    if file_time <= start_dt:
-                        input_file = rec
+                # Parse: HH-MM-SS.mp4 ou timestamp
+                parts = rec.stem.split('-')
+                if len(parts) >= 3:
+                    h, m, s = int(parts[0]), int(parts[1]), int(parts[2])
+                    file_dt = start_dt.replace(hour=h, minute=m, second=s)
+                    # Arquivo cobre 60s: [file_dt, file_dt+60s]
+                    if file_dt <= end_dt and (file_dt + timedelta(seconds=60)) >= start_dt:
+                        relevant_files.append((file_dt, rec))
             except:
                 continue
         
-        if not input_file:
-            input_file = recordings[0]
+        if not relevant_files:
+            raise Exception("Nenhum segmento encontrado para o intervalo")
         
+        relevant_files.sort()
         output_file = CLIPS_DIR / f"{clip_id}.mp4"
         
-        quality_map = {"low": "28", "medium": "23", "high": "18"}
-        crf = quality_map.get(quality, "23")
-        
-        # Usar -ss antes de -i para seek rápido e preciso
-        cmd = [
-            "ffmpeg", "-y",
-            "-i", str(input_file),
-            "-ss", start_dt.strftime("%H:%M:%S"),
-            "-t", str(duration),
-            "-c:v", "libx264",
-            "-preset", "fast",
-            "-crf", crf,
-            "-c:a", "aac",
-            "-movflags", "+faststart",
-            str(output_file)
-        ]
+        if len(relevant_files) == 1:
+            # Um único arquivo: cortar diretamente
+            file_dt, input_file = relevant_files[0]
+            offset = int((start_dt - file_dt).total_seconds())
+            
+            cmd = [
+                "ffmpeg", "-y",
+                "-ss", str(max(0, offset)),
+                "-i", str(input_file),
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-movflags", "+faststart",
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                str(output_file)
+            ]
+        else:
+            # Múltiplos arquivos: concatenar e cortar com re-encode
+            concat_file = CLIPS_DIR / f"{clip_id}_concat.txt"
+            with open(concat_file, 'w') as f:
+                for _, rec in relevant_files:
+                    f.write(f"file '{rec}'\n")
+            
+            first_file_dt = relevant_files[0][0]
+            offset = int((start_dt - first_file_dt).total_seconds())
+            
+            cmd = [
+                "ffmpeg", "-y",
+                "-f", "concat",
+                "-safe", "0",
+                "-i", str(concat_file),
+                "-ss", str(max(0, offset)),
+                "-t", str(duration),
+                "-c:v", "libx264",
+                "-preset", "fast",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "128k",
+                "-movflags", "+faststart",
+                "-avoid_negative_ts", "make_zero",
+                "-fflags", "+genpts",
+                str(output_file)
+            ]
         
         process = await asyncio.create_subprocess_exec(
             *cmd,
@@ -112,6 +147,10 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
                 "duration": duration,
                 "file_path": str(output_file)
             })
+            # Limpar arquivo temporário de concatenação
+            concat_file = CLIPS_DIR / f"{clip_id}_concat.txt"
+            if concat_file.exists():
+                concat_file.unlink()
         else:
             raise Exception("Arquivo vazio ou não criado")
             

@@ -34,9 +34,9 @@ class ClipViewSet(viewsets.ModelViewSet):
         print(f"[ClipViewSet] Erros de validação: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['get'])
+    @action(detail=True, methods=['get'], permission_classes=[AllowAny])
     def video(self, request, pk=None):
-        clip = self.get_object()
+        clip = get_object_or_404(Clip, pk=pk)
         file_path = clip.file_path
         
         if not os.path.exists(file_path):

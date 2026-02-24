@@ -335,6 +335,7 @@ services:
       -c hot_standby=on
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
+      - ./postgres/init-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
     networks:
       - gtvision_network
     healthcheck:

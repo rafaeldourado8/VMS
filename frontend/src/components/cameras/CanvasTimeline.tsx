@@ -16,6 +16,7 @@ interface CanvasTimelineProps {
   onSeek: (time: Date) => void;
   height?: number;
   clipSelection?: { start: Date | null; end: Date | null };
+  timeFilter?: { start: string; end: string } | null;
 }
 
 export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
@@ -23,11 +24,11 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
   currentTime,
   onSeek,
   height = 120,
-  clipSelection
+  clipSelection,
+  timeFilter: externalTimeFilter
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [timeFilter, setTimeFilter] = useState<{ start: string; end: string } | null>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
 
   const state = useTimelineState(currentTime);
@@ -38,7 +39,7 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
     segments,
     currentTime,
     viewWindow: state.viewWindow,
-    timeFilter,
+    timeFilter: externalTimeFilter,
     height,
     clipSelection
   });

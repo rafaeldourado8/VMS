@@ -36,6 +36,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isBuffering, setIsBuffering] = useState(false)
   const hlsRef = useRef<Hls | null>(null)
+  const hasBufferedRef = useRef(false)
   
   // URL da Playlist Mestre do Dia (via HAProxy)
   const masterPlaylistUrl = `/vod/playlist/${camera.id}/${selectedDate}/index.m3u8`
@@ -152,8 +153,10 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
         const videoTime = wallClockToVideoTime(seekDate)
         videoRef.current.currentTime = videoTime
         setCurrentTime(seekDate)
-        setIsPlaying(true)
-        videoRef.current.play().catch(() => {})
+        if (!isPlaying) {
+          setIsPlaying(true)
+          videoRef.current.play().catch(() => {})
+        }
       }
       return
     }
@@ -209,6 +212,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     if (!video || blocks.length === 0) return
 
     setIsBuffering(true)
+    hasBufferedRef.current = false
 
     if (hlsRef.current) {
       hlsRef.current.destroy()
@@ -218,15 +222,44 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
       const hls = new Hls({
         backBufferLength: 90,
         maxBufferLength: 180,
+        startLevel: -1,
+        autoStartLoad: false,
+        maxMaxBufferLength: 600,
+        maxBufferSize: 60 * 1000 * 1000,
+        maxBufferHole: 0.5,
       })
 
       hls.loadSource(masterPlaylistUrl)
       hls.attachMedia(video)
 
       hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        setIsBuffering(false)
-        if (isPlaying) video.play().catch(() => {})
+        hls.startLoad()
       })
+
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        if (hasBufferedRef.current) return
+        
+        const buffered = video.buffered
+        if (buffered.length > 0) {
+          const bufferEnd = buffered.end(buffered.length - 1)
+          const bufferLength = bufferEnd - video.currentTime
+          
+          if (bufferLength >= 5) {
+            hasBufferedRef.current = true
+            setIsBuffering(false)
+            if (isPlaying) video.play().catch(() => {})
+          }
+        }
+      })
+
+      // Fallback: se não atingir 5s em 3s, libera mesmo assim
+      const fallbackTimer = setTimeout(() => {
+        if (!hasBufferedRef.current) {
+          hasBufferedRef.current = true
+          setIsBuffering(false)
+          if (isPlaying) video.play().catch(() => {})
+        }
+      }, 3000)
 
       hls.on(Hls.Events.ERROR, (_, data) => {
         if (data.fatal) setIsBuffering(false)
@@ -234,7 +267,10 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
 
       hlsRef.current = hls
 
-      return () => hls.destroy()
+      return () => {
+        clearTimeout(fallbackTimer)
+        hls.destroy()
+      }
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
       video.src = masterPlaylistUrl
       video.addEventListener('loadedmetadata', () => setIsBuffering(false))
@@ -262,8 +298,6 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
-                onWaiting={() => setIsBuffering(true)}
-                onCanPlay={() => setIsBuffering(false)}
                 onClick={togglePlay}
               />
               
@@ -277,17 +311,24 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
               </div>
                 
               <div className="absolute inset-0 flex items-center justify-center gap-4 pointer-events-none">
-                <button
-                  onClick={(e) => { e.stopPropagation(); togglePlay(); }}
-                  className="p-6 bg-white/90 hover:bg-white rounded-full transition-all text-black shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-auto"
-                >
-                  {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
-                </button>
+                {!isBuffering && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); togglePlay(); }}
+                    className="p-6 bg-white/90 hover:bg-white rounded-full transition-all text-black shadow-2xl opacity-0 group-hover:opacity-100 pointer-events-auto"
+                  >
+                    {isPlaying ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 ml-1" />}
+                  </button>
+                )}
               </div>
               
               {isBuffering && (
-                <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-                  <div className="w-16 h-16 rounded-full border-4 border-gray-700 border-t-white animate-spin" />
+                <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
+                  <div className="w-full h-full relative overflow-hidden">
+                    <div className="absolute inset-0 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                      <div className="w-20 h-20 rounded-full border-4 border-zinc-700 border-t-zinc-400 animate-spin" />
+                    </div>
+                  </div>
                 </div>
               )}
             </>
@@ -355,6 +396,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
             onSeek={handleTimelineSeek}
             height={60}
             clipSelection={timeFilter ? clipSelection : undefined}
+            timeFilter={timeFilter}
           />
         </div>
       </div>
