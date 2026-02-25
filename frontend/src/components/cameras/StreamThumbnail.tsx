@@ -27,37 +27,46 @@ export function StreamThumbnail({
   const isOnline = cameraStatus === 'online'
 
   useEffect(() => {
+    let mounted = true
     const loadSnapshot = async () => {
       try {
+        // Tenta carregar do cache primeiro
         const cached = await getSnapshot(cameraId)
-        if (cached) {
+        if (cached && mounted) {
           setSnapshot(cached)
           setIsLoading(false)
           return
         }
 
-        const response = await fetch(`/streaming/cameras/${cameraId}/snapshot`)
+        // Se não tem cache, aguarda 5s para stream inicializar
+        await new Promise(resolve => setTimeout(resolve, 5000))
+        
+        if (!mounted) return
+
+        const response = await fetch(`/streaming/cameras/${cameraId}/snapshot?t=${Date.now()}`)
         
         if (response.ok) {
           const blob = await response.blob()
           const reader = new FileReader()
           reader.onloadend = async () => {
+            if (!mounted) return
             const base64 = reader.result as string
             setSnapshot(base64)
             await saveSnapshot(cameraId, base64)
           }
           reader.readAsDataURL(blob)
         } else {
-          setError('Sem snapshot')
+          if (mounted) setError('Sem snapshot')
         }
       } catch (err) {
-        setError('Sem snapshot')
+        if (mounted) setError('Sem snapshot')
       } finally {
-        setIsLoading(false)
+        if (mounted) setIsLoading(false)
       }
     }
 
     loadSnapshot()
+    return () => { mounted = false }
   }, [cameraId])
 
   return (

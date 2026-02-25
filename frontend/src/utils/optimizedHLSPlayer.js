@@ -12,33 +12,30 @@ class OptimizedHLSPlayer {
         
         // Configurações otimizadas
         this.config = {
-            // Buffer reduzido para menor latência
-            maxBufferLength: 10,        // 10s buffer máximo
-            maxMaxBufferLength: 20,     // 20s buffer absoluto
-            maxBufferSize: 60 * 1000 * 1000, // 60MB
-            maxBufferHole: 0.5,         // 0.5s gap máximo
+            // VOD Configuration
+            maxBufferLength: 30,
+            maxMaxBufferLength: 60,
+            backBufferLength: 10,
+            maxBufferHole: 2,
             
-            // Configurações de fragmento
-            liveSyncDurationCount: 2,   // Apenas 2 segmentos para sync
-            liveMaxLatencyDurationCount: 4, // Máximo 4 segmentos de atraso
+            // Disable live features
+            lowLatencyMode: false,
+            liveSyncDuration: undefined,
+            liveMaxLatencyDuration: undefined,
+            liveDurationInfinity: false,
             
-            // Otimizações de rede
+            // Network
             manifestLoadingTimeOut: 10000,
-            manifestLoadingMaxRetry: 2,
+            manifestLoadingMaxRetry: 1,
             levelLoadingTimeOut: 10000,
-            levelLoadingMaxRetry: 2,
+            levelLoadingMaxRetry: 1,
             fragLoadingTimeOut: 20000,
-            fragLoadingMaxRetry: 2,
+            fragLoadingMaxRetry: 1,
             
-            // Limpeza automática
+            // Performance
             enableWorker: true,
-            lowLatencyMode: true,
-            backBufferLength: 5,        // Mantém apenas 5s no buffer traseiro
-            
-            // Configurações específicas para drift
-            nudgeOffset: 0.1,
-            nudgeMaxRetry: 3,
-            maxSeekHole: 2,
+            startLevel: -1,
+            autoStartLoad: true,
             
             ...options
         };
@@ -96,10 +93,7 @@ class OptimizedHLSPlayer {
             this.cleanupOldBuffer();
         });
         
-        // Detecta drift e corrige
-        this.hls.on(window.Hls.Events.FRAG_LOADED, (event, data) => {
-            this.checkForDrift();
-        });
+        // Drift check desabilitado para VOD
         
         this.hls.attachMedia(this.video);
         this.hls.loadSource(this.streamUrl);
@@ -126,23 +120,7 @@ class OptimizedHLSPlayer {
         }
     }
     
-    checkForDrift() {
-        if (!this.video || this.video.paused) return;
-        
-        const currentTime = this.video.currentTime;
-        const buffered = this.video.buffered;
-        
-        if (buffered.length > 0) {
-            const bufferEnd = buffered.end(buffered.length - 1);
-            const drift = bufferEnd - currentTime;
-            
-            // Se o drift for muito alto, pula para o final do buffer
-            if (drift > 10) {
-                console.warn('🔄 Drift detectado, ajustando posição:', drift);
-                this.video.currentTime = bufferEnd - 2;
-            }
-        }
-    }
+
     
     cleanupOldBuffer() {
         if (!this.video) return;

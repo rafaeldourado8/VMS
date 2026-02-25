@@ -32,7 +32,7 @@ export function ClipsPage() {
 
   const filteredClips = (clips || []).filter((clip) =>
     clip.name?.toLowerCase().includes(search.toLowerCase()) ||
-    clip.camera?.name?.toLowerCase().includes(search.toLowerCase())
+    clip.camera_name?.toLowerCase().includes(search.toLowerCase())
   )
 
   const handleDelete = (clip: Clip) => {
@@ -42,7 +42,7 @@ export function ClipsPage() {
   }
 
   const handleDownload = async (clip: Clip) => {
-    const url = clip.video_url || `/api/clips/${clip.id}/video/`
+    const url = clip.video_url || `/api/clips/clips/${clip.id}/video/`
     const link = document.createElement('a')
     link.href = url
     link.download = `${clip.name}.mp4`
@@ -119,7 +119,20 @@ export function ClipsPage() {
               
               <CardContent className="p-4">
                 <h3 className="font-semibold truncate">{clip.name}</h3>
-                <p className="text-sm text-muted-foreground truncate">{clip.camera?.name}</p>
+                <p className="text-sm text-muted-foreground truncate">{clip.camera_name || 'Câmera removida'}</p>
+                
+                {clip.status && clip.status !== 'completed' && (
+                  <div className="mt-2 text-xs">
+                    <span className={`px-2 py-1 rounded ${
+                      clip.status === 'processing' ? 'bg-blue-500/20 text-blue-400' :
+                      clip.status === 'pending' ? 'bg-yellow-500/20 text-yellow-400' :
+                      'bg-red-500/20 text-red-400'
+                    }`}>
+                      {clip.status === 'processing' ? 'Processando...' :
+                       clip.status === 'pending' ? 'Aguardando...' : 'Erro'}
+                    </span>
+                  </div>
+                )}
                 
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
                   <div className="flex items-center gap-1">
@@ -138,6 +151,7 @@ export function ClipsPage() {
                     variant="outline" 
                     className="flex-1"
                     onClick={() => setSelectedClip(clip)}
+                    disabled={clip.status !== 'completed' && clip.status !== undefined}
                   >
                     <Play className="w-3 h-3 mr-1" />
                     Assistir
@@ -146,6 +160,7 @@ export function ClipsPage() {
                     size="sm" 
                     variant="outline"
                     onClick={() => handleDownload(clip)}
+                    disabled={clip.status !== 'completed' && clip.status !== undefined}
                   >
                     <Download className="w-3 h-3" />
                   </Button>
@@ -184,7 +199,7 @@ function ClipPlayerModal({ clip, onClose }: { clip: Clip; onClose: () => void })
       <div className="relative w-full max-w-4xl bg-card rounded-xl overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="aspect-video bg-black">
           <video
-            src={clip.video_url || `/api/clips/${clip.id}/video/`}
+            src={clip.video_url || `/api/clips/clips/${clip.id}/video/`}
             controls
             autoPlay
             className="w-full h-full"
@@ -193,7 +208,7 @@ function ClipPlayerModal({ clip, onClose }: { clip: Clip; onClose: () => void })
         <div className="p-4 flex items-center justify-between">
           <div>
             <h2 className="text-lg font-semibold">{clip.name}</h2>
-            <p className="text-sm text-muted-foreground">{clip.camera?.name}</p>
+            <p className="text-sm text-muted-foreground">{clip.camera_name || 'Câmera removida'}</p>
             <p className="text-xs text-muted-foreground mt-1">
               {new Date(clip.start_time).toLocaleString('pt-BR')} - {new Date(clip.end_time).toLocaleString('pt-BR')}
             </p>

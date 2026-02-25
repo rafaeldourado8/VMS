@@ -5,6 +5,7 @@ from .models import Recording
 from .serializers import RecordingSerializer
 import httpx
 import os
+from datetime import datetime
 
 class RecordingViewSet(viewsets.ModelViewSet):
     queryset = Recording.objects.all()
@@ -23,18 +24,22 @@ class RecordingViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(recordings, many=True)
         return Response(serializer.data)
     
-    @action(detail=True, methods=['get'])
-    def hls(self, request, pk=None):
-        """Retorna URL HLS para playback"""
-        recording = self.get_object()
-        vod_url = os.getenv('VOD_SERVICE_URL', 'http://vod_hls:8004')
-        hls_url = f"{vod_url}/vod/camera_{recording.camera_id}/{recording.date}/{recording.file_name}/index.m3u8"
+    @action(detail=False, methods=['get'], url_path='hls-url')
+    def hls_url(self, request):
+        """Gera URL HLS via HAProxy para câmera e data"""
+        camera_id = request.query_params.get('camera_id')
+        date = request.query_params.get('date')
+        
+        if not camera_id or not date:
+            return Response({'error': 'camera_id e date são obrigatórios'}, status=400)
+        
+        # URL via HAProxy (gateway unificado)
+        hls_url = f"/vod/playlist/{camera_id}/{date}/index.m3u8"
         
         return Response({
             'hls_url': hls_url,
-            'camera_id': recording.camera_id,
-            'date': str(recording.date),
-            'filename': recording.file_name
+            'camera_id': int(camera_id),
+            'date': date
         })
     
     @action(detail=False, methods=['post'])

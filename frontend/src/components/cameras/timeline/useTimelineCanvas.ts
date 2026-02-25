@@ -31,14 +31,17 @@ export const useTimelineCanvas = ({
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     
+    if (rect.width === 0 || rect.height === 0) return;
+    
     canvas.width = rect.width * dpr;
     canvas.height = height * dpr;
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${height}px`;
 
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) return;
     
+    ctx.save();
     ctx.scale(dpr, dpr);
     const width = rect.width;
 
@@ -154,5 +157,10 @@ export const useTimelineCanvas = ({
       ctx.fillText(timeLabel, playheadX, trackY + 27);
     }
 
+    ctx.restore();
+
+    return () => {
+      ctx.clearRect(0, 0, width, height);
+    };
   }, [segments, viewWindow, currentTime, height, timeFilter, clipSelection]);
 };

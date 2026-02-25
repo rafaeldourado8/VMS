@@ -116,7 +116,7 @@ services:
       dockerfile: Dockerfile
     image: gtvision/streaming:latest
     container_name: gtvision_streaming
-    command: uvicorn main:app --host 0.0.0.0 --port 8001 --workers 2
+    command: uvicorn main:app --host 0.0.0.0 --port 8001
     deploy:
       resources:
         limits:
@@ -150,27 +150,28 @@ services:
       retries: 3
 
   # ============================================
-  # MEDIAMTX MONITOR (Auto-recovery)
+  # AUTO PROVISION LOOP
   # ============================================
-  mediamtx_monitor:
+  auto_provision:
     build:
-      context: ./services/streaming
-      dockerfile: Dockerfile
-    image: gtvision/streaming:latest
-    container_name: gtvision_mediamtx_monitor
-    command: python mediamtx_monitor.py
+      context: .
+      dockerfile: ./backend/Dockerfile
+    image: gtvision/backend:latest
+    container_name: gtvision_auto_provision
+    command: python auto_provision_loop.py
     deploy:
       resources:
         limits:
-          cpus: '0.2'
+          cpus: '0.1'
           memory: 128M
+    env_file: .env
     environment:
-      MEDIAMTX_API_URL: http://mediamtx:9997
-      STREAMING_API_URL: http://streaming:8001
+      DB_HOST: postgres_db
+      DB_PORT: 5432
     depends_on:
-      streaming:
+      backend:
         condition: service_healthy
-      mediamtx:
+      streaming:
         condition: service_healthy
     networks:
       - gtvision_network
@@ -203,10 +204,13 @@ services:
       DB_HOST: postgres_db
       DB_PORT: 5432
       REDIS_HOST: redis_cache
+      STREAMING_API_URL: http://streaming:8001
     depends_on:
       postgres_db:
         condition: service_healthy
       redis_cache:
+        condition: service_healthy
+      streaming:
         condition: service_healthy
     networks:
       - gtvision_network
@@ -317,25 +321,14 @@ services:
       - gtvision_network
 
   # ============================================
-  # POSTGRES PRIMARY (MASTER)
+  # POSTGRES PRIMARY (SINGLE INSTANCE)
   # ============================================
   postgres_db:
     image: postgres:15-alpine
     container_name: gtvision_postgres_primary
     env_file: .env
-    environment:
-      POSTGRES_REPLICATION_MODE: master
-      POSTGRES_REPLICATION_USER: replicator
-      POSTGRES_REPLICATION_PASSWORD: ${POSTGRES_REPLICATION_PASSWORD:-repl_password}
-    command: |
-      postgres
-      -c wal_level=replica
-      -c max_wal_senders=3
-      -c max_replication_slots=3
-      -c hot_standby=on
     volumes:
       - gtvision_pg_data:/var/lib/postgresql/data
-      - ./postgres/init-replication.sh:/docker-entrypoint-initdb.d/init-replication.sh:ro
     networks:
       - gtvision_network
     healthcheck:
@@ -343,72 +336,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 10
-
-  # ============================================
-  # POSTGRES REPLICA 1 (READ-ONLY)
-  # ============================================
-  postgres_replica_1:
-    image: postgres:15-alpine
-    container_name: gtvision_postgres_replica_1
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-    command: |
-      bash -c '
-      until pg_basebackup -h postgres_db -D /var/lib/postgresql/data -U replicator -Fp -Xs -P -R; do
-        echo "Waiting for primary to be ready..."
-        sleep 5
-      done
-      postgres -c hot_standby=on
-      '
-    volumes:
-      - gtvision_pg_replica_1:/var/lib/postgresql/data
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # ============================================
-  # POSTGRES REPLICA 2 (READ-ONLY)
-  # ============================================
-  postgres_replica_2:
-    image: postgres:15-alpine
-    container_name: gtvision_postgres_replica_2
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      PGUSER: ${POSTGRES_USER}
-      PGPASSWORD: ${POSTGRES_PASSWORD}
-    command: |
-      bash -c '
-      until pg_basebackup -h postgres_db -D /var/lib/postgresql/data -U replicator -Fp -Xs -P -R; do
-        echo "Waiting for primary to be ready..."
-        sleep 5
-      done
-      postgres -c hot_standby=on
-      '
-    volumes:
-      - gtvision_pg_replica_2:/var/lib/postgresql/data
-    depends_on:
-      postgres_db:
-        condition: service_healthy
-    networks:
-      - gtvision_network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
 
   # ============================================
   # REDIS
@@ -635,8 +562,6 @@ services:
 # ============================================
 volumes:
   gtvision_pg_data:
-  gtvision_pg_replica_1:
-  gtvision_pg_replica_2:
   backend_static:
   backend_media:
   mediamtx_recordings:

@@ -64,7 +64,8 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   useEffect(() => {
     const loadAvailableDates = async () => {
       try {
-        const { data } = await axios.get(`http://localhost:8003/recordings/available-dates/${camera.id}`)
+        const storageUrl = import.meta.env.VITE_STORAGE_URL || '/storage'
+        const { data } = await axios.get(`${storageUrl}/recordings/available-dates/${camera.id}`)
         setAvailableDates(data.dates || [])
       } catch (error) {
         console.error('[Timeline] Erro ao carregar datas:', error)
@@ -149,10 +150,19 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
 
   const handleTimelineSeek = (seekDate: Date) => {
     if (!timeFilter) {
-      if (videoRef.current && blocks.length > 0) {
+      if (videoRef.current && blocks.length > 0 && hlsRef.current) {
         const videoTime = wallClockToVideoTime(seekDate)
+        
+        // Para carregamento e limpa buffer
+        hlsRef.current.stopLoad()
+        
+        // Seek no vídeo
         videoRef.current.currentTime = videoTime
         setCurrentTime(seekDate)
+        
+        // Retoma carregamento da nova posição
+        hlsRef.current.startLoad(videoTime)
+        
         if (!isPlaying) {
           setIsPlaying(true)
           videoRef.current.play().catch(() => {})

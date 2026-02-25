@@ -26,7 +26,6 @@ const api = axios.create({
 // Interceptor para adicionar token
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
   const token = useAuthStore.getState().accessToken
-  console.log('[API] Token:', token ? 'presente' : 'ausente')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -221,7 +220,7 @@ export const aiService = {
 }
 
 // ======================================================
-// RECORDINGS
+// RECORDINGS (via Storage Service)
 // ======================================================
 
 export const recordingService = {
@@ -231,12 +230,11 @@ export const recordingService = {
     start_time?: string
     end_time?: string
   }) {
-    // Usa Storage Service via HAProxy
-    const { data } = await axios.get(`/storage/timeline/${params.camera_id}`, {
+    const storageUrl = import.meta.env.VITE_STORAGE_URL || '/storage'
+    const { data } = await axios.get(`${storageUrl}/timeline/${params.camera_id}`, {
       params: { date: params.date, limit: 100 }
     })
     
-    // Transforma blocos em recordings com HLS URL
     const recordings = (data.blocks || []).map((block: any) => {
       const startTime = new Date(block.start_time)
       const filename = `${startTime.getHours().toString().padStart(2, '0')}-${startTime.getMinutes().toString().padStart(2, '0')}-${startTime.getSeconds().toString().padStart(2, '0')}.mp4`
@@ -248,9 +246,7 @@ export const recordingService = {
         start_time: startTime.toTimeString().split(' ')[0],
         duration_seconds: block.duration_seconds,
         file_size_bytes: block.file_size_bytes,
-        size_mb: (block.file_size_bytes / 1024 / 1024).toFixed(2),
-        // URL HLS via VOD Service
-        hls_url: `/vod/camera_${params.camera_id}/${params.date}/${filename}/index.m3u8`
+        size_mb: (block.file_size_bytes / 1024 / 1024).toFixed(2)
       }
     })
     
@@ -258,34 +254,20 @@ export const recordingService = {
       recordings,
       total_size_mb: recordings.reduce((sum: number, r: any) => sum + parseFloat(r.size_mb), 0).toFixed(2)
     }
-  },
-
-  async getHlsUrl(recordingId: number): Promise<string> {
-    const { data } = await api.get(`/recordings/${recordingId}/hls/`)
-    return data.hls_url
-  },
-
-  getPlaybackUrl(cameraId: number, date: string, filename: string): string {
-    // URL HLS via HAProxy → VOD Service
-    return `/vod/camera_${cameraId}/${date}/${filename}/index.m3u8`
-  },
+  }
 }
 
 // ======================================================
-// TIMELINE
+// TIMELINE (via Storage Service)
 // ======================================================
 
 export const timelineService = {
   async getTimeline(cameraId: number, date?: string) {
+    const storageUrl = import.meta.env.VITE_STORAGE_URL || '/storage'
     const params = date ? { date } : {}
-    const { data } = await axios.get(`/storage/timeline/${cameraId}`, { params })
+    const { data } = await axios.get(`${storageUrl}/timeline/${cameraId}`, { params })
     return data
-  },
-  
-  async resolveVideo(cameraId: number, timestamp: string) {
-    const { data } = await axios.get(`/storage/video/${cameraId}/${timestamp}`)
-    return data
-  },
+  }
 }
 
 export default api
@@ -296,17 +278,22 @@ export default api
 
 export const clipService = {
   async list(): Promise<Clip[]> {
-    const { data } = await api.get<Clip[] | PaginatedResponse<Clip>>('/clips/')
+    const { data } = await api.get<Clip[] | PaginatedResponse<Clip>>('/clips/clips/')
     return Array.isArray(data) ? data : data.results
   },
 
   async create(clip: ClipCreateRequest): Promise<Clip> {
-    const { data } = await api.post<Clip>('/clips/', clip)
+    const { data } = await api.post<Clip>('/clips/clips/', clip)
     return data
   },
 
   async delete(id: number): Promise<void> {
-    await api.delete(`/clips/${id}/`)
+    await api.delete(`/clips/clips/${id}/`)
+  },
+
+  async getStatus(id: number): Promise<{ status: string }> {
+    const { data } = await api.get(`/clips/clips/${id}/status/`)
+    return data
   },
 }
 

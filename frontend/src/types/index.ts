@@ -169,13 +169,16 @@ export interface WSEvent {
 export interface Clip {
   id: number;
   name: string;
-  camera: Camera;
+  camera_id?: number;
+  camera_name?: string;
+  camera?: Camera;
   start_time: string;
   end_time: string;
   file_path: string;
   video_url?: string;
   thumbnail_path: string | null;
   duration_seconds: number;
+  status?: 'pending' | 'processing' | 'completed' | 'failed';
   created_at: string;
 }
 

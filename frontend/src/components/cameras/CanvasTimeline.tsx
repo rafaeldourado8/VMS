@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useCallback } from 'react';
 import { useTimelineState } from './timeline/useTimelineState';
 import { useTimelineCanvas } from './timeline/useTimelineCanvas';
 import { TimeFilter } from './timeline/TimeFilter';
@@ -30,8 +30,18 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
+  const seekTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const state = useTimelineState(currentTime);
+
+  const debouncedSeek = useCallback((time: Date) => {
+    if (seekTimeoutRef.current) {
+      clearTimeout(seekTimeoutRef.current);
+    }
+    seekTimeoutRef.current = setTimeout(() => {
+      onSeek(time);
+    }, 16); // ~60fps
+  }, [onSeek]);
 
   useTimelineCanvas({
     canvasRef,
@@ -71,7 +81,7 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
     // Se clicou perto da bolinha (±10px), arrasta a bolinha
     if (Math.abs(mouseX - playheadX) < 10) {
       setIsDraggingPlayhead(true);
-      onSeek(new Date(mouseTime));
+      debouncedSeek(new Date(mouseTime));
       return;
     }
     
@@ -91,7 +101,7 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
 
     // Se está arrastando a bolinha
     if (isDraggingPlayhead) {
-      onSeek(new Date(mouseTime));
+      debouncedSeek(new Date(mouseTime));
       return;
     }
 
@@ -122,7 +132,7 @@ export const CanvasTimeline: React.FC<CanvasTimelineProps> = ({
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const clickTime = xToTime(e.clientX - rect.left, rect.width, state.viewWindow.start, state.viewWindow.end);
-      onSeek(new Date(clickTime));
+      debouncedSeek(new Date(clickTime));
     }
     
     state.setIsDragging(false);

@@ -87,28 +87,19 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-# --- BASE DE DADOS (Alta Disponibilidade) ---
+# --- BASE DE DADOS (Single Instance) ---
 DB_NAME = os.environ.get("POSTGRES_DB")
 if DB_NAME:
     DATABASES = {
-        "default": { # MASTER (Escrita)
+        "default": {
             "ENGINE": "django.db.backends.postgresql",
             "NAME": DB_NAME,
             "USER": os.environ.get("POSTGRES_USER"),
             "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-            "HOST": os.environ.get("DB_HOST", "localhost"),
+            "HOST": os.environ.get("DB_HOST", "postgres_db"),
             "PORT": os.environ.get("DB_PORT", "5432"),
-        },
-        "replica1": { # LEITURA 1
-            "ENGINE": "django.db.backends.postgresql",
-            "NAME": DB_NAME,
-            "USER": os.environ.get("POSTGRES_USER"),
-            "PASSWORD": os.environ.get("POSTGRES_PASSWORD"),
-            "HOST": os.environ.get("DB_HOST_REPLICA_1", "localhost"),
-            "PORT": "5432",
         }
     }
-    DATABASE_ROUTERS = ['config.db_router.PrimaryReplicaRouter']
 else:
     DATABASES = {
         "default": {

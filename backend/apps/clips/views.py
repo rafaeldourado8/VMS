@@ -14,24 +14,26 @@ class ClipViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Clip.objects.filter(owner=self.request.user)
+        return Clip.objects.filter(owner=self.request.user).select_related('camera')
+
+    def list(self, request, *args, **kwargs):
+        try:
+            return super().list(request, *args, **kwargs)
+        except Exception as e:
+            print(f"[ClipViewSet] Erro ao listar: {e}")
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     def create(self, request):
-        print(f"[ClipViewSet] Recebendo request: {request.data}")
         serializer = ClipCreateSerializer(data=request.data)
         if serializer.is_valid():
-            print(f"[ClipViewSet] Dados válidos: {serializer.validated_data}")
             try:
                 clip = ClipService.create_clip(
                     user=request.user,
                     **serializer.validated_data
                 )
-                print(f"[ClipViewSet] Clip criado: {clip.id}")
                 return Response(ClipSerializer(clip).data, status=status.HTTP_201_CREATED)
             except Exception as e:
-                print(f"[ClipViewSet] Erro ao criar clip: {e}")
                 return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        print(f"[ClipViewSet] Erros de validação: {serializer.errors}")
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     @action(detail=True, methods=['get'], permission_classes=[AllowAny])
@@ -46,7 +48,6 @@ class ClipViewSet(viewsets.ModelViewSet):
     
     @action(detail=False, methods=['get'], permission_classes=[AllowAny])
     def protected_files(self, request):
-        """Retorna lista de arquivos protegidos (clips) para o retention service"""
         protected_clips = Clip.objects.filter(is_protected=True).values_list('file_path', flat=True)
         return Response({'protected_files': list(protected_clips)})
 

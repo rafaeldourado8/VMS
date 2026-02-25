@@ -128,9 +128,41 @@ class StreamingService:
             self.redis = await aioredis.from_url(settings.redis_url)
             await self.redis.ping()
             logger.info("Conectado ao Redis")
+            await self._restore_cameras_from_redis()
         except Exception as e:
             logger.warning(f"Redis indisponível: {e}")
         asyncio.create_task(self._periodic_health_check())
+
+    async def _restore_cameras_from_redis(self):
+        """Restaura câmeras do Redis após restart."""
+        if not self.redis:
+            return
+        try:
+            keys = await self.redis.keys("camera:*")
+            restored = 0
+            for key in keys:
+                data = await self.redis.hgetall(key)
+                if data:
+                    camera_id = int(data[b'camera_id'])
+                    rtsp_url = data[b'rtsp_url'].decode()
+                    name = data[b'name'].decode()
+                    enabled = data.get(b'enabled', b'true') == b'true'
+                    
+                    if enabled:
+                        req = ProvisionRequest(
+                            camera_id=camera_id,
+                            rtsp_url=rtsp_url,
+                            name=name,
+                            enabled=True,
+                            on_demand=True
+                        )
+                        result = await self.provision_camera(req)
+                        if result.success:
+                            restored += 1
+            if restored > 0:
+                logger.info(f"✅ {restored} câmeras restauradas do Redis")
+        except Exception as e:
+            logger.error(f"Erro ao restaurar câmeras: {e}")
 
     async def _periodic_health_check(self):
         while True:
@@ -185,6 +217,19 @@ class StreamingService:
                 )
             
             if resp.status_code in [200, 201, 204]:
+                # Persiste no Redis para fallback
+                if self.redis:
+                    await self.redis.hset(
+                        f"camera:{request.camera_id}",
+                        mapping={
+                            "camera_id": request.camera_id,
+                            "rtsp_url": request.rtsp_url,
+                            "name": request.name,
+                            "enabled": str(request.enabled).lower(),
+                            "stream_path": stream_path
+                        }
+                    )
+                
                 # Notifica LPR via RabbitMQ (apenas RTSP)
                 if request.rtsp_url.startswith('rtsp://'):
                     try:
@@ -300,13 +345,15 @@ async def provision(request: ProvisionRequest):
 
 @app.delete("/cameras/{camera_id}")
 async def remove_camera(camera_id: int):
-    # Lógica de remoção simplificada
     stream_path = f"cam_{camera_id}"
     try:
         await streaming_service._client.delete(
             f"{settings.mediamtx_api_url}/v3/config/paths/delete/{stream_path}",
             auth=streaming_service.auth
         )
+        # Remove do Redis
+        if streaming_service.redis:
+            await streaming_service.redis.delete(f"camera:{camera_id}")
         return {"success": True}
     except:
         return {"success": False}
@@ -379,16 +426,44 @@ async def get_snapshot(camera_id: int):
         logger.error(f"Erro ao capturar snapshot cam_{camera_id}: {e}")
         raise HTTPException(status_code=503, detail="Câmera offline")
 
-# CORREÇÃO CRÍTICA 3: Proxy HLS Genérico (arquivos .ts e .m3u8)
 @app.get("/hls/{stream_path}/{file_name}")
 async def proxy_hls(stream_path: str, file_name: str):
-    """Proxy HLS para evitar problemas de CORS e expor porta interna 8888."""
+    """Proxy HLS com auto-provision se câmera não existir."""
     url = f"{settings.mediamtx_hls_url}/{stream_path}/{file_name}"
     try:
-        resp = await streaming_service._client.get(url)
+        resp = await streaming_service._client.get(url, timeout=5.0)
         if resp.status_code == 200:
             media_type = "application/vnd.apple.mpegurl" if file_name.endswith(".m3u8") else "video/MP2T"
             return Response(content=resp.content, media_type=media_type)
-        raise HTTPException(status_code=404, detail="File not found")
-    except Exception:
+        
+        # 404: Câmera não provisionada, tentar auto-provision
+        if resp.status_code == 404 and file_name == "index.m3u8" and stream_path.startswith("cam_"):
+            camera_id = int(stream_path.replace("cam_", ""))
+            logger.warning(f"Stream {stream_path} não encontrado, tentando auto-provision...")
+            
+            # Buscar câmera do Redis
+            if streaming_service.redis:
+                camera_data = await streaming_service.redis.hgetall(f"camera:{camera_id}")
+                if camera_data:
+                    req = ProvisionRequest(
+                        camera_id=camera_id,
+                        rtsp_url=camera_data[b'rtsp_url'].decode(),
+                        name=camera_data[b'name'].decode(),
+                        enabled=True,
+                        on_demand=True
+                    )
+                    result = await streaming_service.provision_camera(req)
+                    if result.success:
+                        # Aguardar stream ficar pronto
+                        await asyncio.sleep(2)
+                        resp = await streaming_service._client.get(url, timeout=5.0)
+                        if resp.status_code == 200:
+                            media_type = "application/vnd.apple.mpegurl"
+                            return Response(content=resp.content, media_type=media_type)
+        
+        raise HTTPException(status_code=404, detail="Stream not found")
+    except httpx.TimeoutException:
+        raise HTTPException(status_code=504, detail="MediaMTX timeout")
+    except Exception as e:
+        logger.error(f"Erro no proxy HLS: {e}")
         raise HTTPException(status_code=502, detail="MediaMTX indisponível")

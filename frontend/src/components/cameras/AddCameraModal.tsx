@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Loader2 } from 'lucide-react'
 import { Button, Input, Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
 import { cameraService, streamingService } from '@/services/api'
+import { clearSnapshotByCamera } from '@/lib/snapshotCache'
 import type { CameraCreateRequest } from '@/types'
 
 const RETENTION_PLANS = [
@@ -123,6 +124,8 @@ export function AddCameraModal({ onClose }: AddCameraModalProps) {
   const createMutation = useMutation({
     mutationFn: async (data: CameraCreateRequest) => {
       const camera = await cameraService.create(data)
+      // Limpa cache de snapshot antigo para este ID
+      await clearSnapshotByCamera(camera.id)
       await streamingService.provisionCamera(camera.id, data.stream_url, data.name)
       return camera
     },

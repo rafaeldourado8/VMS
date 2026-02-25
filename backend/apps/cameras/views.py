@@ -129,6 +129,28 @@ class CameraViewSet(viewsets.ModelViewSet):
             "message": f"{results['success']}/{results['total']} câmeras reprovisionadas com sucesso"
         })
 
+    @action(detail=False, methods=['post'])
+    def sync_with_streaming(self, request):
+        """
+        Sincroniza estado das câmeras do banco com o serviço de streaming.
+        Garante que todas as câmeras ativas estejam provisionadas.
+        """
+        cameras = self.get_queryset().filter(status='online')
+        synced = 0
+        
+        for camera in cameras:
+            try:
+                self.service._provision_to_mediamtx(camera)
+                synced += 1
+            except Exception as e:
+                logger.error(f"Erro ao sincronizar câmera {camera.id}: {e}")
+        
+        return Response({
+            "synced": synced,
+            "total": cameras.count(),
+            "message": f"{synced}/{cameras.count()} câmeras sincronizadas"
+        })
+
     @action(detail=True, methods=['get'])
     def stream_status(self, request, pk=None):
         """

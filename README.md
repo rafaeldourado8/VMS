@@ -56,6 +56,7 @@ VMS/
 ## Documentação
 
 - [Mudanças de Arquitetura](docs/ARCHITECTURE_CHANGES.md) ⭐ NOVO
+- [Sistema de Fallback para Streaming](docs/STREAMING_FALLBACK.md) ⭐ NOVO
 - [Configuração para Máquina de IA](docs/CONFIGURACAO_MAQUINA_IA.md)
 - [Arquitetura MVP](docs/mvp/INDEX.md)
 - [Testes de Carga](docs/LOAD_TESTING.md)
