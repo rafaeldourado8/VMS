@@ -1,11 +1,10 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import { Camera } from '@/types'
-import { X, Play, Pause, SkipBack, SkipForward, Scissors } from 'lucide-react'
+import { X, Play, Pause, Scissors } from 'lucide-react'
 import { CanvasTimeline, TimelineSegment } from './CanvasTimeline'
 import { recordingService } from '@/services/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
-import Hls from 'hls.js'
 import axios from 'axios'
 
 interface TimelinePlayerModalProps {
@@ -17,6 +16,7 @@ interface TimelineBlock {
   start_time: string
   end_time: string
   duration_seconds: number
+  file_path: string
 }
 
 export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProps) {
@@ -25,6 +25,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   const [blocks, setBlocks] = useState<TimelineBlock[]>([])
   const [isPlaying, setIsPlaying] = useState(true)
   const [currentTime, setCurrentTime] = useState<Date>(new Date())
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(0)
   
   const today = new Date()
   const localDate = new Date(today.getTime() - (today.getTimezoneOffset() * 60000))
@@ -35,11 +36,9 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isBuffering, setIsBuffering] = useState(false)
-  const hlsRef = useRef<Hls | null>(null)
-  const hasBufferedRef = useRef(false)
-  
-  // URL da Playlist Mestre do Dia (via HAProxy)
-  const masterPlaylistUrl = `/vod/playlist/${camera.id}/${selectedDate}/index.m3u8`
+
+  const currentBlock = blocks[currentBlockIndex]
+  const currentVideoUrl = currentBlock?.file_path || null
 
   const togglePlay = () => {
     const video = videoRef.current
@@ -78,19 +77,25 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     const loadRecordings = async () => {
       try {
         setBlocks([])
-        const response = await recordingService.list({ camera_id: camera.id, date: selectedDate })
+        setCurrentBlockIndex(0)
         
-        if (response && response.recordings && Array.isArray(response.recordings)) {
-          let filteredRecordings = response.recordings.filter((rec: any) => rec.camera_id === camera.id)
-          
-          const recordingBlocks: TimelineBlock[] = filteredRecordings.map((rec: any) => ({
-            start_time: `${rec.date}T${rec.start_time}`,
-            end_time: new Date(new Date(`${rec.date}T${rec.start_time}`).getTime() + (rec.duration_seconds * 1000)).toISOString(),
-            duration_seconds: rec.duration_seconds
+        const storageUrl = import.meta.env.VITE_STORAGE_URL || '/storage'
+        const { data } = await axios.get(`${storageUrl}/timeline/${camera.id}`, {
+          params: { date: selectedDate, limit: 100 }
+        })
+        
+        console.log('[Timeline] Dados recebidos:', data)
+        
+        if (data && data.blocks && Array.isArray(data.blocks)) {
+          const recordingBlocks: TimelineBlock[] = data.blocks.map((block: any) => ({
+            start_time: block.start_time,
+            end_time: block.end_time,
+            duration_seconds: block.duration_seconds,
+            file_path: block.file_path
           }))
           
-          // Ordenar para garantir que o cálculo de tempo funcione
-          recordingBlocks.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+          console.log('[Timeline] Blocks processados:', recordingBlocks)
+          console.log('[Timeline] Primeiro block URL:', recordingBlocks[0]?.file_path)
           
           setBlocks(recordingBlocks)
           if (recordingBlocks.length > 0) {
@@ -112,72 +117,33 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     }))
   }, [blocks])
 
-  // --- LÓGICA DE MAPEAMENTO DE TEMPO ---
-  
-  // Converte Hora Real (ex: 11:30:00) para Segundos do Vídeo
-  const wallClockToVideoTime = (targetDate: Date): number => {
-    let accumulatedSeconds = 0
-    const targetTime = targetDate.getTime()
-
-    for (const block of blocks) {
-      const start = new Date(block.start_time).getTime()
-      const end = new Date(block.end_time).getTime()
-
-      if (targetTime >= start && targetTime <= end) {
-        return accumulatedSeconds + ((targetTime - start) / 1000)
-      } else if (targetTime > end) {
-        accumulatedSeconds += block.duration_seconds
-      } else if (targetTime < start) {
-        return accumulatedSeconds // Caiu em um buraco, pula pro início do próximo
-      }
-    }
-    return accumulatedSeconds
-  }
-
-  // Converte Segundos do Vídeo para Hora Real
-  const videoTimeToWallClock = (videoSeconds: number): Date => {
-    let remaining = videoSeconds
-    for (const block of blocks) {
-      if (remaining <= block.duration_seconds) {
-        return new Date(new Date(block.start_time).getTime() + (remaining * 1000))
-      }
-      remaining -= block.duration_seconds
-    }
-    return blocks.length > 0 ? new Date(blocks[blocks.length - 1].end_time) : new Date()
-  }
-
-  // -------------------------------------
-
   const handleTimelineSeek = (seekDate: Date) => {
-    if (!timeFilter) {
-      if (videoRef.current && blocks.length > 0 && hlsRef.current) {
-        const videoTime = wallClockToVideoTime(seekDate)
-        
-        // Para carregamento e limpa buffer
-        hlsRef.current.stopLoad()
-        
-        // Seek no vídeo
-        videoRef.current.currentTime = videoTime
-        setCurrentTime(seekDate)
-        
-        // Retoma carregamento da nova posição
-        hlsRef.current.startLoad(videoTime)
-        
-        if (!isPlaying) {
-          setIsPlaying(true)
-          videoRef.current.play().catch(() => {})
-        }
+    const blockIndex = blocks.findIndex(b => {
+      const start = new Date(b.start_time)
+      const end = new Date(b.end_time)
+      return seekDate >= start && seekDate <= end
+    })
+
+    if (blockIndex !== -1) {
+      setCurrentBlockIndex(blockIndex)
+      setCurrentTime(seekDate)
+      
+      if (videoRef.current) {
+        const blockStart = new Date(blocks[blockIndex].start_time)
+        const offsetSeconds = (seekDate.getTime() - blockStart.getTime()) / 1000
+        videoRef.current.currentTime = offsetSeconds
       }
-      return
     }
 
-    if (!clipSelection.start) {
-      setClipSelection({ start: seekDate, end: null })
-      return
-    }
-    if (!clipSelection.end) {
-      if (seekDate > clipSelection.start) {
-        setClipSelection(prev => ({ ...prev, end: seekDate }))
+    if (timeFilter) {
+      if (!clipSelection.start) {
+        setClipSelection({ start: seekDate, end: null })
+      } else if (!clipSelection.end) {
+        if (seekDate > clipSelection.start) {
+          setClipSelection(prev => ({ ...prev, end: seekDate }))
+        } else {
+          setClipSelection({ start: seekDate, end: null })
+        }
       } else {
         setClipSelection({ start: seekDate, end: null })
       }
@@ -187,9 +153,18 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   }
 
   const handleTimeUpdate = () => {
-    if (!videoRef.current || blocks.length === 0) return
-    const newTime = videoTimeToWallClock(videoRef.current.currentTime)
+    if (!videoRef.current || !currentBlock) return
+    const blockStart = new Date(currentBlock.start_time)
+    const newTime = new Date(blockStart.getTime() + videoRef.current.currentTime * 1000)
     setCurrentTime(newTime)
+  }
+
+  const handleVideoEnded = () => {
+    if (currentBlockIndex < blocks.length - 1) {
+      setCurrentBlockIndex(currentBlockIndex + 1)
+    } else {
+      setIsPlaying(false)
+    }
   }
 
   const handleCreateClip = async () => {
@@ -216,76 +191,36 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     }
   }
 
-  // INICIALIZAR PLAYER HLS.js
   useEffect(() => {
     const video = videoRef.current
-    if (!video || blocks.length === 0) return
+    if (!video || !currentVideoUrl) {
+      console.log('[Video] Sem vídeo ou URL:', { video: !!video, url: currentVideoUrl })
+      return
+    }
 
+    console.log('[Video] Carregando:', currentVideoUrl)
     setIsBuffering(true)
-    hasBufferedRef.current = false
+    video.src = currentVideoUrl
+    video.load()
 
-    if (hlsRef.current) {
-      hlsRef.current.destroy()
+    const handleCanPlay = () => {
+      console.log('[Video] Pronto para play')
+      setIsBuffering(false)
+      if (isPlaying) video.play().catch(() => {})
     }
 
-    if (Hls.isSupported()) {
-      const hls = new Hls({
-        backBufferLength: 90,
-        maxBufferLength: 180,
-        startLevel: -1,
-        autoStartLoad: false,
-        maxMaxBufferLength: 600,
-        maxBufferSize: 60 * 1000 * 1000,
-        maxBufferHole: 0.5,
-      })
-
-      hls.loadSource(masterPlaylistUrl)
-      hls.attachMedia(video)
-
-      hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        hls.startLoad()
-      })
-
-      hls.on(Hls.Events.FRAG_BUFFERED, () => {
-        if (hasBufferedRef.current) return
-        
-        const buffered = video.buffered
-        if (buffered.length > 0) {
-          const bufferEnd = buffered.end(buffered.length - 1)
-          const bufferLength = bufferEnd - video.currentTime
-          
-          if (bufferLength >= 5) {
-            hasBufferedRef.current = true
-            setIsBuffering(false)
-            if (isPlaying) video.play().catch(() => {})
-          }
-        }
-      })
-
-      // Fallback: se não atingir 5s em 3s, libera mesmo assim
-      const fallbackTimer = setTimeout(() => {
-        if (!hasBufferedRef.current) {
-          hasBufferedRef.current = true
-          setIsBuffering(false)
-          if (isPlaying) video.play().catch(() => {})
-        }
-      }, 3000)
-
-      hls.on(Hls.Events.ERROR, (_, data) => {
-        if (data.fatal) setIsBuffering(false)
-      })
-
-      hlsRef.current = hls
-
-      return () => {
-        clearTimeout(fallbackTimer)
-        hls.destroy()
-      }
-    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.src = masterPlaylistUrl
-      video.addEventListener('loadedmetadata', () => setIsBuffering(false))
+    const handleError = (e: Event) => {
+      console.error('[Video] Erro ao carregar:', e, video.error)
+      setIsBuffering(false)
     }
-  }, [masterPlaylistUrl, blocks.length]) // Recarrega se a data/câmera mudar
+
+    video.addEventListener('canplay', handleCanPlay)
+    video.addEventListener('error', handleError)
+    return () => {
+      video.removeEventListener('canplay', handleCanPlay)
+      video.removeEventListener('error', handleError)
+    }
+  }, [currentVideoUrl, isPlaying])
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">
@@ -304,10 +239,12 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
                 ref={videoRef}
                 autoPlay={isPlaying}
                 playsInline
+                preload="metadata"
                 className="w-full h-full object-contain"
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={() => setIsPlaying(true)}
                 onPause={() => setIsPlaying(false)}
+                onEnded={handleVideoEnded}
                 onClick={togglePlay}
               />
               
@@ -349,7 +286,6 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
           )}
         </div>
 
-        {/* ... (O resto do footer, os filtros e a CanvasTimeline se mantêm idênticos) ... */}
         <div className="h-[140px] bg-zinc-900 flex-shrink-0 border-t border-zinc-800">
           <div className="flex items-center gap-4 px-4 py-2 border-b border-zinc-800 relative z-10">
             <select

@@ -314,9 +314,10 @@ services:
     image: nginx:alpine
     container_name: gtvision_nginx
     volumes:
-      - ./nginx/nginx.simple.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - backend_static:/var/www/static:ro
       - backend_media:/var/www/media:ro
+      - ./recordings:/recordings:ro
     networks:
       - gtvision_network
 

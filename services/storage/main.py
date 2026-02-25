@@ -201,7 +201,7 @@ async def query_recordings_endpoint(query: RecordingQuery):
             "start_time": seg.start_time.isoformat(),
             "end_time": seg.end_time.isoformat(),
             "duration_seconds": seg.duration_seconds,
-            "file_path": f"http://localhost:8003/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "file_path": f"/recordings/camera_{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}.mp4",
             "file_size_bytes": seg.file_size_bytes
         })
     
@@ -254,7 +254,7 @@ async def get_timeline(camera_id: int, date: str = None, limit: int = 100):
             "start_time": seg.start_time.isoformat(),
             "end_time": seg.end_time.isoformat(),
             "duration_seconds": seg.duration_seconds,
-            "file_path": f"/download/{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}",
+            "file_path": f"/recordings/camera_{seg.camera_id}/{seg.start_time.strftime('%Y-%m-%d')}/{seg.start_time.strftime('%H-%M-%S')}.mp4",
             "file_size_bytes": seg.file_size_bytes
         })
     

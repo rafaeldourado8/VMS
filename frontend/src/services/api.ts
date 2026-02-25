@@ -246,7 +246,8 @@ export const recordingService = {
         start_time: startTime.toTimeString().split(' ')[0],
         duration_seconds: block.duration_seconds,
         file_size_bytes: block.file_size_bytes,
-        size_mb: (block.file_size_bytes / 1024 / 1024).toFixed(2)
+        size_mb: (block.file_size_bytes / 1024 / 1024).toFixed(2),
+        url: `/recordings/camera_${params.camera_id}/${params.date}/${filename}`
       }
     })
     
@@ -254,6 +255,10 @@ export const recordingService = {
       recordings,
       total_size_mb: recordings.reduce((sum: number, r: any) => sum + parseFloat(r.size_mb), 0).toFixed(2)
     }
+  },
+
+  getRecordingUrl(cameraId: number, date: string, filename: string): string {
+    return `/recordings/camera_${cameraId}/${date}/${filename}`
   }
 }
 

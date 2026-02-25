@@ -1,10 +1,13 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.permissions import IsAuthenticated
+from django.http import HttpResponse
 from .models import Recording
 from .serializers import RecordingSerializer
 import httpx
 import os
+import re
 from datetime import datetime
 
 class RecordingViewSet(viewsets.ModelViewSet):
@@ -67,3 +70,26 @@ class RecordingViewSet(viewsets.ModelViewSet):
                 )
         
         return Response({"status": "synced"})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def verify_recording_access(request):
+    """Valida acesso a gravação via nginx auth_request"""
+    original_uri = request.headers.get('X-Original-URI', '')
+    
+    # Extrair camera_id da URI: /recordings/camera_1/2026-02-25/14-45-12.mp4
+    match = re.match(r'/recordings/camera_(\d+)/', original_uri)
+    if not match:
+        return HttpResponse(status=403)
+    
+    camera_id = int(match.group(1))
+    user = request.user
+    
+    # Validar permissão do usuário
+    # TODO: Implementar lógica de permissão por câmera
+    # Por enquanto: usuários autenticados podem acessar qualquer câmera
+    
+    if user.is_authenticated:
+        return HttpResponse(status=200, headers={'X-User-Id': str(user.id)})
+    
+    return HttpResponse(status=403)
