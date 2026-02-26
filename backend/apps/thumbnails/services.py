@@ -8,6 +8,12 @@ logger = logging.getLogger(__name__)
 class ThumbnailService:
     """Serviço para geração de snapshots em tempo real via FFmpeg."""
 
+    @staticmethod
+    def clear_cache(camera_id: int) -> None:
+        """Limpa o cache de snapshot de uma câmera."""
+        cache_key = f"camera_snapshot_{camera_id}"
+        cache.delete(cache_key)
+
     def get_snapshot(self, camera_id: int) -> bytes | None:
         """
         Gera um snapshot da câmara. 

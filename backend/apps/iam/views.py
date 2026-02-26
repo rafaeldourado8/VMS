@@ -1,12 +1,14 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 from django.shortcuts import get_object_or_404
 from apps.usuarios.models import Usuario
 from .models import IAMRule, UserPermissions, TenantIsolation
 from .serializers import UserIAMSerializer, IAMRuleSerializer, UserPermissionsSerializer
 from .middleware import get_user_resources, check_user_permission, grant_user_access
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework.exceptions import AuthenticationFailed
 
 class UserIAMViewSet(viewsets.ModelViewSet):
     queryset = Usuario.objects.all()
@@ -116,3 +118,23 @@ class UserPermissionsViewSet(viewsets.ModelViewSet):
         
         serializer = self.get_serializer(perms)
         return Response(serializer.data)
+
+@api_view(['GET', 'HEAD'])
+@permission_classes([AllowAny])
+def validate_token(request):
+    """Valida token JWT para Nginx auth_request"""
+    auth_header = request.headers.get('Authorization')
+    
+    if not auth_header or not auth_header.startswith('Bearer '):
+        return Response(status=401)
+    
+    try:
+        jwt_auth = JWTAuthentication()
+        validated_token = jwt_auth.get_validated_token(auth_header.split(' ')[1])
+        user = jwt_auth.get_user(validated_token)
+        
+        if user and user.is_active:
+            return Response(status=200)
+        return Response(status=401)
+    except (AuthenticationFailed, Exception):
+        return Response(status=401)

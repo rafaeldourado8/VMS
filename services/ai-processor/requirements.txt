@@ -1,0 +1,17 @@
+opencv-python
+numpy
+ultralytics
+torch
+requests
+pika
+python-dotenv
+loguru
+onnxruntime
+pyyaml>=5.1
+tqdm
+rich
+websockets
+sqlalchemy
+Flask
+# Adiciona a instalação da biblioteca local a partir da pasta
+./fast-plate-ocr-master[onnx]

@@ -20,9 +20,12 @@ class Recorder:
         
     async def start(self):
         tz = ZoneInfo(self.timezone)
-        date_str = datetime.now(tz).strftime("%Y-%m-%d")
+        now = datetime.now(tz)
+        date_str = now.strftime("%Y-%m-%d")
         output_dir = f"/recordings/camera_{self.camera_id}/{date_str}"
         Path(output_dir).mkdir(parents=True, exist_ok=True)
+        
+        # Usar timestamp manual ao invés de strftime do FFmpeg
         output_path = f"{output_dir}/%H-%M-%S.mp4"
         
         cmd = [
@@ -37,17 +40,22 @@ class Recorder:
             "-segment_format", "mp4",
             "-reset_timestamps", "1",
             "-strftime", "1",
+            "-strftime_mkdir", "1",
             output_path
         ]
+        
+        # Definir TZ para o processo FFmpeg
+        env = {"TZ": self.timezone}
         
         self.process = subprocess.Popen(
             cmd, 
             stdout=subprocess.PIPE, 
             stderr=subprocess.PIPE,
             bufsize=1,
-            universal_newlines=True
+            universal_newlines=True,
+            env=env
         )
-        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - codec copy")
+        logger.info(f"Gravacao iniciada: camera_{self.camera_id} - codec copy (TZ={self.timezone})")
         logger.info(f"FFmpeg PID: {self.process.pid}, URL: {self.mediamtx_url}")
         
     async def monitor(self):

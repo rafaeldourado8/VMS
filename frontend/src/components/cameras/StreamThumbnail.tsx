@@ -67,7 +67,7 @@ export function StreamThumbnail({
 
     loadSnapshot()
     return () => { mounted = false }
-  }, [cameraId])
+  }, [cameraId, cameraStatus])
 
   return (
     <div 

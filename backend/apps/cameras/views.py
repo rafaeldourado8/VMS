@@ -96,6 +96,11 @@ class CameraViewSet(viewsets.ModelViewSet):
         """Remove câmera do banco e do MediaMTX."""
         instance = self.get_object()
         camera_id = instance.id
+        
+        # Limpar cache de thumbnail
+        from apps.thumbnails.services import ThumbnailService
+        ThumbnailService.clear_cache(camera_id)
+        
         self.service.delete_camera(camera_id)
         
         # Retorna o ID da câmera deletada para o frontend limpar o cache

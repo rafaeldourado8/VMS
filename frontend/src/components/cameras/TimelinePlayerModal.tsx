@@ -6,6 +6,8 @@ import { recordingService } from '@/services/api'
 import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
+import api from '@/services/api'
+import { getAuthenticatedVideoUrl } from '@/utils/videoAuth'
 
 interface TimelinePlayerModalProps {
   camera: Camera
@@ -84,8 +86,6 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
           params: { date: selectedDate, limit: 100 }
         })
         
-        console.log('[Timeline] Dados recebidos:', data)
-        
         if (data && data.blocks && Array.isArray(data.blocks)) {
           const recordingBlocks: TimelineBlock[] = data.blocks.map((block: any) => ({
             start_time: block.start_time,
@@ -93,9 +93,6 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
             duration_seconds: block.duration_seconds,
             file_path: block.file_path
           }))
-          
-          console.log('[Timeline] Blocks processados:', recordingBlocks)
-          console.log('[Timeline] Primeiro block URL:', recordingBlocks[0]?.file_path)
           
           setBlocks(recordingBlocks)
           if (recordingBlocks.length > 0) {
@@ -154,9 +151,18 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
 
   const handleTimeUpdate = () => {
     if (!videoRef.current || !currentBlock) return
+    const video = videoRef.current
     const blockStart = new Date(currentBlock.start_time)
-    const newTime = new Date(blockStart.getTime() + videoRef.current.currentTime * 1000)
+    const newTime = new Date(blockStart.getTime() + video.currentTime * 1000)
     setCurrentTime(newTime)
+    
+    // Auto-skip se estiver perto do fim e houver próximo bloco
+    if (currentBlockIndex < blocks.length - 1) {
+      const timeRemaining = video.duration - video.currentTime
+      if (timeRemaining < 0.5 && timeRemaining > 0) {
+        setCurrentBlockIndex(currentBlockIndex + 1)
+      }
+    }
   }
 
   const handleVideoEnded = () => {
@@ -174,51 +180,96 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     if (durationMs < 1000) return alert('Mínimo 1 segundo.')
 
     try {
-      const clipName = `${camera.name} - ${clipSelection.start.toLocaleString('pt-BR')}`
-      const { clipService } = await import('@/services/api')
-      await clipService.create({
+      // Formatar sem timezone
+      const formatLocal = (date: Date) => {
+        const y = date.getFullYear()
+        const m = String(date.getMonth() + 1).padStart(2, '0')
+        const d = String(date.getDate()).padStart(2, '0')
+        const h = String(date.getHours()).padStart(2, '0')
+        const min = String(date.getMinutes()).padStart(2, '0')
+        const s = String(date.getSeconds()).padStart(2, '0')
+        return `${y}-${m}-${d}T${h}:${min}:${s}`
+      }
+      
+      await axios.post('/api/clips-service/create', {
         camera_id: camera.id,
-        name: clipName,
-        start_time: clipSelection.start.toISOString(),
-        end_time: clipSelection.end.toISOString(),
-        quality: 'medium'
+        start_time: formatLocal(clipSelection.start),
+        end_time: formatLocal(clipSelection.end)
       })
+      
       queryClient.invalidateQueries({ queryKey: ['clips'] })
-      onClose()
       navigate('/clips')
     } catch (error) {
       console.error('Erro ao criar clip:', error)
+      alert('Erro ao criar clip')
     }
   }
 
+  const [videoBlob, setVideoBlob] = useState<string | null>(null)
+
   useEffect(() => {
     const video = videoRef.current
-    if (!video || !currentVideoUrl) {
-      console.log('[Video] Sem vídeo ou URL:', { video: !!video, url: currentVideoUrl })
-      return
-    }
+    if (!video || !currentVideoUrl) return
 
     console.log('[Video] Carregando:', currentVideoUrl)
     setIsBuffering(true)
-    video.src = currentVideoUrl
-    video.load()
+    
+    // Fetch com autenticação JWT
+    const loadVideo = async () => {
+      try {
+        const token = localStorage.getItem('accessToken')
+        const response = await fetch(currentVideoUrl, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        
+        const blob = await response.blob()
+        const blobUrl = URL.createObjectURL(blob)
+        
+        // Limpar blob anterior
+        if (videoBlob) {
+          URL.revokeObjectURL(videoBlob)
+        }
+        
+        setVideoBlob(blobUrl)
+        video.src = blobUrl
+        video.load()
+      } catch (error) {
+        console.error('[Video] Erro ao carregar:', error)
+        setIsBuffering(false)
+      }
+    }
+    
+    loadVideo()
 
     const handleCanPlay = () => {
-      console.log('[Video] Pronto para play')
+      console.log('[Video] Pronto para reproduzir')
       setIsBuffering(false)
       if (isPlaying) video.play().catch(() => {})
     }
 
     const handleError = (e: Event) => {
-      console.error('[Video] Erro ao carregar:', e, video.error)
+      console.error('[Video] Erro ao carregar:', video.error)
+      console.error('[Video] URL:', currentVideoUrl)
+      console.error('[Video] Network State:', video.networkState)
+      console.error('[Video] Ready State:', video.readyState)
       setIsBuffering(false)
     }
 
     video.addEventListener('canplay', handleCanPlay)
     video.addEventListener('error', handleError)
+    
     return () => {
       video.removeEventListener('canplay', handleCanPlay)
       video.removeEventListener('error', handleError)
+      if (videoBlob) {
+        URL.revokeObjectURL(videoBlob)
+      }
     }
   }, [currentVideoUrl, isPlaying])
 
@@ -270,12 +321,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
               
               {isBuffering && (
                 <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
-                  <div className="w-full h-full relative overflow-hidden">
-                    <div className="absolute inset-0 bg-gradient-to-r from-zinc-900 via-zinc-800 to-zinc-900 animate-pulse" />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                      <div className="w-20 h-20 rounded-full border-4 border-zinc-700 border-t-zinc-400 animate-spin" />
-                    </div>
-                  </div>
+                  <div className="w-20 h-20 rounded-full border-4 border-zinc-700 border-t-zinc-400 animate-spin" />
                 </div>
               )}
             </>

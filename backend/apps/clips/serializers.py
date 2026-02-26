@@ -14,7 +14,7 @@ class ClipSerializer(serializers.ModelSerializer):
                  'status', 'created_at']
     
     def get_video_url(self, obj):
-        return f"/api/clips/clips/{obj.id}/video/"
+        return f"/api/clips/{obj.id}/video/"
 
 class ClipCreateSerializer(serializers.Serializer):
     camera_id = serializers.IntegerField()

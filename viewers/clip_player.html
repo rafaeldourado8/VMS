@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clip Player - VMS</title>
+    <style>
+        body { margin: 0; padding: 20px; background: #1a1a1a; color: #fff; font-family: Arial; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        h1 { color: #4CAF50; }
+        video { width: 100%; max-width: 1200px; background: #000; border-radius: 8px; }
+        .info { background: #2a2a2a; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .info p { margin: 5px 0; }
+        .controls { margin: 20px 0; }
+        input { padding: 8px; width: 400px; background: #333; color: #fff; border: 1px solid #555; border-radius: 4px; }
+        button { padding: 8px 20px; background: #4CAF50; color: #fff; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+        button:hover { background: #45a049; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Clip Player</h1>
+        
+        <div class="controls">
+            <input type="text" id="clipId" placeholder="Clip ID (ex: 4445ce47696a20d17dcf89e4672313f6)" value="4445ce47696a20d17dcf89e4672313f6">
+            <button onclick="loadClip()">Carregar Clip</button>
+        </div>
+
+        <video id="player" controls>
+            <source id="videoSource" type="video/mp4">
+            Seu navegador não suporta vídeo HTML5.
+        </video>
+
+        <div class="info" id="info" style="display:none;">
+            <h3>Informações do Clip</h3>
+            <p><strong>ID:</strong> <span id="infoId"></span></p>
+            <p><strong>Status:</strong> <span id="infoStatus"></span></p>
+            <p><strong>Duração:</strong> <span id="infoDuration"></span>s</p>
+            <p><strong>Tamanho:</strong> <span id="infoSize"></span> MB</p>
+        </div>
+    </div>
+
+    <script>
+        async function loadClip() {
+            const clipId = document.getElementById('clipId').value;
+            if (!clipId) {
+                alert('Digite um Clip ID');
+                return;
+            }
+
+            try {
+                // Buscar informações do clip
+                const response = await fetch(`http://localhost:8004/clips/${clipId}`);
+                const data = await response.json();
+
+                // Atualizar informações
+                document.getElementById('infoId').textContent = clipId;
+                document.getElementById('infoStatus').textContent = data.status;
+                document.getElementById('infoDuration').textContent = data.duration || 'N/A';
+                document.getElementById('infoSize').textContent = data.file_size ? (data.file_size / 1024 / 1024).toFixed(2) : 'N/A';
+                document.getElementById('info').style.display = 'block';
+
+                // Carregar vídeo
+                const videoSource = document.getElementById('videoSource');
+                const player = document.getElementById('player');
+                videoSource.src = `http://localhost:8004/clips/${clipId}/download`;
+                player.load();
+                player.play();
+
+            } catch (error) {
+                alert('Erro ao carregar clip: ' + error.message);
+            }
+        }
+
+        // Carregar automaticamente se houver ID na URL
+        window.onload = function() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const clipId = urlParams.get('id');
+            if (clipId) {
+                document.getElementById('clipId').value = clipId;
+                loadClip();
+            }
+        };
+    </script>
+</body>
+</html>

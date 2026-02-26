@@ -199,6 +199,7 @@ services:
       - backend_static:/app/staticfiles
       - backend_media:/app/media
       - ./recordings:/recordings:ro
+      - clips_storage:/clips
     env_file: .env
     environment:
       DB_HOST: postgres_db
@@ -221,6 +222,35 @@ services:
       timeout: 10s
       retries: 10
       start_period: 90s
+
+  # ============================================
+  # CLIPS WORKER (Processa clips pendentes)
+  # ============================================
+  clips_worker:
+    build:
+      context: .
+      dockerfile: ./backend/Dockerfile
+    container_name: gtvision_clips_worker
+    command: sh -c "python wait_for_db.py && python manage.py migrate --noinput && python manage.py process_clips"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 256M
+    volumes:
+      - clips_storage:/clips
+    env_file: .env
+    environment:
+      DB_HOST: postgres_db
+      DB_PORT: 5432
+    depends_on:
+      backend:
+        condition: service_healthy
+      clips:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
 
   # ============================================
   # BACKEND WORKER (Celery) - DESABILITADO

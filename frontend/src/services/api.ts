@@ -283,22 +283,66 @@ export default api
 
 export const clipService = {
   async list(): Promise<Clip[]> {
-    const { data } = await api.get<Clip[] | PaginatedResponse<Clip>>('/clips/clips/')
-    return Array.isArray(data) ? data : data.results
+    try {
+      const { data } = await axios.get('/api/clips-service/')
+      if (!Array.isArray(data)) {
+        console.error('Invalid response:', data)
+        return []
+      }
+      return data.map((c: any) => ({
+        id: c.id,
+        name: c.name || `Clip Camera ${c.camera_id}`,
+        camera_id: c.camera_id,
+        camera_name: `Camera ${c.camera_id}`,
+        start_time: c.start_time || c.created_at,
+        end_time: c.end_time || c.created_at,
+        file_path: '',
+        video_url: `/api/clips-service/${c.id}/download`,
+        thumbnail_path: null,
+        duration_seconds: c.duration || 0,
+        status: c.status,
+        created_at: c.created_at
+      }))
+    } catch (error) {
+      console.error('Error fetching clips:', error)
+      return []
+    }
   },
 
   async create(clip: ClipCreateRequest): Promise<Clip> {
-    const { data } = await api.post<Clip>('/clips/clips/', clip)
-    return data
+    const { data } = await axios.post('/api/clips-service/create', {
+      camera_id: clip.camera_id,
+      start_time: clip.start_time,
+      end_time: clip.end_time,
+      name: clip.name
+    })
+    return {
+      id: data.id,
+      name: clip.name,
+      camera_id: clip.camera_id,
+      camera_name: '',
+      start_time: clip.start_time,
+      end_time: clip.end_time,
+      file_path: '',
+      video_url: `/api/clips-service/${data.id}/download`,
+      thumbnail_path: null,
+      duration_seconds: 0,
+      status: data.status,
+      created_at: new Date().toISOString()
+    }
+  },
+
+  async rename(id: number, name: string): Promise<void> {
+    await axios.patch(`/api/clips-service/${id}`, null, { params: { name } })
   },
 
   async delete(id: number): Promise<void> {
-    await api.delete(`/clips/clips/${id}/`)
+    await axios.delete(`/api/clips-service/${id}`)
   },
 
   async getStatus(id: number): Promise<{ status: string }> {
-    const { data } = await api.get(`/clips/clips/${id}/status/`)
-    return data
+    const { data } = await axios.get(`/api/clips-service/${id}`)
+    return { status: data.status }
   },
 }
 
