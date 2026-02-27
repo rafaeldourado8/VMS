@@ -1,9 +1,8 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
-from .views import ClipViewSet, MosaicoViewSet
+from .views import ClipViewSet
 
 router = DefaultRouter()
 router.register(r'clips', ClipViewSet, basename='clips')
-router.register(r'mosaicos', MosaicoViewSet, basename='mosaicos')
 
 urlpatterns = router.urls

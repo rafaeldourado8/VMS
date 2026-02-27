@@ -11,7 +11,6 @@ import {
   User,
   ChevronDown,
   Scissors,
-  Grid3X3,
   Map,
   Shield,
 } from 'lucide-react'
@@ -24,7 +23,6 @@ const navigation = [
   { name: 'Câmeras', href: '/cameras', icon: Camera },
   { name: 'Visão Tática', href: '/cameras/tactical', icon: Map },
   { name: 'Meus Clips', href: '/clips', icon: Scissors },
-  { name: 'Mosaicos', href: '/mosaicos', icon: Grid3X3 },
   { name: 'Configurações', href: '/settings', icon: Settings },
   { name: 'IAM', href: '/settings/iam', icon: Shield },
 ]

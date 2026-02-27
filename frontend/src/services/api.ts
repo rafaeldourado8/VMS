@@ -345,28 +345,3 @@ export const clipService = {
     return { status: data.status }
   },
 }
-
-// ======================================================
-// MOSAICOS
-// ======================================================
-
-export const mosaicoService = {
-  async list(): Promise<Mosaico[]> {
-    const { data } = await api.get<Mosaico[] | PaginatedResponse<Mosaico>>('/mosaicos/')
-    return Array.isArray(data) ? data : data.results
-  },
-
-  async create(mosaico: MosaicoCreateRequest): Promise<Mosaico> {
-    const { data } = await api.post<Mosaico>('/mosaicos/', mosaico)
-    return data
-  },
-
-  async updateCameras(id: number, cameras: { camera_id: number; position: number }[]): Promise<Mosaico> {
-    const { data } = await api.post<Mosaico>(`/mosaicos/${id}/update_cameras/`, { cameras })
-    return data
-  },
-
-  async delete(id: number): Promise<void> {
-    await api.delete(`/mosaicos/${id}/`)
-  },
-}

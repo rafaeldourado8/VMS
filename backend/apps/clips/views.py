@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.shortcuts import get_object_or_404
 from django.http import FileResponse
-from .models import Clip, Mosaico
-from .serializers import ClipSerializer, MosaicoSerializer, ClipCreateSerializer
+from .models import Clip
+from .serializers import ClipSerializer, ClipCreateSerializer
 from .services import ClipService
 import os
 
@@ -50,35 +50,3 @@ class ClipViewSet(viewsets.ModelViewSet):
     def protected_files(self, request):
         protected_clips = Clip.objects.filter(is_protected=True).values_list('file_path', flat=True)
         return Response({'protected_files': list(protected_clips)})
-
-class MosaicoViewSet(viewsets.ModelViewSet):
-    serializer_class = MosaicoSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Mosaico.objects.filter(owner=self.request.user)
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
-
-    @action(detail=True, methods=['post'])
-    def update_cameras(self, request, pk=None):
-        mosaico = self.get_object()
-        camera_positions = request.data.get('cameras', [])
-        
-        # Limpar posições existentes
-        mosaico.mosaicoCameraPosition_set.all().delete()
-        
-        # Adicionar novas posições (máximo 4)
-        for pos_data in camera_positions[:4]:
-            from .models import MosaicoCameraPosition
-            from apps.cameras.models import Camera
-            
-            camera = get_object_or_404(Camera, id=pos_data['camera_id'], owner=request.user)
-            MosaicoCameraPosition.objects.create(
-                mosaico=mosaico,
-                camera=camera,
-                position=pos_data['position']
-            )
-        
-        return Response(MosaicoSerializer(mosaico).data)

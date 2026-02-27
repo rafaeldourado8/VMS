@@ -8,7 +8,6 @@ import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { CamerasPage } from '@/pages/CamerasPage'
 import { ClipsPage } from '@/pages/ClipsPage'
-import { MosaicosPage } from '@/pages/MosaicosPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import TacticalViewPage from '@/pages/TacticalViewPage'
 import IAMPage from '@/pages/IAMPage'
@@ -67,7 +66,6 @@ export default function App() {
           <Route path="/cameras" element={<CamerasPage />} />
           <Route path="/cameras/tactical" element={<TacticalViewPage />} />
           <Route path="/clips" element={<ClipsPage />} />
-          <Route path="/mosaicos" element={<MosaicosPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/settings/iam" element={<IAMPage />} />
         </Route>
