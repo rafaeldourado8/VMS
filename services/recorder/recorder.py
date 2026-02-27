@@ -38,6 +38,7 @@ class Recorder:
             "-f", "segment",
             "-segment_time", "60",
             "-segment_format", "mp4",
+            "-movflags", "+faststart",
             "-reset_timestamps", "1",
             "-strftime", "1",
             "-strftime_mkdir", "1",

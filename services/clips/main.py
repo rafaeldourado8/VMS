@@ -144,12 +144,14 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
         
         relevant.sort()
         output = CLIPS_DIR / f"{clip_id}.mp4"
+        thumbnail = CLIPS_DIR / f"{clip_id}.jpg"
         
-        # Criar lista de concatenação
+        # Criar lista de concatenação com caminhos absolutos
         concat_file = CLIPS_DIR / f"{clip_id}_concat.txt"
         with open(concat_file, 'w') as f:
             for _, rec in relevant:
-                f.write(f"file '{rec}'\n")
+                # Usar caminho absoluto e escapar aspas
+                f.write(f"file '{str(rec).replace(chr(39), chr(39)+chr(92)+chr(39)+chr(39))}'\n")
         
         offset = int((start_dt - relevant[0][0]).total_seconds())
         
@@ -159,6 +161,7 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
             "-ss", str(max(0, offset)),
             "-t", str(duration),
             "-c", "copy",
+            "-movflags", "+faststart",
             "-avoid_negative_ts", "make_zero",
             str(output)
         ]
@@ -172,11 +175,21 @@ async def create_clip_task(clip_id: str, camera_id: int, start_time: str, end_ti
             raise Exception(f"FFmpeg: {stderr.decode()[-200:]}")
         
         if output.exists() and output.stat().st_size > 0:
+            # Gerar thumbnail
+            thumb_cmd = [
+                "ffmpeg", "-y", "-i", str(output),
+                "-ss", "1", "-vframes", "1",
+                "-vf", "scale=320:-1",
+                str(thumbnail)
+            ]
+            await asyncio.create_subprocess_exec(*thumb_cmd, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE)
+            
             clips_db[clip_id].update({
                 "status": "completed",
                 "file_size": output.stat().st_size,
                 "duration": duration,
-                "file_path": str(output)
+                "file_path": str(output),
+                "thumbnail": str(thumbnail) if thumbnail.exists() else None
             })
             save_db()
             concat_file.unlink()
@@ -228,6 +241,21 @@ async def get_clip(clip_id: str):
         file_size=clip.get("file_size"),
         duration=clip.get("duration")
     )
+
+@app.get("/clips/{clip_id}/thumbnail")
+async def get_thumbnail(clip_id: str):
+    if clip_id not in clips_db:
+        raise HTTPException(status_code=404, detail="Clip não encontrado")
+    
+    clip = clips_db[clip_id]
+    if clip["status"] != "completed":
+        raise HTTPException(status_code=404, detail="Thumbnail não disponível")
+    
+    thumbnail_path = CLIPS_DIR / f"{clip_id}.jpg"
+    if not thumbnail_path.exists():
+        raise HTTPException(status_code=404, detail="Thumbnail não encontrada")
+    
+    return FileResponse(thumbnail_path, media_type="image/jpeg")
 
 @app.get("/clips/{clip_id}/download")
 async def download_clip(clip_id: str, request: Request):
@@ -315,7 +343,8 @@ async def list_clips():
             "start_time": clip.get("start_time", ""),
             "end_time": clip.get("end_time", ""),
             "duration": clip.get("duration", 0),
-            "file_size": clip.get("file_size", 0)
+            "file_size": clip.get("file_size", 0),
+            "thumbnail_url": f"/clips/{clip_id}/thumbnail" if clip["status"] == "completed" else None
         }
         for clip_id, clip in clips_db.items()
     ]

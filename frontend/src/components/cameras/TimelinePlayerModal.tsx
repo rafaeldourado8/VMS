@@ -159,7 +159,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     // Auto-skip se estiver perto do fim e houver próximo bloco
     if (currentBlockIndex < blocks.length - 1) {
       const timeRemaining = video.duration - video.currentTime
-      if (timeRemaining < 0.5 && timeRemaining > 0) {
+      if (timeRemaining < 1.5 && timeRemaining > 0) {
         setCurrentBlockIndex(currentBlockIndex + 1)
       }
     }
@@ -205,8 +205,6 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     }
   }
 
-  const [videoBlob, setVideoBlob] = useState<string | null>(null)
-
   useEffect(() => {
     const video = videoRef.current
     if (!video || !currentVideoUrl) return
@@ -214,62 +212,38 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     console.log('[Video] Carregando:', currentVideoUrl)
     setIsBuffering(true)
     
-    // Fetch com autenticação JWT
-    const loadVideo = async () => {
-      try {
-        const token = localStorage.getItem('accessToken')
-        const response = await fetch(currentVideoUrl, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
-        
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`)
-        }
-        
-        const blob = await response.blob()
-        const blobUrl = URL.createObjectURL(blob)
-        
-        // Limpar blob anterior
-        if (videoBlob) {
-          URL.revokeObjectURL(videoBlob)
-        }
-        
-        setVideoBlob(blobUrl)
-        video.src = blobUrl
-        video.load()
-      } catch (error) {
-        console.error('[Video] Erro ao carregar:', error)
-        setIsBuffering(false)
+    const videoUrl = currentVideoUrl.startsWith('http') 
+      ? currentVideoUrl 
+      : `${window.location.origin}${currentVideoUrl}`
+
+    video.src = videoUrl
+    
+    const handleCanPlay = () => {
+      console.log('[Video] Pronto')
+      setIsBuffering(false)
+      if (isPlaying) {
+        video.play().catch(() => {})
       }
     }
-    
-    loadVideo()
 
-    const handleCanPlay = () => {
-      console.log('[Video] Pronto para reproduzir')
+    const handleError = () => {
+      console.error('[Video] Erro:', video.error?.message)
       setIsBuffering(false)
-      if (isPlaying) video.play().catch(() => {})
-    }
-
-    const handleError = (e: Event) => {
-      console.error('[Video] Erro ao carregar:', video.error)
-      console.error('[Video] URL:', currentVideoUrl)
-      console.error('[Video] Network State:', video.networkState)
-      console.error('[Video] Ready State:', video.readyState)
-      setIsBuffering(false)
+      // Tentar recarregar após 2s
+      setTimeout(() => {
+        if (video.src === videoUrl) {
+          video.load()
+        }
+      }, 2000)
     }
 
     video.addEventListener('canplay', handleCanPlay)
     video.addEventListener('error', handleError)
+    video.load()
     
     return () => {
       video.removeEventListener('canplay', handleCanPlay)
       video.removeEventListener('error', handleError)
-      if (videoBlob) {
-        URL.revokeObjectURL(videoBlob)
-      }
     }
   }, [currentVideoUrl, isPlaying])
 
@@ -290,7 +264,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
                 ref={videoRef}
                 autoPlay={isPlaying}
                 playsInline
-                preload="metadata"
+                preload="auto"
                 className="w-full h-full object-contain"
                 onTimeUpdate={handleTimeUpdate}
                 onPlay={() => setIsPlaying(true)}
@@ -320,8 +294,13 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
               </div>
               
               {isBuffering && (
-                <div className="absolute inset-0 bg-zinc-900 flex items-center justify-center">
-                  <div className="w-20 h-20 rounded-full border-4 border-zinc-700 border-t-zinc-400 animate-spin" />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="relative">
+                    <div className="w-16 h-16 rounded-full border-4 border-white/10 border-t-white/80 animate-spin" />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full border-4 border-transparent border-t-purple-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
+                    </div>
+                  </div>
                 </div>
               )}
             </>

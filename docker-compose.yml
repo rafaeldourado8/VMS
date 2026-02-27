@@ -464,6 +464,31 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # CLEANUP ORPHAN RECORDINGS
+  # ============================================
+  cleanup_orphan:
+    build:
+      context: ./services/recorder
+      dockerfile: Dockerfile
+    container_name: gtvision_cleanup_orphan
+    command: python cleanup_orphan_recordings.py
+    environment:
+      TZ: America/Sao_Paulo
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+    volumes:
+      - ./recordings:/recordings
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  # ============================================
   # VOD HLS SERVICE (Converte MP4 para HLS)
   # ============================================
   vod_hls:
