@@ -29,4 +29,5 @@ urlpatterns = [
     path("api/recordings/", include("apps.recordings.urls")),
     path("onvif/", include("apps.onvif.urls")),
     path("api/iam/", include("apps.iam.urls")),
+    path("api/notifications/", include("apps.notifications.urls")),
 ]

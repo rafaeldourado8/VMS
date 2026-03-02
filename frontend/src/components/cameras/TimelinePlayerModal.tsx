@@ -38,6 +38,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   
   const videoRef = useRef<HTMLVideoElement>(null)
   const [isBuffering, setIsBuffering] = useState(false)
+  const [failedBlocks, setFailedBlocks] = useState<Set<number>>(new Set())
 
   const currentBlock = blocks[currentBlockIndex]
   const currentVideoUrl = currentBlock?.file_path || null
@@ -208,6 +209,14 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
   useEffect(() => {
     const video = videoRef.current
     if (!video || !currentVideoUrl) return
+    
+    // Pular blocos que já falharam
+    if (failedBlocks.has(currentBlockIndex)) {
+      if (currentBlockIndex < blocks.length - 1) {
+        setCurrentBlockIndex(currentBlockIndex + 1)
+      }
+      return
+    }
 
     console.log('[Video] Carregando:', currentVideoUrl)
     setIsBuffering(true)
@@ -227,14 +236,30 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     }
 
     const handleError = () => {
-      console.error('[Video] Erro:', video.error?.message)
+      const errorCode = video.error?.code
+      const errorMsg = video.error?.message || 'Unknown'
+      
+      // Silenciar erro 404 (arquivo não existe)
+      if (errorCode === 4 || errorMsg.includes('404')) {
+        console.log('[Video] Arquivo não encontrado, pulando...')
+        setIsBuffering(false)
+        
+        // Marcar bloco como falho
+        setFailedBlocks(prev => new Set(prev).add(currentBlockIndex))
+        
+        // Tentar próximo bloco após 500ms
+        setTimeout(() => {
+          if (currentBlockIndex < blocks.length - 1) {
+            setCurrentBlockIndex(currentBlockIndex + 1)
+          } else {
+            setIsPlaying(false)
+          }
+        }, 500)
+        return
+      }
+      
+      console.error('[Video] Erro:', errorMsg)
       setIsBuffering(false)
-      // Tentar recarregar após 2s
-      setTimeout(() => {
-        if (video.src === videoUrl) {
-          video.load()
-        }
-      }, 2000)
     }
 
     video.addEventListener('canplay', handleCanPlay)
@@ -245,7 +270,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
       video.removeEventListener('canplay', handleCanPlay)
       video.removeEventListener('error', handleError)
     }
-  }, [currentVideoUrl, isPlaying])
+  }, [currentVideoUrl, isPlaying, currentBlockIndex, failedBlocks, blocks.length])
 
   return (
     <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4">

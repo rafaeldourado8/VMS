@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Play, Download, Trash2, Calendar, Clock, Scissors, X, Edit2 } from 'lucide-react'
 import {
@@ -233,28 +233,82 @@ export function ClipsPage() {
 }
 
 function ClipPlayerModal({ clip, onClose }: { clip: Clip; onClose: () => void }) {
+  const formatDuration = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // Fechar com ESC
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
+  }, [onClose])
+
   return (
-    <Dialog open={true} onClose={onClose} maxWidth="xl">
-      <div className="space-y-4">
-        <div className="aspect-video bg-black rounded-lg overflow-hidden">
-          <video
-            src={`/api/clips-service/${clip.id}/download`}
-            controls
-            controlsList="nodownload"
-            autoPlay
-            className="w-full h-full"
-            style={{ cursor: 'pointer' }}
-          />
-        </div>
-        <div>
-          <h2 className="text-lg font-semibold">{clip.name}</h2>
-          <p className="text-sm text-muted-foreground">{clip.camera_name || 'Câmera removida'}</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            {new Date(clip.start_time).toLocaleString('pt-BR')} - {new Date(clip.end_time).toLocaleString('pt-BR')}
-          </p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm" onClick={onClose}>
+      <div className="relative w-full max-w-6xl mx-4" onClick={(e) => e.stopPropagation()}>
+        {/* Botão Fechar */}
+        <button
+          onClick={onClose}
+          className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors flex items-center gap-2 text-sm"
+        >
+          <span className="hidden sm:inline">Pressione ESC para fechar</span>
+          <X className="w-6 h-6" />
+        </button>
+
+        {/* Player */}
+        <div className="bg-background rounded-lg shadow-2xl overflow-hidden">
+          <div className="aspect-video bg-black">
+            <video
+              src={`/api/clips-service/${clip.id}/download`}
+              controls
+              controlsList="nodownload"
+              autoPlay
+              className="w-full h-full"
+            />
+          </div>
+          
+          {/* Info Bar */}
+          <div className="p-4 border-t border-border bg-card">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-semibold truncate">{clip.name}</h2>
+                <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground flex-wrap">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4" />
+                    <span>{new Date(clip.start_time).toLocaleDateString('pt-BR')}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Clock className="w-4 h-4" />
+                    <span>{new Date(clip.start_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} - {new Date(clip.end_time).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                  </div>
+                  <div className="px-2 py-0.5 bg-primary/10 text-primary rounded text-xs font-medium">
+                    {formatDuration(clip.duration_seconds)}
+                  </div>
+                </div>
+                <p className="text-sm text-muted-foreground mt-1">
+                  📹 {clip.camera_name || 'Câmera removida'}
+                </p>
+              </div>
+              
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => window.open(`/api/clips-service/${clip.id}/download`, '_blank')}
+                className="flex-shrink-0"
+              >
+                <Download className="w-4 h-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
-    </Dialog>
+    </div>
   )
 }
 

@@ -1,79 +1,27 @@
-"""
-Signals para auto-provisionamento de câmeras
-"""
-from django.apps import AppConfig
-from django.db.models.signals import post_migrate
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-import logging
-
-logger = logging.getLogger(__name__)
-
-
-class CamerasConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'apps.cameras'
-
-    def ready(self):
-        """Executado quando o app está pronto."""
-        import apps.cameras.signals  # noqa
+from apps.cameras.models import Camera
+from apps.notifications.services import NotificationService
 
 
-@receiver(post_migrate)
-def provision_cameras_on_startup(sender, **kwargs):
-    """Provisiona todas as câmeras ativas após migrations."""
-    if sender.name != 'apps.cameras':
-        return
-    
-    # Desabilitado temporariamente para evitar erro de conexão durante migrations
-    return
-    
-    import time
-    import httpx
-    
-    streaming_url = 'http://streaming:8001'
-    
-    logger.info("⏳ Aguardando streaming service...")
-    for i in range(10):
+@receiver(pre_save, sender=Camera)
+def detect_camera_status_change(sender, instance, **kwargs):
+    """Detecta mudança de status da câmera"""
+    if instance.pk:  # Apenas para updates
         try:
-            resp = httpx.get(f"{streaming_url}/health", timeout=3.0)
-            if resp.status_code == 200:
-                break
-        except:
+            old_camera = Camera.objects.get(pk=instance.pk)
+            
+            # Se mudou de online para offline
+            if old_camera.status == 'online' and instance.status == 'offline':
+                # Enviar notificação após o save
+                instance._send_offline_alert = True
+        except Camera.DoesNotExist:
             pass
-        time.sleep(2)
-    else:
-        return
-    
-    try:
-        from apps.cameras.models import Camera
-        
-        cameras = Camera.objects.filter(status='online')
-        if cameras.count() == 0:
-            return
-        
-        logger.info(f"🔄 Auto-provisionando {cameras.count()} câmeras...")
-        
-        success = 0
-        with httpx.Client(timeout=30.0) as client:
-            for camera in cameras:
-                try:
-                    resp = client.post(
-                        f"{streaming_url}/cameras/provision",
-                        json={
-                            "camera_id": camera.id,
-                            "rtsp_url": camera.stream_url,
-                            "name": camera.name,
-                            "enabled": True,
-                            "on_demand": True
-                        }
-                    )
-                    if resp.status_code == 200:
-                        success += 1
-                except:
-                    pass
-                time.sleep(1)
-        
-        logger.info(f"✅ {success}/{cameras.count()} câmeras OK")
-        
-    except Exception as e:
-        logger.warning(f"⚠️ Erro: {e}")
+
+
+@receiver(post_save, sender=Camera)
+def send_camera_offline_alert(sender, instance, created, **kwargs):
+    """Envia alerta quando câmera fica offline"""
+    if not created and getattr(instance, '_send_offline_alert', False):
+        NotificationService.send_camera_offline_alert(instance)
+        delattr(instance, '_send_offline_alert')

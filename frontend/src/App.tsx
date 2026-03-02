@@ -4,6 +4,7 @@ import { useTheme } from '@/hooks/useTheme'
 import { useSnapshotCleanup } from '@/hooks/useSnapshotCleanup'
 import { useInactivityTimeout } from '@/hooks/useInactivityTimeout'
 import { Layout } from '@/components/layout/Layout'
+import { WelcomeToast } from '@/components/WelcomeToast'
 import { LoginPage } from '@/pages/LoginPage'
 import { DashboardPage } from '@/pages/DashboardPage'
 import { CamerasPage } from '@/pages/CamerasPage'
@@ -43,6 +44,7 @@ export default function App() {
   
   return (
     <BrowserRouter>
+      <WelcomeToast />
       <Routes>
         {/* Public routes */}
         <Route

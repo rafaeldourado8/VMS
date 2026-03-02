@@ -7,7 +7,6 @@ import {
   LogOut,
   Menu,
   X,
-  Bell,
   User,
   ChevronDown,
   Scissors,
@@ -17,6 +16,7 @@ import {
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuthStore } from '@/store/authStore'
+import { NotificationPopup } from '@/components/NotificationPopup'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
@@ -130,10 +130,7 @@ export function Layout() {
             {/* Right actions */}
             <div className="flex items-center gap-2">
               {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="w-5 h-5" />
-                <span className="absolute top-1 right-1 w-2 h-2 bg-destructive rounded-full" />
-              </Button>
+              <NotificationPopup />
 
               {/* User menu */}
               <div className="relative">

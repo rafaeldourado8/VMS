@@ -57,6 +57,7 @@ VMS/
 
 - [Mudanças de Arquitetura](docs/ARCHITECTURE_CHANGES.md) ⭐ NOVO
 - [Sistema de Fallback para Streaming](docs/STREAMING_FALLBACK.md) ⭐ NOVO
+- [Frontend Connection Refused - Solução](docs/FRONTEND_CONNECTION_REFUSED.md) ⭐ NOVO
 - [Configuração para Máquina de IA](docs/CONFIGURACAO_MAQUINA_IA.md)
 - [Arquitetura MVP](docs/mvp/INDEX.md)
 - [Testes de Carga](docs/LOAD_TESTING.md)
@@ -64,6 +65,8 @@ VMS/
 
 ## Scripts Úteis
 
+- `scripts/fix_frontend.bat` - Corrige problema de Connection Refused do frontend ⭐ NOVO
+- `scripts/monitor_frontend.bat` - Monitora e reinicia frontend automaticamente ⭐ NOVO
 - `scripts/init_postgres_replication.bat` - Configura replicação PostgreSQL (Windows)
 - `scripts/init_postgres_replication.sh` - Configura replicação PostgreSQL (Linux/Mac)
 - `scripts/provision_all.py` - Provisiona todas as câmeras

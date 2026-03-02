@@ -275,6 +275,51 @@ export const timelineService = {
   }
 }
 
+// ======================================================
+// NOTIFICATIONS
+// ======================================================
+
+export const notificationService = {
+  async getPreferences() {
+    const { data } = await api.get('/notifications/preferences/')
+    return data
+  },
+
+  async updatePreferences(preferences: any) {
+    const { data } = await api.patch('/notifications/preferences/', preferences)
+    return data
+  },
+
+  async getNotifications() {
+    const { data } = await api.get('/notifications/logs/')
+    return data.results || data
+  },
+
+  async getLogs(params?: { page?: number }) {
+    const { data } = await api.get('/notifications/logs/', { params })
+    return data
+  },
+
+  async markAsRead(id: number) {
+    const { data } = await api.post(`/notifications/logs/${id}/mark-as-read/`)
+    return data
+  },
+
+  async markAllAsRead() {
+    const { data } = await api.post('/notifications/logs/mark-all-as-read/')
+    return data
+  },
+
+  async delete(id: number) {
+    await api.delete(`/notifications/logs/${id}/`)
+  },
+
+  async deleteAll() {
+    const { data } = await api.delete('/notifications/logs/delete-all/')
+    return data
+  },
+}
+
 export default api
 
 // ======================================================
