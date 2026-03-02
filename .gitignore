@@ -239,4 +239,5 @@ node_modules/
 
 # VMS specific
 hls_cache/
-recordings/
+/recordings/
+!/backend/apps/recordings/
