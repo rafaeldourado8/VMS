@@ -90,7 +90,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/vms/backend:$IMAGE_TAG -t $ECR_REGISTRY/vms/backend:latest ./backend
+          docker build -t $ECR_REGISTRY/vms/backend:$IMAGE_TAG -t $ECR_REGISTRY/vms/backend:latest -f backend/Dockerfile .
           docker push $ECR_REGISTRY/vms/backend:$IMAGE_TAG
           docker push $ECR_REGISTRY/vms/backend:latest
       
@@ -99,7 +99,7 @@ jobs:
           ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $ECR_REGISTRY/vms/frontend:$IMAGE_TAG -t $ECR_REGISTRY/vms/frontend:latest ./frontend
+          docker build -t $ECR_REGISTRY/vms/frontend:$IMAGE_TAG -t $ECR_REGISTRY/vms/frontend:latest -f frontend/Dockerfile .
           docker push $ECR_REGISTRY/vms/frontend:$IMAGE_TAG
           docker push $ECR_REGISTRY/vms/frontend:latest
 
