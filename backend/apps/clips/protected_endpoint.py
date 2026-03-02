@@ -1,6 +1,7 @@
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from pathlib import Path
+from .models import Clip
 
 # Adicionar ao ClipViewSet em views.py
 
