@@ -5,26 +5,19 @@ from django.db import migrations
 
 def remove_mosaico_tables(apps, schema_editor):
     """Safely remove Mosaico tables if they exist"""
-    with schema_editor.connection.cursor() as cursor:
-        # Check and drop MosaicoCameraPosition table
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'clips_mosaicocameraposition'
-            );
-        """)
-        if cursor.fetchone()[0]:
-            cursor.execute("DROP TABLE clips_mosaicocameraposition CASCADE;")
-        
-        # Check and drop Mosaico table
-        cursor.execute("""
-            SELECT EXISTS (
-                SELECT FROM information_schema.tables 
-                WHERE table_name = 'clips_mosaico'
-            );
-        """)
-        if cursor.fetchone()[0]:
-            cursor.execute("DROP TABLE clips_mosaico CASCADE;")
+    from django.db import connection
+    
+    # Skip if tables don't exist (fresh database)
+    with connection.cursor() as cursor:
+        try:
+            if connection.vendor == 'sqlite':
+                cursor.execute("DROP TABLE IF EXISTS clips_mosaicocameraposition;")
+                cursor.execute("DROP TABLE IF EXISTS clips_mosaico;")
+            else:
+                cursor.execute("DROP TABLE IF EXISTS clips_mosaicocameraposition CASCADE;")
+                cursor.execute("DROP TABLE IF EXISTS clips_mosaico CASCADE;")
+        except Exception:
+            pass  # Tables don't exist, skip
 
 
 class Migration(migrations.Migration):
