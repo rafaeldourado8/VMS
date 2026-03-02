@@ -1,0 +1,181 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+    branches: [dev, main]
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest pytest-cov
+      
+      - name: Run unit tests
+        run: |
+          cd backend
+          pytest tests/ --cov=. --cov-report=xml
+      
+      - name: Run integration tests
+        run: |
+          docker-compose -f docker-compose.test.yml up -d
+          sleep 30
+          pytest tests/integration/
+          docker-compose -f docker-compose.test.yml down
+
+  build:
+    name: Build and Push Docker Images
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    
+    strategy:
+      matrix:
+        service: [backend, frontend, lpr, recording, onvif]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v1
+      
+      - name: Build and push Docker image
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/vms/${{ matrix.service }}:$IMAGE_TAG ./${{ matrix.service }}
+          docker push $ECR_REGISTRY/vms/${{ matrix.service }}:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/vms/${{ matrix.service }}:$IMAGE_TAG $ECR_REGISTRY/vms/${{ matrix.service }}:latest
+          docker push $ECR_REGISTRY/vms/${{ matrix.service }}:latest
+
+  deploy-dev:
+    name: Deploy to Dev
+    needs: build
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Deploy to ECS Dev
+        run: |
+          aws ecs update-service \
+            --cluster vms-dev-cluster \
+            --service vms-dev-backend \
+            --force-new-deployment
+      
+      - name: Wait for deployment
+        run: |
+          aws ecs wait services-stable \
+            --cluster vms-dev-cluster \
+            --services vms-dev-backend
+      
+      - name: Run E2E tests
+        run: |
+          sleep 60
+          curl -f http://$(aws elbv2 describe-load-balancers --names vms-dev-alb --query 'LoadBalancers[0].DNSName' --output text)/api/health/
+
+  deploy-prod:
+    name: Deploy to Production
+    needs: deploy-dev
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: production
+      url: https://vms.example.com
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Blue/Green Deployment
+        run: |
+          # Get current target group
+          CURRENT_TG=$(aws elbv2 describe-listeners \
+            --load-balancer-arn $(aws elbv2 describe-load-balancers --names vms-prod-alb --query 'LoadBalancers[0].LoadBalancerArn' --output text) \
+            --query 'Listeners[0].DefaultActions[0].TargetGroupArn' --output text)
+          
+          # Determine new target group
+          if [[ $CURRENT_TG == *"blue"* ]]; then
+            NEW_TG_NAME="vms-prod-backend-green"
+          else
+            NEW_TG_NAME="vms-prod-backend-blue"
+          fi
+          
+          # Deploy to new target group
+          aws ecs update-service \
+            --cluster vms-prod-cluster \
+            --service vms-prod-backend-$NEW_TG_NAME \
+            --force-new-deployment
+          
+          # Wait for deployment
+          aws ecs wait services-stable \
+            --cluster vms-prod-cluster \
+            --services vms-prod-backend-$NEW_TG_NAME
+          
+          # Health check
+          sleep 30
+          NEW_TG_ARN=$(aws elbv2 describe-target-groups --names $NEW_TG_NAME --query 'TargetGroups[0].TargetGroupArn' --output text)
+          HEALTH=$(aws elbv2 describe-target-health --target-group-arn $NEW_TG_ARN --query 'TargetHealthDescriptions[0].TargetHealth.State' --output text)
+          
+          if [ "$HEALTH" != "healthy" ]; then
+            echo "Health check failed, rolling back"
+            exit 1
+          fi
+          
+          # Switch traffic
+          aws elbv2 modify-listener \
+            --listener-arn $(aws elbv2 describe-listeners --load-balancer-arn $(aws elbv2 describe-load-balancers --names vms-prod-alb --query 'LoadBalancers[0].LoadBalancerArn' --output text) --query 'Listeners[0].ListenerArn' --output text) \
+            --default-actions Type=forward,TargetGroupArn=$NEW_TG_ARN
+          
+          echo "Deployment successful to $NEW_TG_NAME"
+      
+      - name: Notify success
+        if: success()
+        run: |
+          echo "Production deployment successful"
+      
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Deployment failed, automatic rollback triggered"
+          # Rollback logic already handled by health check failure

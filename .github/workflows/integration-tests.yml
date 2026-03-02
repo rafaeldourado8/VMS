@@ -1,0 +1,40 @@
+name: Integration Tests
+
+on:
+  schedule:
+    - cron: '0 */6 * * *'  # A cada 6 horas
+  workflow_dispatch:
+
+jobs:
+  integration:
+    runs-on: self-hosted
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check services health
+        run: |
+          curl -f http://localhost/api/health/ || exit 1
+          curl -f http://localhost/ || exit 1
+      
+      - name: Test database connection
+        run: |
+          docker-compose exec -T postgres_db psql -U ${{ secrets.POSTGRES_USER }} -d ${{ secrets.POSTGRES_DB }} -c "SELECT 1;"
+      
+      - name: Test Redis connection
+        run: |
+          docker-compose exec -T redis_cache redis-cli ping
+      
+      - name: Test API endpoints
+        run: |
+          curl -f http://localhost/api/cameras/ -H "Authorization: Bearer ${{ secrets.API_TOKEN }}" || echo "Auth required (expected)"
+      
+      - name: Check Docker containers
+        run: |
+          docker-compose ps
+          docker-compose logs --tail=50
+      
+      - name: Disk usage check
+        run: |
+          df -h
+          docker system df

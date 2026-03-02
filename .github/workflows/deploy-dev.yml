@@ -1,0 +1,178 @@
+name: Deploy to Development
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: vms_test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+      
+      - name: Run migrations
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/vms_test
+        run: |
+          cd backend
+          python manage.py migrate
+      
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://test_user:test_pass@localhost:5432/vms_test
+        run: |
+          cd backend
+          python manage.py test
+          
+      - name: Lint Python
+        run: |
+          pip install flake8
+          cd backend
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+      
+      - name: Frontend tests
+        run: |
+          cd frontend
+          npm ci
+          npm run build
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Build and push backend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/vms/backend:$IMAGE_TAG -t $ECR_REGISTRY/vms/backend:latest ./backend
+          docker push $ECR_REGISTRY/vms/backend:$IMAGE_TAG
+          docker push $ECR_REGISTRY/vms/backend:latest
+      
+      - name: Build and push frontend
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/vms/frontend:$IMAGE_TAG -t $ECR_REGISTRY/vms/frontend:latest ./frontend
+          docker push $ECR_REGISTRY/vms/frontend:$IMAGE_TAG
+          docker push $ECR_REGISTRY/vms/frontend:latest
+
+  deploy:
+    needs: build-and-push
+    runs-on: self-hosted
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          POSTGRES_DB=${{ secrets.POSTGRES_DB }}
+          POSTGRES_USER=${{ secrets.POSTGRES_USER }}
+          POSTGRES_PASSWORD=${{ secrets.POSTGRES_PASSWORD }}
+          DB_HOST=postgres_db
+          DB_PORT=5432
+          SECRET_KEY=${{ secrets.DJANGO_SECRET_KEY }}
+          DEBUG=False
+          ALLOWED_HOSTS=${{ secrets.ALLOWED_HOSTS }}
+          REDIS_HOST=redis_cache
+          REDIS_PORT=6379
+          MEDIAMTX_API_URL=http://mediamtx:9997
+          ECR_REGISTRY=${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG=${{ github.sha }}
+          EOF
+      
+      - name: Pull latest images
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker pull $ECR_REGISTRY/vms/backend:latest
+          docker pull $ECR_REGISTRY/vms/frontend:latest
+      
+      - name: Stop services
+        run: docker-compose down
+      
+      - name: Start services
+        run: docker-compose up -d
+      
+      - name: Run migrations
+        run: docker-compose exec -T backend python manage.py migrate
+      
+      - name: Collect static files
+        run: docker-compose exec -T backend python manage.py collectstatic --noinput
+      
+      - name: Health check
+        run: |
+          sleep 15
+          curl -f http://localhost/api/health/ || exit 1
+      
+      - name: Cleanup old images
+        run: docker image prune -af
+
+  notify:
+    needs: [test, deploy]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Deploy status
+        run: |
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Deploy: ${{ needs.deploy.result }}"

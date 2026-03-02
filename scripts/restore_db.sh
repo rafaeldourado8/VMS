@@ -1,48 +1,35 @@
 #!/bin/bash
+set -e
 
 if [ -z "$1" ]; then
-    echo "Uso: ./restore_db.sh <arquivo_backup.sql.gz>"
-    echo ""
-    echo "Backups disponíveis:"
-    ls -lh /home/ubuntu/backups/*.sql.gz 2>/dev/null || echo "Nenhum backup encontrado"
+    echo "Usage: ./restore_db.sh <backup_file.sql.gz>"
+    echo "Example: ./restore_db.sh db_20260302_120000.sql.gz"
     exit 1
 fi
 
 BACKUP_FILE=$1
 
 if [ ! -f "$BACKUP_FILE" ]; then
-    echo "Erro: Arquivo $BACKUP_FILE não encontrado"
+    echo "Error: Backup file not found: $BACKUP_FILE"
     exit 1
 fi
 
-echo "=== ATENÇÃO: Restauração de Banco de Dados ==="
-echo "Arquivo: $BACKUP_FILE"
-echo ""
-echo "Isso irá SUBSTITUIR todos os dados atuais!"
-read -p "Deseja continuar? (yes/no): " CONFIRM
+echo "WARNING: This will restore database from $BACKUP_FILE"
+echo "Current database will be dropped and recreated!"
+read -p "Continue? (yes/no): " confirm
 
-if [ "$CONFIRM" != "yes" ]; then
-    echo "Operação cancelada"
+if [ "$confirm" != "yes" ]; then
+    echo "Restore cancelled."
     exit 0
 fi
 
-echo ""
-echo "Parando serviços..."
-docker-compose stop backend lpr-service onvif-service recording-service
+echo "Restoring database..."
 
-echo "Restaurando banco de dados..."
-gunzip < $BACKUP_FILE | docker-compose exec -T postgres-primary psql -U vms_user vms_dev
+# Drop and recreate database
+docker-compose exec -T postgres_db psql -U ${POSTGRES_USER:-gtvision_user} -c "DROP DATABASE IF EXISTS ${POSTGRES_DB:-gtvision_db};"
+docker-compose exec -T postgres_db psql -U ${POSTGRES_USER:-gtvision_user} -c "CREATE DATABASE ${POSTGRES_DB:-gtvision_db};"
 
-if [ $? -eq 0 ]; then
-    echo "✓ Restauração concluída com sucesso"
-else
-    echo "✗ Erro na restauração"
-    exit 1
-fi
+# Restore from backup
+gunzip < $BACKUP_FILE | docker-compose exec -T postgres_db psql -U ${POSTGRES_USER:-gtvision_user} ${POSTGRES_DB:-gtvision_db}
 
-echo "Reiniciando serviços..."
-docker-compose up -d
-
-echo ""
-echo "=== Restauração finalizada ==="
-echo "Aguarde alguns segundos para os serviços iniciarem"
+echo "Database restored successfully!"

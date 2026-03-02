@@ -1,0 +1,18 @@
+# AWS Configuration
+aws_region = "us-east-1"
+
+# Spot Instance Configuration
+# Leave empty to use current spot price (recommended)
+spot_max_price = ""
+
+# SSH Key Pair
+# Create this key pair in AWS Console first
+key_name = "vms-dev-key"
+
+# Security - Your IP address for SSH access
+# Get your IP: curl ifconfig.me
+allowed_ssh_cidr = "203.0.113.0/32"
+
+# GitHub Actions Runner Token (optional)
+# Get from: GitHub → Settings → Actions → Runners → New self-hosted runner
+github_runner_token = ""

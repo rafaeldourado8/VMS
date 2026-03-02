@@ -1,32 +1,21 @@
 #!/bin/bash
+set -e
 
-# Configurar seu Instance ID aqui
-INSTANCE_ID="i-XXXXXXXXX"  # SUBSTITUIR PELO SEU ID
+INSTANCE_ID=$(terraform output -raw instance_id 2>/dev/null)
 
-if [ "$INSTANCE_ID" = "i-XXXXXXXXX" ]; then
-    echo "❌ Erro: Configure o INSTANCE_ID no script primeiro!"
-    echo ""
-    echo "Para obter seu Instance ID:"
-    echo "aws ec2 describe-instances --query 'Reservations[*].Instances[*].[InstanceId,Tags[?Key==\`Name\`].Value|[0],State.Name]' --output table"
+if [ -z "$INSTANCE_ID" ]; then
+    echo "Error: Instance ID not found."
     exit 1
 fi
 
-echo "🛑 Parando instância VMS Dev..."
-echo "Instance ID: $INSTANCE_ID"
-echo ""
-
+echo "Stopping instance: $INSTANCE_ID"
 aws ec2 stop-instances --instance-ids $INSTANCE_ID
 
-if [ $? -eq 0 ]; then
-    echo ""
-    echo "✅ Comando enviado com sucesso!"
-    echo ""
-    echo "A instância está sendo desligada..."
-    echo "Economia: ~\$0.03/hora (~\$0.72/dia)"
-    echo ""
-    echo "Para ligar novamente: bash scripts/aws/start-dev.sh"
-else
-    echo ""
-    echo "❌ Erro ao parar instância"
-    echo "Verifique suas credenciais AWS e o Instance ID"
-fi
+echo "Waiting for instance to stop..."
+aws ec2 wait instance-stopped --instance-ids $INSTANCE_ID
+
+echo ""
+echo "✅ Instance stopped!"
+echo "💰 You're now saving ~\$0.03/hour"
+echo ""
+echo "To start again: ./start-dev.sh"
