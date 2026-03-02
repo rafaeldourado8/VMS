@@ -50,7 +50,6 @@ INSTALLED_APPS = [
     "apps.suporte",
     "apps.thumbnails",
     "apps.onvif",
-    "apps.recordings",
     "apps.iam",
     "apps.notifications",
 ]
