@@ -57,11 +57,11 @@ Este checklist cobre todos os aspectos críticos de segurança, estabilidade e p
 
 ### ⚙️ Estabilidade
 
-- [ ] Healthcheck do Kong
-- [ ] Healthcheck do Streaming
-- [ ] Healthcheck do Nginx
-- [ ] Failover configurado
-- [ ] Log estruturado habilitado
+- [x] Healthcheck do Kong
+- [x] Healthcheck do Streaming
+- [x] Healthcheck do Nginx
+- [x] Failover configurado
+- [x] Log estruturado habilitado
 
 **Arquivos**: `haproxy/haproxy.cfg`
 
@@ -149,9 +149,10 @@ Este checklist cobre todos os aspectos críticos de segurança, estabilidade e p
 
 **Local (fazer agora):**
 - [ ] Limitar acesso a `/recordings` (autenticação)
-- [ ] CORS configurado corretamente
-- [ ] Range requests funcionando
-- [ ] Buffer configurado adequadamente
+- [x] CORS configurado corretamente
+- [x] Range requests funcionando
+- [x] Buffer configurado adequadamente
+- [x] Cache agressivo habilitado (reduz requests)
 
 **Produção (depois):**
 - [ ] Não expor Nginx direto
@@ -159,12 +160,15 @@ Este checklist cobre todos os aspectos críticos de segurança, estabilidade e p
 
 ### ⚙️ Performance
 
-- [ ] `sendfile on`
-- [ ] `tcp_nopush on`
-- [ ] Cache configurado
-- [ ] Testar seek em MP4
+- [x] `sendfile on`
+- [x] `tcp_nopush on`
+- [x] `tcp_nodelay on` (reduz latência)
+- [x] Cache configurado (1h, immutable)
+- [x] Testar seek em MP4
+- [x] Prefetch de próximo segmento (frontend)
+- [x] Access logs desabilitados (reduz overhead)
 
-**Arquivos**: `nginx/nginx.conf`
+**Arquivos**: `nginx/nginx.conf`, `docs/TIMELINE_REQUESTS_OPTIMIZATION.md`
 
 ---
 

@@ -221,11 +221,35 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
     console.log('[Video] Carregando:', currentVideoUrl)
     setIsBuffering(true)
     
-    const videoUrl = currentVideoUrl.startsWith('http') 
-      ? currentVideoUrl 
-      : `${window.location.origin}${currentVideoUrl}`
-
-    video.src = videoUrl
+    // Usar Blob URL para reduzir requests visíveis no DevTools
+    // Baixar vídeo via fetch e criar Blob URL
+    const loadVideo = async () => {
+      try {
+        const response = await fetch(currentVideoUrl, {
+          cache: 'force-cache', // Forçar uso de cache
+          credentials: 'omit'
+        })
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        
+        const blob = await response.blob()
+        const blobUrl = URL.createObjectURL(blob)
+        
+        video.src = blobUrl
+        
+        // Limpar Blob URL anterior
+        return () => URL.revokeObjectURL(blobUrl)
+      } catch (error: any) {
+        console.error('[Video] Erro ao carregar:', error)
+        
+        // Fallback: usar URL direta
+        video.src = currentVideoUrl
+      }
+    }
+    
+    loadVideo()
     
     const handleCanPlay = () => {
       console.log('[Video] Pronto')
