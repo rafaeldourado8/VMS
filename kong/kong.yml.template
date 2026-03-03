@@ -12,14 +12,6 @@ services:
         paths:
           - /admin
         strip_path: false
-
-  - name: storage-service
-    url: http://storage:8003
-    routes:
-      - name: storage-route
-        paths:
-          - /storage
-        strip_path: true
     plugins:
       # CORS
       - name: cors
@@ -44,13 +36,13 @@ services:
       # Rate Limiting
       - name: rate-limiting
         config:
-          minute: 1000
+          minute: ${KONG_RATE_LIMIT_MINUTE}
           policy: local
       
       # Request Size Limiting
       - name: request-size-limiting
         config:
-          allowed_payload_size: 10
+          allowed_payload_size: ${KONG_REQUEST_SIZE_LIMIT_MB}
       
       # Security Headers
       - name: response-transformer

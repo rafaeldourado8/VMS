@@ -1,7 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import RecordingViewSet, verify_recording_access
-from .views_secure import serve_recording
+from .views import RecordingViewSet, verify_recording_access, serve_recording
 
 router = DefaultRouter()
 router.register('recordings', RecordingViewSet)

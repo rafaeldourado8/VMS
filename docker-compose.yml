@@ -330,9 +330,14 @@ services:
     container_name: gtvision_haproxy
     ports:
       - "80:80"
+      - "443:443"
       - "8404:8404"
+    environment:
+      HAPROXY_STATS_USER: ${HAPROXY_STATS_USER}
+      HAPROXY_STATS_PASSWORD: ${HAPROXY_STATS_PASSWORD}
     volumes:
       - ./haproxy/haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
+      - ./haproxy/certs:/usr/local/etc/haproxy/certs:ro
     depends_on:
       kong:
         condition: service_started
@@ -397,6 +402,8 @@ services:
     container_name: gtvision_mediamtx
     environment:
       TZ: America/Sao_Paulo
+      MEDIAMTX_API_USER: ${MEDIAMTX_API_USER}
+      MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
     ports:
       - "8554:8554"
       - "8888:8888"

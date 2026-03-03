@@ -2,13 +2,14 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse, Http404
 from .models import Recording
 from .serializers import RecordingSerializer
 import httpx
 import os
 import re
 from datetime import datetime
+from pathlib import Path
 
 class RecordingViewSet(viewsets.ModelViewSet):
     queryset = Recording.objects.all()
@@ -93,3 +94,15 @@ def verify_recording_access(request):
         return HttpResponse(status=200, headers={'X-User-Id': str(user.id)})
     
     return HttpResponse(status=403)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def serve_recording(request, camera_id, date, filename):
+    """Serve arquivo de gravação com autenticação"""
+    base_path = os.getenv('RECORDINGS_PATH', '/recordings')
+    file_path = Path(base_path) / f'camera_{camera_id}' / date / filename
+    
+    if not file_path.exists():
+        raise Http404('Recording not found')
+    
+    return FileResponse(open(file_path, 'rb'), content_type='video/mp4')

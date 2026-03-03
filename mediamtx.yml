@@ -46,8 +46,8 @@ authInternalUsers:
       - action: metrics
       - action: pprof
 
-  - user: mediamtx_api_user
-    pass: "GtV!sionMed1aMTX$2025"
+  - user: ${MEDIAMTX_API_USER}
+    pass: "${MEDIAMTX_API_PASS}"
     ips: []
     permissions:
       - action: api
