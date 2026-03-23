@@ -18,9 +18,18 @@ if DEBUG:
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:5173", "http://127.0.0.1:5173",
     "http://localhost:80", "http://localhost",
-    "http://localhost:3000", "http://localhost:8000"
+    "http://localhost:3000", "http://localhost:8000",
 ]
+# Aceitar ngrok dinamicamente (cameras externas via CGNAT)
+NGROK_DOMAIN = os.environ.get("NGROK_DOMAIN", "")
+if NGROK_DOMAIN:
+    CSRF_TRUSTED_ORIGINS.append(f"https://{NGROK_DOMAIN}")
+# Aceitar qualquer subdominio ngrok em dev
+if DEBUG:
+    CSRF_TRUSTED_ORIGINS.append("https://*.ngrok-free.app")
+    CSRF_TRUSTED_ORIGINS.append("https://*.ngrok.io")
 CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
+CORS_ALLOW_ALL_ORIGINS = DEBUG
 CORS_ALLOW_CREDENTIALS = True
 
 # --- APPLICAÇÕES ---
@@ -39,6 +48,7 @@ INSTALLED_APPS = [
     "django_filters",
     "django_celery_results",
     "django_celery_beat",
+    "adrf",
     # Módulos Internos
     "apps.usuarios",
     "apps.cameras",
@@ -88,6 +98,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
 
 # --- BASE DE DADOS (Single Instance) ---
 DB_NAME = os.environ.get("POSTGRES_DB")

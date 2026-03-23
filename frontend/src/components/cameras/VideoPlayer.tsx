@@ -77,11 +77,17 @@ export function VideoPlayer({
     if (src.includes('.m3u8')) {
       if (Hls.isSupported()) {
         const hls = new Hls({
-          lowLatencyMode: true,
-          backBufferLength: 10,
-          maxBufferLength: 20,
-          maxBufferSize: 20 * 1000 * 1000,
-          maxMaxBufferLength: 30,
+          lowLatencyMode: false,
+          backBufferLength: 5,
+          maxBufferLength: 12,
+          maxBufferSize: 15 * 1000 * 1000,
+          maxMaxBufferLength: 20,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 5,
+          manifestLoadingMaxRetry: 2,
+          manifestLoadingRetryDelay: 2000,
+          levelLoadingMaxRetry: 2,
+          fragLoadingMaxRetry: 2,
         })
 
         hls.loadSource(src)
@@ -295,11 +301,17 @@ export function VideoPlayer({
         hlsRef.current.destroy()
         
         const hls = new Hls({
-          lowLatencyMode: true,
-          backBufferLength: 10,
-          maxBufferLength: 20,
-          maxBufferSize: 20 * 1000 * 1000,
-          maxMaxBufferLength: 30,
+          lowLatencyMode: false,
+          backBufferLength: 5,
+          maxBufferLength: 12,
+          maxBufferSize: 15 * 1000 * 1000,
+          maxMaxBufferLength: 20,
+          liveSyncDurationCount: 3,
+          liveMaxLatencyDurationCount: 5,
+          manifestLoadingMaxRetry: 2,
+          manifestLoadingRetryDelay: 2000,
+          levelLoadingMaxRetry: 2,
+          fragLoadingMaxRetry: 2,
         })
         
         hls.loadSource(src)

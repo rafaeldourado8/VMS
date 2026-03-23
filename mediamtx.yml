@@ -153,11 +153,11 @@ hlsTrustedProxies: [172.18.0.0/16]
 hlsAlwaysRemux: no
 hlsVariant: fmp4
 hlsSegmentCount: 3
-hlsSegmentDuration: 2s
-hlsSegmentMaxSize: 10M
+hlsSegmentDuration: 4s
+hlsSegmentMaxSize: 20M
 hlsDirectory: ''
 hlsMuxerCloseAfter: 60s
-hlsPartDuration: 200ms
+hlsPartDuration: 500ms
 
 ###############################################
 # WebRTC server

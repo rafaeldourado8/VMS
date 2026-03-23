@@ -26,15 +26,19 @@ class CameraSerializer(serializers.ModelSerializer):
         model = Camera
         fields = [
             "id", "owner_email", "name", "location", "status",
-            "stream_url", "thumbnail_url", "snapshot_url",
+            "stream_url", "stream_key", "brand", "model_name",
+            "thumbnail_url", "snapshot_url",
             "latitude", "longitude", "detection_settings", "created_at",
             "stream_url_frontend", "ai_websocket_url", "recording_retention_days",
-            "address_street", "address_number", "address_neighborhood", 
+            "address_street", "address_number", "address_neighborhood",
             "address_city", "address_state", "maps_url", "timezone",
         ]
-        read_only_fields = ["id", "created_at", "snapshot_url"]
+        read_only_fields = ["id", "created_at", "snapshot_url", "stream_key"]
         extra_kwargs = {
-            'location': {'required': False, 'allow_blank': True}
+            'location': {'required': False, 'allow_blank': True},
+            'stream_url': {'required': False, 'allow_blank': True},
+            'brand': {'required': False, 'allow_blank': True},
+            'model_name': {'required': False, 'allow_blank': True},
         }
     
     def validate(self, data):

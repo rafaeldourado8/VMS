@@ -15,6 +15,9 @@ class CameraDTO:
     longitude: Optional[float] = None
     detection_settings: Dict[str, Any] = field(default_factory=dict)
     recording_retention_days: int = 30
+    stream_key: Optional[str] = None
+    brand: Optional[str] = None
+    model_name: Optional[str] = None
     id: Optional[int] = None
     created_at: Optional[datetime] = None
 
@@ -33,5 +36,8 @@ class CameraDTO:
             longitude=camera.longitude,
             detection_settings=camera.detection_settings,
             recording_retention_days=camera.recording_retention_days,
+            stream_key=camera.stream_key,
+            brand=camera.brand,
+            model_name=camera.model_name,
             created_at=camera.created_at
         )

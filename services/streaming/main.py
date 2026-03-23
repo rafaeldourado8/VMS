@@ -191,12 +191,22 @@ class StreamingService:
 
     async def provision_camera(self, request: ProvisionRequest) -> ProvisionResponse:
         stream_path = f"cam_{request.camera_id}"
-        
-        config = {
-            "source": request.rtsp_url,
-            "sourceOnDemand": request.on_demand,
-            "rtspTransport": "tcp"
-        }
+
+        # RTMP push: camera envia stream para nós (sem source URL)
+        is_rtmp_push = not request.rtsp_url or request.rtsp_url.startswith('rtmp_push://')
+
+        if is_rtmp_push:
+            config = {
+                "source": "publisher",
+                "sourceOnDemand": False,
+                "overridePublisher": True,
+            }
+        else:
+            config = {
+                "source": request.rtsp_url,
+                "sourceOnDemand": request.on_demand,
+                "rtspTransport": "tcp"
+            }
         
         logger.info(f"Provisionando {stream_path}")
         

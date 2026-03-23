@@ -12,6 +12,11 @@ services:
         paths:
           - /admin
         strip_path: false
+    plugins:
+      # Permitir payloads maiores (imagens de cameras LPR)
+      - name: request-size-limiting
+        config:
+          allowed_payload_size: 50
 
   - name: storage-service
     url: http://storage:8003

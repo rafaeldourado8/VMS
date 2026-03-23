@@ -12,6 +12,7 @@ import {
   Scissors,
   Map,
   Shield,
+  ScanLine,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
   { name: 'Câmeras', href: '/cameras', icon: Camera },
   { name: 'Visão Tática', href: '/cameras/tactical', icon: Map },
+  { name: 'Deteccoes LPR', href: '/detections', icon: ScanLine },
   { name: 'Meus Clips', href: '/clips', icon: Scissors },
   { name: 'Configurações', href: '/settings', icon: Settings },
   { name: 'IAM', href: '/settings/iam', icon: Shield },

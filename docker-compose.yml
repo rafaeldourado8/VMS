@@ -185,7 +185,7 @@ services:
       context: .
       dockerfile: ./backend/Dockerfile
     container_name: gtvision_backend
-    command: sh -c "python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate --noinput && python manage.py runserver 0.0.0.0:8000"
     deploy:
       resources:
         limits:
@@ -350,6 +350,24 @@ services:
     restart: unless-stopped
 
   # ============================================
+  # NGROK (TUNNEL PARA CAMERAS EXTERNAS)
+  # ============================================
+  ngrok:
+    image: ngrok/ngrok:latest
+    container_name: gtvision_ngrok
+    environment:
+      NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+    # Se NGROK_DOMAIN estiver definido no .env, use:
+    #   command: http haproxy:80 --log stdout --domain=${NGROK_DOMAIN}
+    # Sem dominio fixo, a URL muda a cada restart e as cameras perdem conexao
+    command: http haproxy:80 --log stdout
+    depends_on:
+      - haproxy
+    networks:
+      - gtvision_network
+    restart: unless-stopped
+
+  # ============================================
   # NGINX (STATIC)
   # ============================================
   nginx:
@@ -405,6 +423,7 @@ services:
       MEDIAMTX_API_USER: ${MEDIAMTX_API_USER}
       MEDIAMTX_API_PASS: ${MEDIAMTX_API_PASS}
     ports:
+      - "1935:1935"
       - "8554:8554"
       - "8888:8888"
       - "8889:8889"

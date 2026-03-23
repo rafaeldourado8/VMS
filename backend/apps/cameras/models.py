@@ -11,7 +11,7 @@ class Camera(TenantAwareMixin, models.Model):
         on_delete=models.CASCADE,
         related_name="cameras",
     )
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     location = models.CharField(max_length=1000)
     # Endereço estruturado
     address_street = models.CharField(max_length=255, blank=True, null=True)
@@ -27,7 +27,11 @@ class Camera(TenantAwareMixin, models.Model):
     # Timezone da câmera (ex: America/Sao_Paulo)
     timezone = models.CharField(max_length=50, default="America/Sao_Paulo")
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default="online")
-    stream_url = models.CharField(max_length=1000, unique=True)
+    stream_url = models.CharField(max_length=1000)
+    stream_key = models.CharField(max_length=32, unique=True, blank=True, null=True, help_text="Chave unica para RTMP push")
+    device_id = models.CharField(max_length=100, blank=True, null=True, help_text="DeviceID da camera para webhook push")
+    brand = models.CharField(max_length=50, blank=True, null=True, help_text="Marca da camera (hikvision, intelbras)")
+    model_name = models.CharField(max_length=100, blank=True, null=True, help_text="Modelo da camera")
     thumbnail_url = models.CharField(max_length=1000, blank=True, null=True)
     
     # Credenciais ONVIF para playback

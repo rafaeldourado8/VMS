@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python manage.py makemigrations cameras --name add_stream_key_brand_model)",
+      "Bash(docker-compose exec:*)",
+      "Bash(docker-compose restart:*)",
+      "Bash(docker-compose logs:*)",
+      "Bash(docker-compose ps:*)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(curl:*)",
+      "Bash(xargs grep:*)",
+      "Bash(where ngrok:*)",
+      "Bash(choco install:*)",
+      "Bash(winget install:*)",
+      "Read(//c/Users/**)",
+      "Read(//c/Users/Rafael Dourado/**)",
+      "Bash(cmd.exe /c \"where ngrok\" 2>&1)",
+      "Read(//c/ProgramData/chocolatey/lib/ngrok/tools/**)",
+      "Bash(find /c -name ngrok.exe -maxdepth 5)",
+      "Bash(powershell.exe -Command \"Get-Command ngrok -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Source\" 2>&1)",
+      "Bash(powershell.exe -Command \"Get-ChildItem -Path 'C:\\\\Users\\\\Rafael Dourado\\\\AppData\\\\Local' -Recurse -Filter 'ngrok.exe' -ErrorAction SilentlyContinue | Select-Object -First 3 -ExpandProperty FullName\" 2>&1)",
+      "Bash(docker-compose up:*)",
+      "Bash(docker-compose build:*)",
+      "WebSearch",
+      "WebFetch(domain:pdfcoffee.com)",
+      "WebFetch(domain:botminio.apps.intelbras.com.br)",
+      "WebFetch(domain:dahuawiki.com)"
+    ]
+  }
+}

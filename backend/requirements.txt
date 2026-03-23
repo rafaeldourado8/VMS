@@ -1,5 +1,6 @@
 Django==5.2.7
 djangorestframework==3.16.1
+adrf
 djangorestframework_simplejwt==5.5.1
 PyJWT==2.10.1
 django-cors-headers==4.9.0
@@ -15,7 +16,9 @@ django-celery-beat
 sqlalchemy
 
 gunicorn
+uvicorn[standard]
 whitenoise
+defusedxml
 python-json-logger==2.0.7
 django-environ==0.12.0
 

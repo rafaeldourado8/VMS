@@ -27,11 +27,6 @@ import { CameraCard } from '@/components/cameras/CameraCard'
 // Cores para o gráfico de pizza
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6']
 
-// Dados mock para o gráfico de área (últimas 24h)
-const mockHourlyData = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${i}:00`,
-  detections: Math.floor(Math.random() * 50) + 10,
-}))
 
 export function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useQuery({
@@ -47,6 +42,23 @@ export function DashboardPage() {
     staleTime: 60000,
     select: (data) => data.slice(0, 2),
   })
+
+  // Preparar dados para o gráfico de área (últimas 24h a partir da atividade recente)
+  const hourlyData = (() => {
+    if (!stats?.recent_activity?.length) return []
+    const now = new Date()
+    const counts: Record<string, number> = {}
+    for (let i = 23; i >= 0; i--) {
+      const h = new Date(now.getTime() - i * 3600000)
+      counts[`${h.getHours()}:00`] = 0
+    }
+    stats.recent_activity.forEach((a) => {
+      const h = new Date(a.time).getHours()
+      const key = `${h}:00`
+      if (key in counts) counts[key]++
+    })
+    return Object.entries(counts).map(([hour, detections]) => ({ hour, detections }))
+  })()
 
   // Preparar dados para o gráfico de pizza
   const pieData = stats?.detections_by_type
@@ -79,11 +91,10 @@ export function DashboardPage() {
           subtitle="Veículos detectados"
           icon={Car}
           loading={statsLoading}
-          trend={12}
         />
         <StatCard
           title="Armazenamento"
-          value={85}
+          value={stats?.storage_gb ?? 0}
           subtitle="GB utilizados"
           icon={HardDrive}
           loading={statsLoading}
@@ -111,7 +122,7 @@ export function DashboardPage() {
           <CardContent>
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={mockHourlyData}>
+                <AreaChart data={hourlyData}>
                   <defs>
                     <linearGradient id="colorDetections" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -300,7 +311,6 @@ interface StatCardProps {
   subtitle: string
   icon: React.ElementType
   loading?: boolean
-  trend?: number
   variant?: 'default' | 'success' | 'warning'
 }
 
@@ -310,7 +320,6 @@ function StatCard({
   subtitle,
   icon: Icon,
   loading,
-  trend,
   variant = 'default',
 }: StatCardProps) {
   const variantStyles = {
@@ -336,13 +345,6 @@ function StatCard({
             <Icon className="w-5 h-5" />
           </div>
         </div>
-        {trend !== undefined && (
-          <div className="flex items-center gap-1 mt-3">
-            <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-            <span className="text-xs text-emerald-500">+{trend}%</span>
-            <span className="text-xs text-muted-foreground">vs ontem</span>
-          </div>
-        )}
       </CardContent>
     </Card>
   )

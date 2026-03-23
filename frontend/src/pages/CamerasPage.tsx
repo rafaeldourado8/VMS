@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight, Radio, MapPin, Calendar } from 'lucide-react'
+import { Plus, Search, X, Loader2, Settings, Eye, Trash2, ChevronLeft, ChevronRight, Radio, MapPin, Calendar, Copy, Check, ArrowRight, ArrowLeft } from 'lucide-react'
 import {
   Button,
   Input,
@@ -14,7 +14,7 @@ import { VideoPlayer } from '@/components/cameras/VideoPlayer'
 import { StreamThumbnail } from '@/components/cameras/StreamThumbnail'
 import { CameraConfig } from '@/components/cameras/DetectionConfig'
 import { cameraService, streamingService } from '@/services/api'
-import type { Camera, CameraCreateRequest } from '@/types'
+import type { Camera, CameraCreateRequest, CameraEasyModeRequest } from '@/types'
 
 const ITEMS_PER_PAGE = 10
 
@@ -353,11 +353,351 @@ function CameraDetailModal({
   )
 }
 
+// RTMP Server from env
+const RTMP_SERVER = (import.meta as any).env?.VITE_RTMP_SERVER || 'localhost:1935'
+
+// Easy Mode Wizard - Gerador de URL RTMP
+function EasyModeWizard({ onClose, onBack }: { onClose: () => void; onBack: () => void }) {
+  const queryClient = useQueryClient()
+  const [step, setStep] = useState(1)
+  const [copied, setCopied] = useState(false)
+  const [createdCamera, setCreatedCamera] = useState<Camera | null>(null)
+  const [locationType, setLocationType] = useState<'address' | 'coords' | 'url'>('address')
+  const [easyFormData, setEasyFormData] = useState<CameraEasyModeRequest>({
+    name: '',
+    brand: '',
+    location: '',
+    latitude: undefined,
+    longitude: undefined,
+    recording_retention_days: 30,
+  })
+  const [modelName, setModelName] = useState('')
+
+  const createMutation = useMutation({
+    mutationFn: async (data: CameraEasyModeRequest) => {
+      const camera = await cameraService.createEasyMode({ ...data, model_name: modelName || undefined })
+      return camera
+    },
+    onSuccess: (camera) => {
+      queryClient.invalidateQueries({ queryKey: ['cameras'] })
+      setCreatedCamera(camera)
+      setStep(5)
+    },
+  })
+
+  const rtmpUrl = createdCamera?.stream_key
+    ? `rtmp://${RTMP_SERVER}/cam_${createdCamera.id}`
+    : ''
+  const streamKey = createdCamera?.stream_key || ''
+
+  const handleCopy = (text: string) => {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const canNext = () => {
+    if (step === 1) return easyFormData.name.trim().length > 0
+    if (step === 2) return easyFormData.brand.length > 0
+    if (step === 3) return true
+    if (step === 4) return true
+    return false
+  }
+
+  const handleNext = () => {
+    if (step === 4) {
+      createMutation.mutate(easyFormData)
+      return
+    }
+    setStep(s => s + 1)
+  }
+
+  const totalSteps = 5
+  const stepLabels = ['Nome', 'Marca', 'Local', 'Plano', 'URL RTMP']
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+      <div className="absolute inset-0 bg-black/80" onClick={onClose} />
+      <Card className="relative w-full max-w-lg animate-slide-in max-h-[90vh] overflow-y-auto">
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <span>Modo Facil</span>
+            <span className="text-sm font-normal text-muted-foreground">
+              Passo {step} de {totalSteps}
+            </span>
+          </CardTitle>
+          {/* Progress bar */}
+          <div className="flex gap-1 mt-2">
+            {stepLabels.map((label, i) => (
+              <div key={i} className="flex-1 text-center">
+                <div
+                  className={`h-1.5 rounded-full mb-1 ${
+                    i + 1 <= step ? 'bg-primary' : 'bg-muted'
+                  }`}
+                />
+                <span className={`text-[10px] ${i + 1 === step ? 'text-primary font-semibold' : 'text-muted-foreground'}`}>
+                  {label}
+                </span>
+              </div>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+
+          {/* Step 1: Nome */}
+          {step === 1 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Nome da Camera</label>
+              <Input
+                placeholder="Ex: Entrada Principal"
+                value={easyFormData.name}
+                onChange={(e) => setEasyFormData(f => ({ ...f, name: e.target.value }))}
+                autoFocus
+              />
+              <p className="text-xs text-muted-foreground">
+                Escolha um nome que identifique a camera facilmente.
+              </p>
+            </div>
+          )}
+
+          {/* Step 2: Marca + Modelo */}
+          {step === 2 && (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Marca da Camera</label>
+                <div className="grid grid-cols-2 gap-3">
+                  {[
+                    { id: 'hikvision', label: 'Hikvision' },
+                    { id: 'intelbras', label: 'Intelbras' },
+                  ].map((b) => (
+                    <Button
+                      key={b.id}
+                      type="button"
+                      variant={easyFormData.brand === b.id ? 'default' : 'outline'}
+                      onClick={() => setEasyFormData(f => ({ ...f, brand: b.id }))}
+                      className="h-16 text-base"
+                    >
+                      {b.label}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">
+                  Modelo <span className="text-muted-foreground font-normal">(opcional)</span>
+                </label>
+                <Input
+                  placeholder="Ex: DS-2CD2043G2-I"
+                  value={modelName}
+                  onChange={(e) => setModelName(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Localização */}
+          {step === 3 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium">Localizacao</label>
+              <div className="flex gap-2">
+                <Button type="button" size="sm" variant={locationType === 'address' ? 'default' : 'outline'} onClick={() => setLocationType('address')}>
+                  Endereco
+                </Button>
+                <Button type="button" size="sm" variant={locationType === 'coords' ? 'default' : 'outline'} onClick={() => setLocationType('coords')}>
+                  Coordenadas
+                </Button>
+                <Button type="button" size="sm" variant={locationType === 'url' ? 'default' : 'outline'} onClick={() => setLocationType('url')}>
+                  URL Maps
+                </Button>
+              </div>
+
+              {locationType === 'address' && (
+                <Input
+                  placeholder="Ex: Rua ABC, 123 - Bairro"
+                  value={easyFormData.location}
+                  onChange={(e) => setEasyFormData(f => ({ ...f, location: e.target.value }))}
+                />
+              )}
+
+              {locationType === 'coords' && (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    type="number" step="any" placeholder="Latitude"
+                    value={easyFormData.latitude || ''}
+                    onChange={(e) => setEasyFormData(f => ({ ...f, latitude: parseFloat(e.target.value) || undefined }))}
+                  />
+                  <Input
+                    type="number" step="any" placeholder="Longitude"
+                    value={easyFormData.longitude || ''}
+                    onChange={(e) => setEasyFormData(f => ({ ...f, longitude: parseFloat(e.target.value) || undefined }))}
+                  />
+                </div>
+              )}
+
+              {locationType === 'url' && (
+                <>
+                  <Input
+                    placeholder="Cole a URL do Google Maps"
+                    onChange={(e) => {
+                      const url = e.target.value
+                      const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
+                      if (match) {
+                        setEasyFormData(f => ({
+                          ...f,
+                          latitude: parseFloat(match[1]),
+                          longitude: parseFloat(match[2]),
+                          location: `${parseFloat(match[1]).toFixed(6)}, ${parseFloat(match[2]).toFixed(6)}`,
+                        }))
+                      }
+                    }}
+                  />
+                  {easyFormData.latitude && easyFormData.longitude && (
+                    <p className="text-xs text-green-600">
+                      Coordenadas: {easyFormData.latitude}, {easyFormData.longitude}
+                    </p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Step 4: Retenção */}
+          {step === 4 && (
+            <div className="space-y-3">
+              <label className="text-sm font-medium flex items-center gap-2">
+                <Calendar className="w-4 h-4" />
+                Retencao de Gravacao: <span className="text-blue-600 font-bold">{easyFormData.recording_retention_days} dias</span>
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[7, 15, 30].map((days) => (
+                  <Button
+                    key={days}
+                    type="button"
+                    variant={easyFormData.recording_retention_days === days ? 'default' : 'outline'}
+                    onClick={() => setEasyFormData(prev => ({ ...prev, recording_retention_days: days }))}
+                    className="h-14"
+                  >
+                    {days} dias
+                  </Button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 5: Resultado - URL RTMP gerada */}
+          {step === 5 && createdCamera && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg bg-green-50 border border-green-200">
+                <p className="text-sm font-semibold text-green-800 mb-1">Camera criada com sucesso!</p>
+                <p className="text-xs text-green-700">Configure sua camera com os dados abaixo.</p>
+              </div>
+
+              {/* URL RTMP */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">URL do Servidor RTMP</label>
+                <div className="flex gap-2">
+                  <Input value={rtmpUrl} readOnly className="font-mono text-xs" />
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleCopy(rtmpUrl)}>
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Stream Key */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stream Key</label>
+                <div className="flex gap-2">
+                  <Input value={streamKey} readOnly className="font-mono text-xs" />
+                  <Button type="button" size="sm" variant="outline" onClick={() => handleCopy(streamKey)}>
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Instruções por marca */}
+              <div className="p-4 rounded-lg bg-blue-50 border border-blue-200 space-y-2">
+                <p className="text-sm font-semibold text-blue-800">
+                  {createdCamera.brand === 'hikvision' ? 'Configuracao - Hikvision' : 'Configuracao - Intelbras'}
+                </p>
+                {createdCamera.brand === 'hikvision' ? (
+                  <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Acesse a interface web da camera (http://IP-da-camera)</li>
+                    <li>Va em <strong>Configuration &gt; Network &gt; Advanced Settings &gt; Platform Access</strong></li>
+                    <li>Ou: <strong>Configuration &gt; Network &gt; TCP/IP &gt; RTMP</strong></li>
+                    <li>Habilite o RTMP e cole a <strong>URL do Servidor</strong> acima</li>
+                    <li>Cole a <strong>Stream Key</strong> no campo correspondente</li>
+                    <li>Salve e a camera comecara a transmitir</li>
+                  </ol>
+                ) : (
+                  <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+                    <li>Acesse a interface web do DVR/NVR (http://IP-do-DVR)</li>
+                    <li>Va em <strong>Configuracoes &gt; Rede &gt; Plataforma</strong></li>
+                    <li>Ou: <strong>Menu &gt; Rede &gt; RTMP</strong></li>
+                    <li>Habilite o RTMP e cole a <strong>URL do Servidor</strong> acima</li>
+                    <li>Cole a <strong>Stream Key</strong> no campo correspondente</li>
+                    <li>Salve e a camera comecara a transmitir</li>
+                  </ol>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Error */}
+          {createMutation.isError && (
+            <div className="p-3 rounded-lg bg-destructive/10 text-sm text-destructive">
+              <p className="font-semibold">Erro ao criar camera</p>
+              <p className="text-xs mt-1">
+                {(createMutation.error as any)?.response?.data?.detail ||
+                 (createMutation.error as any)?.response?.data?.name?.[0] ||
+                 'Verifique os dados e tente novamente'}
+              </p>
+            </div>
+          )}
+
+          {/* Navigation */}
+          <div className="flex gap-3 pt-2">
+            {step < 5 ? (
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => step === 1 ? onBack() : setStep(s => s - 1)}
+                >
+                  <ArrowLeft className="w-4 h-4 mr-1" />
+                  Voltar
+                </Button>
+                <Button
+                  type="button"
+                  className="flex-1"
+                  disabled={!canNext() || createMutation.isPending}
+                  onClick={handleNext}
+                >
+                  {createMutation.isPending ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
+                  ) : step === 4 ? (
+                    <>Criar Camera</>
+                  ) : (
+                    <>Proximo <ArrowRight className="w-4 h-4 ml-1" /></>
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button type="button" className="w-full" onClick={onClose}>
+                Concluir
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
 // Add Camera Modal
 function AddCameraModal({ onClose }: { onClose: () => void }) {
   const queryClient = useQueryClient()
   const [mode, setMode] = useState<'select' | 'easy' | 'advanced'>('select')
-  const [protocol, setProtocol] = useState<'rtsp' | 'rtmp' | 'ip' | 'p2'>('rtsp')
   const [formData, setFormData] = useState<CameraCreateRequest>({
     name: '',
     stream_url: '',
@@ -372,7 +712,6 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
     mutationFn: async (data: CameraCreateRequest) => {
       console.log('Creating camera with data:', data)
       const camera = await cameraService.create(data)
-      await streamingService.provisionCamera(camera.id, data.stream_url, data.name)
       return camera
     },
     onSuccess: () => {
@@ -422,11 +761,10 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
               onClick={() => setMode('easy')}
               className="w-full h-20 text-lg"
               variant="outline"
-              disabled
             >
               <div>
                 <div className="font-semibold">Modo Fácil</div>
-                <div className="text-xs text-muted-foreground">Em desenvolvimento</div>
+                <div className="text-xs text-muted-foreground">Gera URL RTMP automaticamente</div>
               </div>
             </Button>
             <Button
@@ -449,321 +787,7 @@ function AddCameraModal({ onClose }: { onClose: () => void }) {
   }
 
   if (mode === 'easy') {
-    return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-        <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-        <Card className="relative w-full max-w-md animate-slide-in max-h-[90vh] overflow-y-auto">
-          <CardHeader>
-            <CardTitle>Modo Fácil - Selecione o Protocolo</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Protocolo</label>
-                <div className="grid grid-cols-2 gap-2">
-                  {(['rtsp', 'rtmp', 'ip', 'p2'] as const).map((p) => (
-                    <Button
-                      key={p}
-                      type="button"
-                      variant={protocol === p ? 'default' : 'outline'}
-                      onClick={() => setProtocol(p)}
-                      className="h-16"
-                    >
-                      {p === 'ip' ? 'IP/HTTP' : p === 'p2' ? 'P2P' : p.toUpperCase()}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Nome</label>
-                <Input
-                  placeholder="Ex: Entrada Principal"
-                  value={formData.name}
-                  onChange={(e) => setFormData(f => ({ ...f, name: e.target.value }))}
-                  required
-                />
-              </div>
-
-              {protocol === 'rtsp' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">URL RTSP</label>
-                  <Input
-                    placeholder="rtsp://usuario:senha@192.168.1.100:554/stream"
-                    value={formData.stream_url}
-                    onChange={(e) => setFormData(f => ({ ...f, stream_url: e.target.value }))}
-                    required
-                  />
-                </div>
-              )}
-
-              {protocol === 'rtmp' && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">URL RTMP</label>
-                  <Input
-                    placeholder="rtmp://192.168.1.100:1935/live/stream"
-                    value={formData.stream_url}
-                    onChange={(e) => setFormData(f => ({ ...f, stream_url: e.target.value }))}
-                    required
-                  />
-                </div>
-              )}
-
-              {protocol === 'ip' && (
-                <>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">IP</label>
-                      <Input
-                        placeholder="192.168.1.100"
-                        onChange={(e) => {
-                          const ip = e.target.value
-                          const port = document.getElementById('port-input') as HTMLInputElement
-                          const user = document.getElementById('user-input') as HTMLInputElement
-                          const pass = document.getElementById('pass-input') as HTMLInputElement
-                          const path = document.getElementById('path-input') as HTMLInputElement
-                          setFormData(f => ({ 
-                            ...f, 
-                            stream_url: `rtsp://${user?.value || 'admin'}:${pass?.value || 'admin'}@${ip}:${port?.value || '554'}${path?.value || '/stream'}` 
-                          }))
-                        }}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Porta</label>
-                      <Input
-                        id="port-input"
-                        placeholder="554"
-                        defaultValue="554"
-                        onChange={(e) => {
-                          const port = e.target.value
-                          const ip = (document.querySelector('input[placeholder="192.168.1.100"]') as HTMLInputElement)?.value
-                          const user = document.getElementById('user-input') as HTMLInputElement
-                          const pass = document.getElementById('pass-input') as HTMLInputElement
-                          const path = document.getElementById('path-input') as HTMLInputElement
-                          if (ip) setFormData(f => ({ 
-                            ...f, 
-                            stream_url: `rtsp://${user?.value || 'admin'}:${pass?.value || 'admin'}@${ip}:${port}${path?.value || '/stream'}` 
-                          }))
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Usuário</label>
-                      <Input
-                        id="user-input"
-                        placeholder="admin"
-                        defaultValue="admin"
-                        onChange={(e) => {
-                          const user = e.target.value
-                          const ip = (document.querySelector('input[placeholder="192.168.1.100"]') as HTMLInputElement)?.value
-                          const port = document.getElementById('port-input') as HTMLInputElement
-                          const pass = document.getElementById('pass-input') as HTMLInputElement
-                          const path = document.getElementById('path-input') as HTMLInputElement
-                          if (ip) setFormData(f => ({ 
-                            ...f, 
-                            stream_url: `rtsp://${user}:${pass?.value || 'admin'}@${ip}:${port?.value || '554'}${path?.value || '/stream'}` 
-                          }))
-                        }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-sm font-medium">Senha</label>
-                      <Input
-                        id="pass-input"
-                        type="password"
-                        placeholder="admin"
-                        defaultValue="admin"
-                        onChange={(e) => {
-                          const pass = e.target.value
-                          const ip = (document.querySelector('input[placeholder="192.168.1.100"]') as HTMLInputElement)?.value
-                          const port = document.getElementById('port-input') as HTMLInputElement
-                          const user = document.getElementById('user-input') as HTMLInputElement
-                          const path = document.getElementById('path-input') as HTMLInputElement
-                          if (ip) setFormData(f => ({ 
-                            ...f, 
-                            stream_url: `rtsp://${user?.value || 'admin'}:${pass}@${ip}:${port?.value || '554'}${path?.value || '/stream'}` 
-                          }))
-                        }}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">Path (opcional)</label>
-                    <Input
-                      id="path-input"
-                      placeholder="/stream"
-                      defaultValue="/stream"
-                      onChange={(e) => {
-                        const path = e.target.value
-                        const ip = (document.querySelector('input[placeholder="192.168.1.100"]') as HTMLInputElement)?.value
-                        const port = document.getElementById('port-input') as HTMLInputElement
-                        const user = document.getElementById('user-input') as HTMLInputElement
-                        const pass = document.getElementById('pass-input') as HTMLInputElement
-                        if (ip) setFormData(f => ({ 
-                          ...f, 
-                          stream_url: `rtsp://${user?.value || 'admin'}:${pass?.value || 'admin'}@${ip}:${port?.value || '554'}${path}` 
-                        }))
-                      }}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Ex: /stream, /cam/realmonitor?channel=1&subtype=0
-                    </p>
-                  </div>
-                  <div className="p-2 rounded bg-gray-50 text-xs font-mono break-all">
-                    {formData.stream_url || 'rtsp://admin:admin@IP:554/stream'}
-                  </div>
-                </>
-              )}
-
-              {protocol === 'p2' && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium">ID P2P</label>
-                    <Input
-                      placeholder="XXXXX-XXXXX-XXXXX"
-                      onChange={(e) => setFormData(f => ({ ...f, stream_url: e.target.value }))}
-                      required
-                    />
-                  </div>
-                  <div className="p-3 rounded-lg bg-yellow-50 text-sm text-yellow-800">
-                    ⚠️ P2P requer gateway externo. Insira a URL RTSP do gateway.
-                  </div>
-                </>
-              )}
-
-              {/* Localização */}
-              <div className="space-y-3">
-                <label className="text-sm font-medium">Localização</label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={locationType === 'address' ? 'default' : 'outline'}
-                    onClick={() => setLocationType('address')}
-                  >
-                    Endereço
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={locationType === 'coords' ? 'default' : 'outline'}
-                    onClick={() => setLocationType('coords')}
-                  >
-                    Coordenadas
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant={locationType === 'url' ? 'default' : 'outline'}
-                    onClick={() => setLocationType('url')}
-                  >
-                    URL Maps
-                  </Button>
-                </div>
-
-                {locationType === 'address' && (
-                  <Input
-                    placeholder="Ex: Rua ABC, 123 - Bairro"
-                    value={formData.location}
-                    onChange={(e) => setFormData(f => ({ ...f, location: e.target.value }))}
-                  />
-                )}
-
-                {locationType === 'coords' && (
-                  <div className="grid grid-cols-2 gap-2">
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Latitude"
-                      value={formData.latitude || ''}
-                      onChange={(e) => setFormData(f => ({ ...f, latitude: parseFloat(e.target.value) || undefined }))}
-                    />
-                    <Input
-                      type="number"
-                      step="any"
-                      placeholder="Longitude"
-                      value={formData.longitude || ''}
-                      onChange={(e) => setFormData(f => ({ ...f, longitude: parseFloat(e.target.value) || undefined }))}
-                    />
-                  </div>
-                )}
-
-                {locationType === 'url' && (
-                  <>
-                    <Input
-                      placeholder="Cole a URL do Google Maps"
-                      onChange={(e) => {
-                        const url = e.target.value
-                        const match = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/)
-                        if (match) {
-                          setFormData(f => ({ 
-                            ...f, 
-                            latitude: parseFloat(match[1]), 
-                            longitude: parseFloat(match[2]) 
-                          }))
-                        }
-                      }}
-                    />
-                    {formData.latitude && formData.longitude && (
-                      <p className="text-xs text-green-600">
-                        ✓ Coordenadas: {formData.latitude}, {formData.longitude}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              {/* Retenção de Gravação */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
-                  Retenção de Gravação: <span className="text-blue-600 font-bold">{formData.recording_retention_days} dias</span>
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {[7, 15, 30].map((days) => (
-                    <Button
-                      key={days}
-                      type="button"
-                      variant={formData.recording_retention_days === days ? 'default' : 'outline'}
-                      onClick={() => setFormData(prev => ({ ...prev, recording_retention_days: days }))}
-                    >
-                      {days} dias
-                    </Button>
-                  ))}
-                </div>
-              </div>
-
-              {createMutation.isError && (
-                <div className="p-3 rounded-lg bg-destructive/10 text-sm text-destructive">
-                  <p className="font-semibold">Erro ao criar câmera</p>
-                  <p className="text-xs mt-1">
-                    {(createMutation.error as any)?.response?.data?.detail || 
-                     (createMutation.error as any)?.response?.data?.name?.[0] ||
-                     (createMutation.error as any)?.response?.data?.stream_url?.[0] ||
-                     'Verifique os dados e tente novamente'}
-                  </p>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <Button type="button" variant="outline" className="flex-1" onClick={() => setMode('select')}>
-                  Voltar
-                </Button>
-                <Button type="submit" className="flex-1" disabled={createMutation.isPending}>
-                  {createMutation.isPending ? (
-                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</>
-                  ) : 'Criar'}
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      </div>
-    )
+    return <EasyModeWizard onClose={onClose} onBack={() => setMode('select')} />
   }
 
   return (

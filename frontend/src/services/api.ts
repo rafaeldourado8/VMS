@@ -103,6 +103,21 @@ export const cameraService = {
     return data
   },
 
+  async createEasyMode(camera: import('@/types').CameraEasyModeRequest): Promise<Camera> {
+    const payload = {
+      name: camera.name,
+      stream_url: 'rtmp_push',
+      brand: camera.brand,
+      model_name: camera.model_name,
+      location: camera.location,
+      latitude: camera.latitude,
+      longitude: camera.longitude,
+      recording_retention_days: camera.recording_retention_days ?? 30,
+    }
+    const { data } = await api.post<Camera>('/cameras/', payload)
+    return data
+  },
+
   async update(id: number, camera: Partial<CameraCreateRequest>): Promise<Camera> {
     const { data } = await api.patch<Camera>(`/cameras/${id}/`, camera)
     return data
@@ -148,6 +163,34 @@ export const detectionService = {
 
   async get(id: number): Promise<Detection> {
     const { data } = await api.get<Detection>(`/deteccoes/${id}/`)
+    return data
+  },
+}
+
+// ======================================================
+// LPR DETECTIONS (Push cameras Intelbras/Hikvision)
+// ======================================================
+
+export const lprService = {
+  async list(params?: {
+    camera_id?: number
+    plate_text?: string
+    date_from?: string
+    date_to?: string
+    min_confidence?: number
+    vehicle_brand?: string
+    page?: number
+    page_size?: number
+  }): Promise<PaginatedResponse<import('@/types').LPRDetection>> {
+    const { data } = await api.get<PaginatedResponse<import('@/types').LPRDetection>>('/deteccoes/lpr/', { params })
+    return data
+  },
+
+  async stats(params?: {
+    date_from?: string
+    date_to?: string
+  }): Promise<import('@/types').LPRStats> {
+    const { data } = await api.get<import('@/types').LPRStats>('/deteccoes/lpr/stats/', { params })
     return data
   },
 }

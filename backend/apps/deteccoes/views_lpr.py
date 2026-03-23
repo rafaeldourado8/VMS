@@ -1,6 +1,11 @@
 from rest_framework import serializers, viewsets, permissions, status
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
+from django.db.models import Count, Q
+from django.utils import timezone
+from datetime import datetime, timedelta
 from .models_lpr import LPRDetection
 from apps.cameras.models import Camera
 import redis
@@ -9,23 +14,42 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
+class DetectionPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
 class LPRDetectionSerializer(serializers.ModelSerializer):
     camera_name = serializers.CharField(source='camera.name', read_only=True)
+    camera_location = serializers.CharField(source='camera.location', read_only=True)
     plate_image_url = serializers.SerializerMethodField()
     full_frame_url = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = LPRDetection
-        fields = ['id', 'camera', 'camera_name', 'plate_text', 'confidence', 
-                  'bbox', 'plate_id', 'timestamp', 'is_mercosul', 
-                  'plate_image_url', 'full_frame_url', 'metadata']
+        fields = [
+            'id', 'camera', 'camera_name', 'camera_location',
+            'plate_text', 'confidence',
+            'bbox', 'plate_id', 'timestamp', 'is_mercosul',
+            'plate_image_url', 'full_frame_url',
+            'vehicle_brand', 'vehicle_model', 'vehicle_color',
+            'vehicle_type', 'vehicle_year', 'city',
+            'direction', 'trigger_source', 'device_id',
+            'metadata',
+        ]
         read_only_fields = ['id', 'timestamp']
-    
+
     def get_plate_image_url(self, obj):
-        return f"/snapshots/{obj.plate_image_path}"
-    
+        if obj.plate_image_path:
+            return f"/media/{obj.plate_image_path}"
+        return None
+
     def get_full_frame_url(self, obj):
-        return f"/snapshots/{obj.full_frame_path}"
+        if obj.full_frame_path:
+            return f"/media/{obj.full_frame_path}"
+        return None
 
 
 @api_view(['POST'])
@@ -55,39 +79,57 @@ def ingest_lpr(request):
 
 
 class LPRViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet para detecções LPR"""
+    """ViewSet para deteccoes LPR com filtros avancados"""
     serializer_class = LPRDetectionSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+    pagination_class = DetectionPagination
+
     def get_queryset(self):
         user = self.request.user
-        cameras = Camera.objects.filter(owner=user)
-        queryset = LPRDetection.objects.filter(camera__in=cameras)
-        
-        # Filtros
+        cameras = Camera.objects.for_user(user, 'camera')
+        queryset = LPRDetection.objects.filter(camera__in=cameras).select_related('camera')
+
         plate_text = self.request.query_params.get('plate_text')
         camera_id = self.request.query_params.get('camera_id')
         mercosul_only = self.request.query_params.get('mercosul_only')
-        
+        date_from = self.request.query_params.get('date_from')
+        date_to = self.request.query_params.get('date_to')
+        min_confidence = self.request.query_params.get('min_confidence')
+        vehicle_brand = self.request.query_params.get('vehicle_brand')
+
         if plate_text:
             queryset = queryset.filter(plate_text__icontains=plate_text)
         if camera_id:
             queryset = queryset.filter(camera_id=camera_id)
         if mercosul_only == 'true':
             queryset = queryset.filter(is_mercosul=True)
-        
-        return queryset[:100]
-    
+        if date_from:
+            try:
+                queryset = queryset.filter(timestamp__gte=datetime.fromisoformat(date_from))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                queryset = queryset.filter(timestamp__lte=datetime.fromisoformat(date_to))
+            except ValueError:
+                pass
+        if min_confidence:
+            try:
+                queryset = queryset.filter(confidence__gte=float(min_confidence))
+            except ValueError:
+                pass
+        if vehicle_brand:
+            queryset = queryset.filter(vehicle_brand__icontains=vehicle_brand)
+
+        return queryset
+
     @action(detail=False, methods=['post'])
     def start_lpr(self, request):
-        """Inicia LPR para uma câmera"""
         camera_id = request.data.get('camera_id')
-        
         try:
             camera = Camera.objects.get(id=camera_id, owner=request.user)
         except Camera.DoesNotExist:
-            return Response({'error': 'Câmera não encontrada'}, status=404)
-        
+            return Response({'error': 'Camera nao encontrada'}, status=404)
         try:
             r = redis.Redis.from_url('redis://redis_cache:6379/2')
             payload = {
@@ -96,38 +138,53 @@ class LPRViewSet(viewsets.ReadOnlyModelViewSet):
                 'output_rtsp': f'rtsp://mediamtx:8554/lpr_cam_{camera.id}'
             }
             r.publish('camera:provisioned', json.dumps(payload))
-            
-            logger.info(f"LPR iniciado para câmera {camera_id}")
             return Response({'success': True, 'message': f'LPR iniciado para {camera.name}'})
         except Exception as e:
-            logger.error(f"Erro ao iniciar LPR: {e}")
             return Response({'error': str(e)}, status=500)
-    
+
     @action(detail=False, methods=['post'])
     def stop_lpr(self, request):
-        """Para LPR para uma câmera"""
         camera_id = request.data.get('camera_id')
-        
         try:
             r = redis.Redis.from_url('redis://redis_cache:6379/2')
             r.publish('camera:removed', json.dumps({'camera_id': camera_id}))
-            
-            logger.info(f"LPR parado para câmera {camera_id}")
             return Response({'success': True, 'message': 'LPR parado'})
         except Exception as e:
-            logger.error(f"Erro ao parar LPR: {e}")
             return Response({'error': str(e)}, status=500)
-    
+
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """Estatísticas de detecções LPR"""
+        """Estatisticas estilo Camerite: total, >90%, 75-90%, <75%"""
         user = self.request.user
-        cameras = Camera.objects.filter(owner=user)
-        detections = LPRDetection.objects.filter(camera__in=cameras)
-        
+        cameras = Camera.objects.for_user(user, 'camera')
+        qs = LPRDetection.objects.filter(camera__in=cameras)
+
+        date_from = request.query_params.get('date_from')
+        date_to = request.query_params.get('date_to')
+        if date_from:
+            try:
+                qs = qs.filter(timestamp__gte=datetime.fromisoformat(date_from))
+            except ValueError:
+                pass
+        if date_to:
+            try:
+                qs = qs.filter(timestamp__lte=datetime.fromisoformat(date_to))
+            except ValueError:
+                pass
+
+        total = qs.count()
+        above_90 = qs.filter(confidence__gte=0.90).count()
+        between_75_90 = qs.filter(confidence__gte=0.75, confidence__lt=0.90).count()
+        below_75 = qs.filter(confidence__lt=0.75).count()
+
         return Response({
-            'total_detections': detections.count(),
-            'mercosul_detections': detections.filter(is_mercosul=True).count(),
-            'unique_plates': detections.values('plate_text').distinct().count(),
-            'cameras_with_lpr': detections.values('camera').distinct().count()
+            'total': total,
+            'above_90': above_90,
+            'above_90_pct': round(above_90 / total * 100, 1) if total > 0 else 0,
+            'between_75_90': between_75_90,
+            'between_75_90_pct': round(between_75_90 / total * 100, 1) if total > 0 else 0,
+            'below_75': below_75,
+            'below_75_pct': round(below_75 / total * 100, 1) if total > 0 else 0,
+            'unique_plates': qs.values('plate_text').distinct().count(),
+            'cameras_with_lpr': qs.values('camera').distinct().count(),
         })

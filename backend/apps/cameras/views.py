@@ -71,13 +71,15 @@ class CameraViewSet(viewsets.ModelViewSet):
         # Extrair apenas os campos que o CameraDTO aceita
         dto_data = {
             'name': serializer.validated_data['name'],
-            'stream_url': serializer.validated_data['stream_url'],
+            'stream_url': serializer.validated_data.get('stream_url', 'rtmp_push'),
             'owner_id': request.user.id,
             'location': serializer.validated_data.get('location'),
             'latitude': serializer.validated_data.get('latitude'),
             'longitude': serializer.validated_data.get('longitude'),
             'detection_settings': serializer.validated_data.get('detection_settings', {}),
-            'recording_retention_days': serializer.validated_data.get('recording_retention_days', 30)
+            'recording_retention_days': serializer.validated_data.get('recording_retention_days', 30),
+            'brand': serializer.validated_data.get('brand'),
+            'model_name': serializer.validated_data.get('model_name'),
         }
         
         camera_dto = CameraDTO(**dto_data)

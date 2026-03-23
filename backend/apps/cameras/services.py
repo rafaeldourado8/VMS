@@ -6,6 +6,7 @@ Câmeras são provisionadas dinamicamente no MediaMTX via API.
 """
 
 import logging
+import uuid
 import httpx
 from django.db import transaction
 from django.conf import settings
@@ -24,27 +25,42 @@ class CameraService:
         self.timeout = 15.0
         self.rabbitmq_url = getattr(settings, 'CELERY_BROKER_URL', 'amqp://guest:guest@rabbitmq:5672/')
 
+    @staticmethod
+    def generate_stream_key() -> str:
+        """Gera uma chave unica para RTMP push."""
+        return uuid.uuid4().hex[:16].upper()
+
     def create_camera(self, data: CameraDTO) -> Camera:
         """
         Cria câmara no DB e provisiona no serviço de streaming.
-        
+
         Fluxo:
         1. Salva no banco de dados (Django)
         2. Notifica o Streaming Service para provisionar no MediaMTX
         3. Se falhar no streaming, a câmera ainda existe no DB (pode reprovisionar depois)
         """
+        # Gerar stream_key para cameras RTMP push (sem stream_url ou marcador)
+        stream_key = data.stream_key
+        is_rtmp_push = not data.stream_url or data.stream_url == 'rtmp_push'
+
+        if is_rtmp_push:
+            stream_key = self.generate_stream_key()
+
         with transaction.atomic():
             camera = Camera.objects.create(
                 owner_id=data.owner_id,
                 name=data.name,
                 location=data.location,
                 status=data.status,
-                stream_url=data.stream_url,
+                stream_url=data.stream_url if not is_rtmp_push else f"rtmp_push://{stream_key}",
                 thumbnail_url=data.thumbnail_url,
                 latitude=data.latitude,
                 longitude=data.longitude,
                 detection_settings=data.detection_settings,
-                recording_retention_days=data.recording_retention_days
+                recording_retention_days=data.recording_retention_days,
+                stream_key=stream_key,
+                brand=data.brand,
+                model_name=data.model_name,
             )
         
         # Provisiona no MediaMTX via Streaming Service

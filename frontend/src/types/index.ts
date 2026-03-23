@@ -40,6 +40,9 @@ export interface Camera {
   virtual_lines: VirtualLine[];
   tripwires: VirtualLine[];
   zone_triggers: ZoneTrigger[];
+  stream_key: string | null;
+  brand: string | null;
+  model_name: string | null;
   recording_enabled: boolean;
   recording_retention_days: number;
   ai_enabled: boolean;
@@ -98,7 +101,17 @@ export interface CameraCreateRequest {
   maps_url?: string;
 }
 
-// Detection
+export interface CameraEasyModeRequest {
+  name: string;
+  brand: string;
+  model_name?: string;
+  location: string;
+  latitude?: number;
+  longitude?: number;
+  recording_retention_days?: number;
+}
+
+// Detection (legacy)
 export interface Detection {
   id: number;
   camera_id: number;
@@ -111,6 +124,44 @@ export interface Detection {
   video_url: string | null;
 }
 
+// LPR Detection (push cameras)
+export interface LPRDetection {
+  id: number;
+  camera: number;
+  camera_name: string;
+  camera_location: string | null;
+  plate_text: string;
+  confidence: number;
+  bbox: number[];
+  plate_id: string;
+  timestamp: string;
+  is_mercosul: boolean;
+  plate_image_url: string | null;
+  full_frame_url: string | null;
+  vehicle_brand: string;
+  vehicle_model: string;
+  vehicle_color: string;
+  vehicle_type: string;
+  vehicle_year: number | null;
+  city: string;
+  direction: string;
+  trigger_source: string;
+  device_id: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface LPRStats {
+  total: number;
+  above_90: number;
+  above_90_pct: number;
+  between_75_90: number;
+  between_75_90_pct: number;
+  below_75: number;
+  below_75_pct: number;
+  unique_plates: number;
+  cameras_with_lpr: number;
+}
+
 // Dashboard
 export interface DashboardStats {
   total_cameras: number;
@@ -121,6 +172,7 @@ export interface DashboardStats {
   detections_24h: number;
   detections_by_type: Record<string, number>;
   recent_activity: RecentActivity[];
+  storage_gb?: number;
   cached: boolean;
 }
 
