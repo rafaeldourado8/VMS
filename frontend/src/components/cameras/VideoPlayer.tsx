@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Hls from 'hls.js'
-import { Play, Pause, Volume2, VolumeX, Maximize, RefreshCw, AlertCircle, Scissors, Circle, Square } from 'lucide-react'
+import { Play, Pause, Volume2, VolumeX, Maximize, Minimize, RefreshCw, AlertCircle, Scissors, Circle, Square, Radio } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 
@@ -354,33 +354,42 @@ export function VideoPlayer({
         playsInline
       />
 
+      {/* LIVE badge */}
+      {!error && !isLoading && src.includes('.m3u8') && isPlaying && (
+        <div className="absolute top-3 left-3 z-10">
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-red-600/90 text-white text-xs font-semibold backdrop-blur-sm">
+            <Radio className="w-3 h-3 animate-live-pulse" />
+            AO VIVO
+          </div>
+        </div>
+      )}
+
       {/* Loading overlay */}
       {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-12 h-12 border-3 border-white/20 border-t-white rounded-full animate-spin" />
-            <div className="space-y-2 w-48">
-              <div className="h-2 bg-white/20 rounded animate-pulse" />
-              <div className="h-2 bg-white/20 rounded animate-pulse w-3/4" />
-            </div>
+        <div className="absolute inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+            <span className="text-xs text-white/60">Conectando...</span>
           </div>
         </div>
       )}
 
       {/* Error overlay */}
       {error && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 gap-3">
-          <AlertCircle className="w-10 h-10 text-destructive" />
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 backdrop-blur-sm gap-3">
+          <div className="w-12 h-12 rounded-full bg-red-500/10 flex items-center justify-center">
+            <AlertCircle className="w-6 h-6 text-red-400" />
+          </div>
           <div className="text-center">
-            <p className="text-sm text-muted-foreground">{error}</p>
+            <p className="text-sm text-white/70">{error}</p>
             {error.includes('não está pronta') && retryCount < maxRetries && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-white/40 mt-1">
                 Tentativa {retryCount + 1}/{maxRetries + 1} em 3s...
               </p>
             )}
           </div>
           {(!error.includes('não está pronta') || retryCount >= maxRetries) && (
-            <Button variant="secondary" size="sm" onClick={retry}>
+            <Button variant="secondary" size="sm" onClick={retry} className="bg-white/10 hover:bg-white/20 text-white border-0">
               <RefreshCw className="w-4 h-4 mr-2" />
               Tentar novamente
             </Button>
@@ -392,47 +401,43 @@ export function VideoPlayer({
       {!error && !isLoading && (
         <div
           className={cn(
-            "absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent transition-opacity",
+            "player-controls absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent pt-10",
             showControls ? "opacity-100" : "opacity-0"
           )}
         >
           {/* Progress Bar */}
           {duration > 0 && !src.includes('.m3u8') && (
-            <div 
-              className="px-3 pt-2 cursor-pointer"
+            <div
+              className="px-3 pt-2 cursor-pointer group/progress"
               onClick={handleProgressClick}
             >
-              <div className="h-1 bg-white/30 rounded-full overflow-hidden">
-                <div 
-                  className="h-full bg-blue-500 transition-all"
+              <div className="h-1 group-hover/progress:h-1.5 bg-white/20 rounded-full overflow-hidden transition-all">
+                <div
+                  className="h-full bg-cyan-400 rounded-full transition-all"
                   style={{ width: `${(currentTime / duration) * 100}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-white/70 mt-1">
+              <div className="flex justify-between text-[10px] text-white/50 mt-1 font-mono">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
             </div>
           )}
 
-          <div className="flex items-center gap-2 p-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
+          <div className="flex items-center gap-1 px-2 pb-2">
+            <button
+              className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
               onClick={togglePlay}
             >
               {isPlaying ? (
-                <Pause className="w-4 h-4" />
+                <Pause className="w-4 h-4" fill="currentColor" />
               ) : (
-                <Play className="w-4 h-4" />
+                <Play className="w-4 h-4" fill="currentColor" />
               )}
-            </Button>
+            </button>
 
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
+            <button
+              className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
               onClick={toggleMute}
             >
               {isMuted ? (
@@ -440,50 +445,48 @@ export function VideoPlayer({
               ) : (
                 <Volume2 className="w-4 h-4" />
               )}
-            </Button>
+            </button>
 
             <div className="flex-1" />
-
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-white hover:bg-white/20"
-              onClick={toggleFullscreen}
-            >
-              <Maximize className="w-4 h-4" />
-            </Button>
 
             {/* Recording Controls */}
             {showRecordingControls && (
               <>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <button
                   className={cn(
-                    "h-8 w-8 hover:bg-white/20",
-                    isRecording ? "text-red-500" : "text-white"
+                    "h-8 w-8 flex items-center justify-center rounded-md hover:bg-white/10 transition-colors",
+                    isRecording ? "text-red-400" : "text-white/80 hover:text-white"
                   )}
                   onClick={toggleRecording}
                 >
                   {isRecording ? (
-                    <Square className="w-4 h-4" />
+                    <Square className="w-3.5 h-3.5" fill="currentColor" />
                   ) : (
                     <Circle className="w-4 h-4" />
                   )}
-                </Button>
+                </button>
 
                 {recordingStartTime && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-white hover:bg-white/20"
+                  <button
+                    className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                     onClick={createClip}
                   >
                     <Scissors className="w-4 h-4" />
-                  </Button>
+                  </button>
                 )}
               </>
             )}
+
+            <button
+              className="h-8 w-8 flex items-center justify-center rounded-md text-white/80 hover:text-white hover:bg-white/10 transition-colors"
+              onClick={toggleFullscreen}
+            >
+              {document.fullscreenElement ? (
+                <Minimize className="w-4 h-4" />
+              ) : (
+                <Maximize className="w-4 h-4" />
+              )}
+            </button>
           </div>
         </div>
       )}

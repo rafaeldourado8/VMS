@@ -347,7 +347,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
                   <div className="relative">
                     <div className="w-16 h-16 rounded-full border-4 border-white/10 border-t-white/80 animate-spin" />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full border-4 border-transparent border-t-purple-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
+                      <div className="w-10 h-10 rounded-full border-4 border-transparent border-t-cyan-500 animate-spin" style={{ animationDirection: 'reverse', animationDuration: '0.8s' }} />
                     </div>
                   </div>
                 </div>
@@ -365,7 +365,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
             <select
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 bg-zinc-800 text-white text-sm rounded border border-zinc-700 focus:outline-none focus:border-purple-500"
+              className="px-3 py-1.5 bg-zinc-800 text-white text-sm rounded border border-zinc-700 focus:outline-none focus:border-cyan-500"
             >
               {availableDates.map(date => (
                 <option key={date} value={date}>
@@ -402,7 +402,7 @@ export function TimelinePlayerModal({ camera, onClose }: TimelinePlayerModalProp
             <button
               onClick={handleCreateClip}
               disabled={!timeFilter || !clipSelection.start || !clipSelection.end}
-              className="ml-auto px-3 py-1.5 rounded text-sm font-medium bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50"
+              className="ml-auto px-3 py-1.5 rounded text-sm font-medium bg-cyan-600 text-white hover:bg-cyan-500 disabled:opacity-50"
             >
               <Scissors className="w-4 h-4 inline-block mr-2" />
               Criar Clip

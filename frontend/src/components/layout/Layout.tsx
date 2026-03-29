@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Camera,
+  Video,
   LayoutDashboard,
   Settings,
   LogOut,
@@ -21,9 +21,9 @@ import { NotificationPopup } from '@/components/NotificationPopup'
 
 const navigation = [
   { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Câmeras', href: '/cameras', icon: Camera },
+  { name: 'Câmeras', href: '/cameras', icon: Video },
   { name: 'Visão Tática', href: '/cameras/tactical', icon: Map },
-  { name: 'Deteccoes LPR', href: '/detections', icon: ScanLine },
+  { name: 'Detecções LPR', href: '/detections', icon: ScanLine },
   { name: 'Meus Clips', href: '/clips', icon: Scissors },
   { name: 'Configurações', href: '/settings', icon: Settings },
   { name: 'IAM', href: '/settings/iam', icon: Shield },
@@ -60,11 +60,11 @@ export function Layout() {
       >
         {/* Logo */}
         <div className="flex h-16 items-center justify-between px-6 border-b border-border">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <Camera className="w-5 h-5 text-white" />
+          <Link to="/" className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-cyan-600 flex items-center justify-center shadow-md shadow-cyan-500/20">
+              <Shield className="w-4.5 h-4.5 text-white" />
             </div>
-            <span className="font-semibold text-lg">GT-Vision</span>
+            <span className="font-semibold text-lg tracking-tight">GT-Vision</span>
           </Link>
           <button
             className="lg:hidden text-muted-foreground hover:text-foreground"
@@ -75,7 +75,7 @@ export function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-0.5">
           {navigation.map((item) => {
             const isActive = location.pathname === item.href
             return (
@@ -83,14 +83,14 @@ export function Layout() {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors",
+                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    ? "bg-cyan-600/15 text-cyan-400 border border-cyan-500/20"
+                    : "text-muted-foreground hover:text-foreground hover:bg-secondary border border-transparent"
                 )}
                 onClick={() => setSidebarOpen(false)}
               >
-                <item.icon className="w-5 h-5" />
+                <item.icon className={cn("w-5 h-5", isActive && "text-cyan-400")} />
                 {item.name}
               </Link>
             )
@@ -100,8 +100,8 @@ export function Layout() {
         {/* User info */}
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 px-2">
-            <div className="w-8 h-8 rounded-full bg-secondary flex items-center justify-center">
-              <User className="w-4 h-4 text-muted-foreground" />
+            <div className="w-8 h-8 rounded-full bg-cyan-600/15 border border-cyan-500/20 flex items-center justify-center">
+              <User className="w-4 h-4 text-cyan-400" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium truncate">{user?.name}</p>
@@ -114,7 +114,7 @@ export function Layout() {
       {/* Main content */}
       <div className="lg:pl-64">
         {/* Top header */}
-        <header className="sticky top-0 z-30 h-16 bg-card/80 backdrop-blur border-b border-border">
+        <header className="sticky top-0 z-30 h-16 bg-card/90 backdrop-blur-md border-b border-border">
           <div className="flex h-full items-center justify-between px-4 lg:px-6">
             {/* Mobile menu button */}
             <button
@@ -141,8 +141,8 @@ export function Layout() {
                   className="flex items-center gap-2"
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                 >
-                  <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
-                    <User className="w-4 h-4" />
+                  <div className="w-7 h-7 rounded-full bg-cyan-600/15 border border-cyan-500/20 flex items-center justify-center">
+                    <User className="w-3.5 h-3.5 text-cyan-400" />
                   </div>
                   <span className="hidden md:inline text-sm">{user?.name}</span>
                   <ChevronDown className="w-4 h-4" />
